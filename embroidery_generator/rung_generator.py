@@ -422,7 +422,7 @@ def generate_rungs(skeleton, distance_map, spacing_px, transform, binary_img, pa
             if len(connected_paths) < 2: continue
             
             # Get the rung closest to J for each path
-            path_endpoints = []
+            junction_rungs = []
             j_pos = G.nodes[j]['pos'] # (y, x)
             
             for p_idx in connected_paths:
@@ -443,13 +443,13 @@ def generate_rungs(skeleton, distance_map, spacing_px, transform, binary_img, pa
                         best_rung = r
                         
                 if best_rung:
-                    path_endpoints.append(best_rung)
+                    junction_rungs.append(best_rung)
                 
             # Create bridges between these endpoints
-            for i in range(len(path_endpoints)):
-                for k in range(i+1, len(path_endpoints)):
-                    r1 = path_endpoints[i]
-                    r2 = path_endpoints[k]
+            for i in range(len(junction_rungs)):
+                for k in range(i+1, len(junction_rungs)):
+                    r1 = junction_rungs[i]
+                    r2 = junction_rungs[k]
                     
                     # Distance check (sanity)
                     d = np.linalg.norm(np.array(r1['center']) - np.array(r2['center']))
