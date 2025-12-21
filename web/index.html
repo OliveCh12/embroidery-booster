@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Embroidery Rung Optimizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+        }
+        .slider-thumb::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: none;
+        }
+    </style>
+</head>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-4">
+    <div class="max-w-6xl mx-auto bg-gray-800 rounded-lg shadow-lg p-6">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold mb-2">Embroidery Rung Optimizer</h1>
+            <p class="text-gray-300">Optimisez automatiquement les paramètres de vos motifs d'embroidery</p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6 mb-6">
+            <div>
+                <div class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center bg-gray-700 hover:border-gray-500 transition-colors cursor-pointer" id="uploadArea">
+                    <h4 class="text-xl mb-4">Glissez-déposez votre fichier SVG ici</h4>
+                    <p class="text-gray-400 mb-4">ou cliquez pour sélectionner un fichier</p>
+                    <input type="file" id="fileInput" accept=".svg" class="hidden">
+                    <button class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded transition-colors" onclick="document.getElementById('fileInput').click()">
+                        Sélectionner un fichier
+                    </button>
+                </div>
+
+                <div id="fileInfo" class="mt-4 hidden">
+                    <div class="bg-gray-700 border border-gray-600 rounded p-3">
+                        <strong>Fichier sélectionné:</strong> <span id="fileName"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-xl mb-4">Paramètres d'optimisation</h4>
+
+                <div class="mb-4">
+                    <label class="block mb-2">
+                        Espacement (mm): <span id="spacingValue" class="font-semibold">3.0</span>
+                    </label>
+                    <input type="range" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb" id="spacingSlider" min="1.0" max="10.0" step="0.5" value="3.0">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block mb-2">
+                        Densité: <span id="densityValue" class="font-semibold">1.0</span>
+                    </label>
+                    <input type="range" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb" id="densitySlider" min="0.1" max="2.0" step="0.1" value="1.0">
+                </div>
+
+                <button class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg w-full font-semibold transition-colors" id="optimizeBtn" disabled>
+                    Lancer l'optimisation
+                </button>
+            </div>
+        </div>
+
+        <div id="results" class="hidden">
+            <hr class="border-gray-600 mb-6">
+            <h3 class="text-2xl mb-4">Résultats</h3>
+
+            <div id="statsContainer" class="mb-6">
+                <!-- Les statistiques seront insérées ici -->
+            </div>
+
+            <div class="mb-6">
+                <h4 class="text-xl mb-4">Prévisualisation</h4>
+                <div id="previewContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Les images de prévisualisation seront insérées ici -->
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <h5 class="text-lg mb-3">Fichiers générés</h5>
+                <div id="filesContainer">
+                    <!-- Les liens de téléchargement seront insérés ici -->
+                </div>
+            </div>
+
+            <div>
+                <h5 class="text-lg mb-3">Logs de traitement</h5>
+                <div class="bg-gray-700 border border-gray-600 rounded p-3 max-h-64 overflow-y-auto font-mono text-sm text-gray-300" id="logsContainer">
+                    <!-- Les logs seront insérés ici -->
+                </div>
+            </div>
+        </div>
+
+        <div id="loading" class="hidden text-center mt-8">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <h4 class="mt-4">Optimisation en cours...</h4>
+            <p class="text-gray-400">Cela peut prendre quelques minutes selon la complexité du motif</p>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+
+        // Gestion du drag & drop
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const optimizeBtn = document.getElementById('optimizeBtn');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].name.toLowerCase().endsWith('.svg')) {
+                handleFileSelect(files[0]);
+            } else {
+                alert('Veuillez sélectionner un fichier SVG valide.');
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            selectedFile = file;
+            fileName.textContent = file.name;
+            fileInfo.classList.remove('hidden');
+            optimizeBtn.disabled = false;
+        }
+
+        // Gestion des sliders
+        const spacingSlider = document.getElementById('spacingSlider');
+        const spacingValue = document.getElementById('spacingValue');
+        const densitySlider = document.getElementById('densitySlider');
+        const densityValue = document.getElementById('densityValue');
+
+        spacingSlider.addEventListener('input', () => {
+            spacingValue.textContent = spacingSlider.value;
+        });
+
+        densitySlider.addEventListener('input', () => {
+            densityValue.textContent = densitySlider.value;
+        });
+
+        // Gestion de l'optimisation
+        optimizeBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            // Afficher le loading
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+            optimizeBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('spacing', spacingSlider.value);
+                formData.append('density', densitySlider.value);
+
+                const response = await fetch('/api/optimize', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    displayResults(result);
+                } else {
+                    displayError(result.error);
+                }
+
+            } catch (error) {
+                displayError('Erreur de connexion: ' + error.message);
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+                optimizeBtn.disabled = false;
+            }
+        });
+
+        function displayResults(result) {
+            const statsContainer = document.getElementById('statsContainer');
+            const filesContainer = document.getElementById('filesContainer');
+            const logsContainer = document.getElementById('logsContainer');
+            const previewContainer = document.getElementById('previewContainer');
+
+            // Afficher les statistiques
+            statsContainer.innerHTML = `
+                <div class="bg-blue-600 text-white rounded-lg p-4">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                        <div>
+                            <div class="text-2xl font-bold">${result.rungs_count}</div>
+                            <div class="text-sm text-blue-200">Rungs</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold">${result.intersections}</div>
+                            <div class="text-sm text-blue-200">Intersections</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold">${result.bridges}</div>
+                            <div class="text-sm text-blue-200">Bridges</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold">${result.coverage}%</div>
+                            <div class="text-sm text-blue-200">Couverture</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Afficher les images de prévisualisation
+            let previewHtml = '';
+            if (result.debug_images) {
+                const imageOrder = [
+                    'debug_01_original.png',
+                    'debug_07_coverage.png',
+                    'debug_04_skeleton.png',
+                    'debug_05_overlay.png'
+                ];
+
+                const imageTitles = {
+                    'debug_01_original.png': 'Image Originale',
+                    'debug_07_coverage.png': 'Couverture',
+                    'debug_04_skeleton.png': 'Squelette',
+                    'debug_05_overlay.png': 'Overlay'
+                };
+
+                imageOrder.forEach(imageName => {
+                    if (result.debug_images[imageName]) {
+                        const title = imageTitles[imageName] || imageName;
+                        previewHtml += `
+                            <div class="bg-gray-700 border border-gray-600 rounded-lg overflow-hidden">
+                                <div class="p-3 border-b border-gray-600">
+                                    <h6 class="font-semibold">${title}</h6>
+                                </div>
+                                <div class="p-2">
+                                    <img src="/debug/${imageName}" class="w-full h-48 object-contain rounded" alt="${title}">
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+            }
+            previewContainer.innerHTML = previewHtml;
+
+            // Afficher les fichiers
+            let filesHtml = '';
+            if (result.output_files) {
+                for (const [filename, path] of Object.entries(result.output_files)) {
+                    filesHtml += `
+                        <div class="mb-2">
+                            <a href="/api/download/${filename}" class="text-blue-400 hover:text-blue-300 underline">
+                                ${filename}
+                            </a>
+                        </div>
+                    `;
+                }
+            }
+            filesContainer.innerHTML = filesHtml;
+
+            // Afficher les logs
+            logsContainer.textContent = result.logs;
+
+            document.getElementById('results').classList.remove('hidden');
+        }
+
+        function displayError(error) {
+            const statsContainer = document.getElementById('statsContainer');
+            statsContainer.innerHTML = `
+                <div class="bg-red-600 text-white rounded-lg p-4">
+                    <h5 class="text-lg font-semibold mb-2">Erreur</h5>
+                    <p>${error}</p>
+                </div>
+            `;
+            document.getElementById('results').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

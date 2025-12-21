@@ -1,84 +1,108 @@
-# 🧵 Embroidery Auto Rung Generator
+# Embroidery Auto Rung Generator
 
-**Automated Rung Placement for Ink/Stitch Satin Columns**
+An automatic embroidery rung placement system that uses Medial Axis Transform (MAT) to generate optimal rung patterns for embroidery satins.
 
-This tool automatically generates "rungs" (direction lines) for embroidery satin stitches using the Medial Axis Transform algorithm. It is designed to streamline the workflow for the "Fill to Satin" tool in Ink/Stitch by creating structural guide lines rather than attempting complete coverage.
+## Features
 
-## 🎯 Design Philosophy
+- **Automatic Parameter Optimization**: Finds optimal spacing and density for any SVG file to achieve ≤25 rungs without intersections
+- **Web Interface**: Modern drag-and-drop interface for interactive parameter testing with real-time preview
+- **Command Line Interface**: Full CLI support with manual parameter control
+- **Debug Visualization**: Generates debug images showing skeleton, distance maps, and rung placement
 
-Unlike manual rung creation in Ink/Stitch where users place 3-10 rungs per shape as structural guides, this tool automatically generates an optimal number of rungs based on shape complexity. The algorithm:
+## Project Structure
 
-- Uses Medial Axis Transform to find natural flow directions
-- Places rungs at strategic locations along the skeleton
-- Generates bridges at intersections for complex shapes
-- Creates Ink/Stitch compatible output for "Fill to Satin" conversion
-
-## 🚀 Quick Start
-
-1.  **Setup:**
-    ```bash
-    ./setup_and_run.sh
-    ```
-
-2.  **Run:**
-    ```bash
-    source venv/bin/activate
-    python3 -m embroidery_generator.main your_design.svg
-    ```
-
-3.  **Result:**
-    Check the `output/` folder.
-    -   `your_design_ready.svg`: Open this in Inkscape! It contains your shape + generated rungs.
-    -   `your_design_rungs.svg`: Just the rungs.
-    -   `your_design.svg`: A copy of your original file.
-
-## ✨ Features
-
--   **Automatic Rung Generation**: Uses Medial Axis Transform to find optimal satin directions.
--   **Ink/Stitch Compatible**: Generates files ready for "Fill to Satin" conversion.
--   **Smart Spacing**: Adaptive rung placement based on shape complexity (3-8 rungs per segment).
--   **Bridge Generation**: Automatic bridges at intersections for complex shapes.
--   **Debug Visualization**: Optional debug output showing processing stages.
--   **Auto-Preview**: Can automatically open the result in Inkscape (macOS).
-
-## 🛠 Options
-
-```bash
-python3 -m embroidery_generator.main [input] [options]
-
-Options:
-  -s, --spacing <mm>    Base spacing between rungs (default: 3.0, affects density)
-  -d, --dpi <int>       DPI for processing (default: 150)
-  --density <float>     Density multiplier (default: 1.0, higher = more rungs)
-  --no-preview          Do not open Inkscape automatically
-  --debug               Save debug images and analysis
-  --verbose             Detailed logging output
+```
+stich/
+├── src/                    # Core Python modules
+│   ├── __init__.py
+│   ├── main.py            # CLI entry point
+│   ├── svg_manager.py     # SVG loading and saving
+│   ├── image_processor.py # Rasterization and skeletonization
+│   ├── rung_generator.py  # Rung placement algorithm
+│   ├── debug_utils.py     # Debug image generation
+│   ├── geometry_utils.py  # Geometric utilities
+│   ├── inputs/            # Sample SVG files
+│   │   ├── svg/          # SVG test files
+│   │   └── png/          # PNG test files
+│   └── output/           # Generated files
+│       ├── debug/        # Debug images
+│       └── render/       # Rendered outputs
+├── web/                   # Web interface
+│   ├── app.py            # Flask API server
+│   └── index.html        # Frontend interface
+├── requirements.txt       # Python dependencies
+└── README.md             # This file
 ```
 
-## � Workflow with Ink/Stitch
+## Installation
 
-1. **Generate Rungs**: Use this tool to create structural rungs for your shape
-2. **Open in Inkscape**: The generated `_ready.svg` file opens automatically
-3. **Convert to Satin**: In Inkscape, select your shape and rungs, then:
-   - Extensions → Ink/Stitch → Tools: Satin → Fill to Satin...
-   - Choose your satin parameters (underlay, density, etc.)
-   - Click Apply
-4. **Fine-tune**: Adjust satin parameters as needed in the Params dialog
-5. **Embroider**: Export to your embroidery machine format
+1. Install Python dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-## 📊 Typical Output
+2. Ensure Inkscape is installed (required for SVG rasterization)
 
-- **Simple shapes**: 200-400 rungs with endpoints defined
-- **Complex shapes**: 400-600 rungs with structural coverage
-- **Bridges**: Automatic at intersections for complex shapes
-- **Endpoint Coverage**: Always includes rungs at segment starts/ends
+## Usage
 
-## 🎯 Key Features
+### Command Line
 
-- **Endpoint Rungs**: Always places rungs at segment extremities for proper satin definition
-- **Adaptive Density**: Spacing-based rung placement with user control
-- **Bridge Generation**: Automatic bridges at path intersections
-- **InkStitch Ready**: Optimized for "Fill to Satin" conversion
+Run the generator on an SVG file:
 
-This approach matches Ink/Stitch best practices where rungs define satin direction rather than attempting pixel-perfect coverage.
-# embroidery-booster
+```bash
+# From project root
+python -m src.main src/inputs/svg/nike.svg --auto-optimize --debug
+
+# Manual parameters
+python -m src.main src/inputs/svg/nike.svg --spacing 3.0 --density 1.0 --debug
+```
+
+### Web Interface
+
+Start the web server:
+
+```bash
+cd web
+python app.py
+```
+
+Then open http://localhost:8000 in your browser.
+
+## Parameters
+
+- `spacing`: Rung spacing in mm (default: 3.0)
+- `density`: Density multiplier (default: 1.0, higher = more rungs)
+- `dpi`: Processing DPI (default: 150, higher = better quality)
+- `--auto-optimize`: Automatically find optimal parameters
+- `--debug`: Save debug images
+- `--verbose`: Verbose output
+
+## Output Files
+
+For input file `example.svg`, the following are generated in `src/output/`:
+
+- `example.svg`: Original file copy
+- `example_rungs.svg`: Rungs only
+- `example_ready.svg`: Combined file ready for editing
+
+Debug images are saved in `src/output/debug/` when `--debug` is used.
+
+## Algorithm
+
+1. **SVG Loading**: Parse SVG paths and extract endpoints
+2. **Rasterization**: Convert to high-resolution binary image using Inkscape
+3. **Skeletonization**: Compute medial axis transform using scikit-image
+4. **Rung Generation**: Place rungs along skeleton with adaptive spacing
+5. **Optimization**: Test configurations to minimize intersections while maximizing coverage
+
+## Dependencies
+
+- numpy: Numerical computations
+- scipy: Scientific computing
+- scikit-image: Image processing and skeletonization
+- svgelements: SVG parsing
+- networkx: Graph operations
+- flask: Web framework
+- flask-cors: CORS support
+- Inkscape: SVG rasterization</content>
+<parameter name="filePath">/Users/olivierchemla/Dev/perso/stich/README.md

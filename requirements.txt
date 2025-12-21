@@ -4,3 +4,5 @@ scikit-image
 pillow
 svgelements
 networkx
+flask
+flask-cors
