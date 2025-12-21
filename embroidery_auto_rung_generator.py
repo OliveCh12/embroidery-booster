@@ -29,6 +29,8 @@ import logging
 import numpy as np
 from PIL import Image, ImageDraw
 from skimage.morphology import skeletonize, remove_small_holes, closing, disk
+from skimage.transform import hough_line, hough_line_peaks, hough_circle, hough_circle_peaks
+from skimage.feature import canny
 from scipy.ndimage import distance_transform_edt
 from scipy.interpolate import splprep, splev
 from scipy.spatial.distance import pdist, squareform
@@ -481,6 +483,80 @@ def get_skeleton_paths(skeleton, min_len_px=15):
                 
     return paths, G
 
+def analyze_shapes(binary_img, skeleton, G):
+    """
+    Analyze the image structure using Hough Transforms and Skeleton Graph.
+    Returns a dictionary with shape analysis results.
+    """
+    logger.info("Analyzing image structure...")
+    results = {
+        'has_intersections': False,
+        'detected_shapes': [],
+        'junctions': []
+    }
+    
+    # 1. Analyze Skeleton Graph for Intersections
+    # Junctions are nodes with degree > 2
+    junctions = [n for n, d in G.degree() if d > 2]
+    if junctions:
+        results['has_intersections'] = True
+        results['junctions'] = junctions
+        logger.info(f"Detected {len(junctions)} intersections in the skeleton.")
+    else:
+        logger.info("No intersections detected in the skeleton (Simple structure).")
+        
+    # 2. Hough Transform for Circles (Simple Shape Detection)
+    # Optimization: Downscale for Hough Transform to improve performance
+    from skimage.transform import resize
+    
+    scale_hough = 500.0 / max(binary_img.shape)
+    if scale_hough < 1.0:
+        img_small = resize(binary_img, (int(binary_img.shape[0]*scale_hough), int(binary_img.shape[1]*scale_hough)), anti_aliasing=True)
+    else:
+        img_small = binary_img
+        scale_hough = 1.0
+        
+    # Detect edges for Hough on small image
+    edges = canny(img_small, sigma=2) # Lower sigma for smaller image
+    
+    # Detect radii range (heuristic)
+    # Scale radii range
+    min_rad = max(5, int(10 * scale_hough))
+    max_rad = max(10, int(max(binary_img.shape)//2 * scale_hough))
+    step = max(1, int(2 * scale_hough))
+    
+    h_radii = np.arange(min_rad, max_rad, 2) # Step 2 is fine for small image
+    
+    if len(h_radii) > 0:
+        hough_res = hough_circle(edges, h_radii)
+        
+        # Select the most prominent 3 circles
+        accums, cx, cy, radii = hough_circle_peaks(hough_res, h_radii, total_num_peaks=3)
+        
+        for center_y, center_x, radius in zip(cy, cx, radii):
+            # Scale back to original coordinates
+            orig_cx = center_x / scale_hough
+            orig_cy = center_y / scale_hough
+            orig_r = radius / scale_hough
+            
+            logger.info(f"Potential Circle detected: center=({orig_cx:.1f}, {orig_cy:.1f}), radius={orig_r:.1f}")
+            results['detected_shapes'].append({'type': 'circle', 'center': (orig_cx, orig_cy), 'radius': orig_r})
+
+    # 3. Hough Transform for Lines
+    tested_angles = np.linspace(-np.pi / 2, np.pi / 2, 360, endpoint=False)
+    h, theta, d = hough_line(edges, theta=tested_angles)
+    
+    for _, angle, dist in zip(*hough_line_peaks(h, theta, d, num_peaks=3)):
+        # Scale distance back?
+        # dist = x * cos(theta) + y * sin(theta)
+        # If x, y are scaled by S, dist is scaled by S.
+        orig_dist = dist / scale_hough
+        logger.info(f"Potential Line detected: angle={np.degrees(angle):.1f}°, dist={orig_dist:.1f}")
+        results['detected_shapes'].append({'type': 'line', 'angle': angle, 'dist': orig_dist})
+
+        
+    return results
+
 def get_ray_intersection(binary_img, start_x, start_y, dx, dy, max_dist):
     """Cast a ray and find where it hits the background (0)."""
     h, w = binary_img.shape
@@ -680,11 +756,33 @@ def merge_aligned_paths(paths, G, spacing_px):
         # Concatenate
         full_points = np.vstack(merged_points)
         
+        # Determine actual start/end nodes in G
+        first_path_idx = ordered_indices[0]
+        last_path_idx = ordered_indices[-1]
+        
+        real_start_node = -1
+        real_end_node = -1
+        
+        if len(ordered_indices) > 1:
+            # First path
+            second_path_idx = ordered_indices[1]
+            if subg.has_edge(first_path_idx, second_path_idx):
+                j_node = subg[first_path_idx][second_path_idx]['junction']
+                p_start = paths[first_path_idx]
+                real_start_node = p_start['start_node'] if p_start['end_node'] == j_node else p_start['end_node']
+            
+            # Last path
+            second_last_idx = ordered_indices[-2]
+            if subg.has_edge(last_path_idx, second_last_idx):
+                j_node_end = subg[last_path_idx][second_last_idx]['junction']
+                p_end = paths[last_path_idx]
+                real_end_node = p_end['start_node'] if p_end['end_node'] == j_node_end else p_end['end_node']
+        
         # Create new path object
         new_p = {
             'points': full_points,
-            'start_node': -1, # merged
-            'end_node': -1,
+            'start_node': real_start_node,
+            'end_node': real_end_node,
             'original_indices': ordered_indices,
             'is_merged': True
         }
@@ -703,6 +801,9 @@ def generate_rungs(skeleton, distance_map, spacing_px, transform, binary_img, de
     
     # Get all valid paths from the skeleton
     skeleton_paths, G = get_skeleton_paths(skeleton, min_len_px=prune_threshold)
+    
+    # Analyze Structure
+    structure_info = analyze_shapes(binary_img, skeleton, G)
     
     if debug_dir:
         # Save Graph Debug SVG
@@ -794,14 +895,6 @@ def generate_rungs(skeleton, distance_map, spacing_px, transform, binary_img, de
             total_len = dist_along[-1]
             
             # Define safe zones
-            # If path is merged, it might go through junctions, so we don't trim ends blindly.
-            # However, if it's a side branch, we want to trim it near the junction.
-            # How do we know?
-            # We can check distance to other paths.
-            # Or simpler: Just generate all rungs, then filter overlapping ones?
-            # Or: Check if endpoints are junctions that are NOT part of this path's internal structure.
-            
-            # For now, let's generate full length, but maybe trim 2px at ends to avoid exact overlap.
             start_dist = 0
             end_dist = total_len
             
@@ -882,60 +975,73 @@ def generate_rungs(skeleton, distance_map, spacing_px, transform, binary_img, de
             logger.error(f"Spline fitting failed for a segment: {e}")
             continue
 
-    # --- 2. Generate Bridges ---
-    # Now we need to connect the paths.
-    # We look for endpoints of paths that are close to other paths.
-    
-    # Collect all endpoints of all paths
-    path_endpoints = []
-    for p_idx, p_rungs in path_rungs_map.items():
-        if not p_rungs: continue
-        # Start and End rungs
-        path_endpoints.append({'p_idx': p_idx, 'rung': p_rungs[0], 'is_start': True})
-        path_endpoints.append({'p_idx': p_idx, 'rung': p_rungs[-1], 'is_start': False})
+    # --- 2. Generate Bridges (Conditional) ---
+    if structure_info['has_intersections']:
+        logger.info("Intersections detected. Generating bridges at junctions...")
+        # Graph-guided bridge generation
+        junctions = structure_info['junctions']
         
-    # For each endpoint, find the closest rung on a DIFFERENT path
-    for ep in path_endpoints:
-        p_idx = ep['p_idx']
-        center = ep['rung']['center']
+        # Map Junction -> Set of PathIndices
+        j_map = {j: set() for j in junctions}
         
-        best_dist = float('inf')
-        best_target = None
-        
-        # Search all other paths
-        for other_idx, other_rungs in path_rungs_map.items():
-            if other_idx == p_idx: continue
+        for p_idx, p in enumerate(merged_paths):
+            # Check endpoints
+            if p['start_node'] in j_map: j_map[p['start_node']].add(p_idx)
+            if p['end_node'] in j_map: j_map[p['end_node']].add(p_idx)
             
-            # Find closest rung in other path
-            # Optimization: Check bounding box or just iterate if small number
-            for r in other_rungs:
-                d = (r['center'][0] - center[0])**2 + (r['center'][1] - center[1])**2
-                if d < best_dist:
-                    best_dist = d
-                    best_target = r
-        
-        # Threshold for connection (e.g., 20px)
-        if best_dist < (spacing_px * 4)**2: # Allow some distance
-            # Create bridge
-            # Bridge from ep['rung'] to best_target['rung']
-            # Connect centers
-            p1 = center
-            p2 = best_target['center']
+            # Check internal junctions
+            if 'original_indices' in p:
+                for orig_idx in p['original_indices']:
+                    op = skeleton_paths[orig_idx]
+                    if op['start_node'] in j_map: j_map[op['start_node']].add(p_idx)
+                    if op['end_node'] in j_map: j_map[op['end_node']].add(p_idx)
             
-            # Check if this bridge already exists (reverse)
-            # Simple check: distance
+        for j, connected_paths in j_map.items():
+            if len(connected_paths) < 2: continue
             
-            bridges.append((p1, p2))
+            # Get the rung closest to J for each path
+            path_endpoints = []
+            j_pos = G.nodes[j]['pos'] # (y, x)
             
-            # Also, we should probably TRIM the side branch rungs that are too close to the main branch
-            # But for now, let's just add the bridge.
+            for p_idx in connected_paths:
+                if p_idx not in path_rungs_map or not path_rungs_map[p_idx]: continue
+                
+                p_rungs = path_rungs_map[p_idx]
+                
+                # Find closest rung to junction
+                best_rung = None
+                min_dist = float('inf')
+                
+                for r in p_rungs:
+                    # r['center'] is (x, y)
+                    # j_pos is (y, x)
+                    d = (r['center'][0] - j_pos[1])**2 + (r['center'][1] - j_pos[0])**2
+                    if d < min_dist:
+                        min_dist = d
+                        best_rung = r
+                        
+                if best_rung:
+                    path_endpoints.append(best_rung)
+                
+            # Create bridges between these endpoints
+            for i in range(len(path_endpoints)):
+                for k in range(i+1, len(path_endpoints)):
+                    r1 = path_endpoints[i]
+                    r2 = path_endpoints[k]
+                    
+                    # Distance check (sanity)
+                    d = np.linalg.norm(np.array(r1['center']) - np.array(r2['center']))
+                    if d < spacing_px * 10: # Allow larger gap for junctions
+                        bridges.append((r1['center'], r2['center']))
+                        
+    else:
+        logger.info("No intersections. Skipping bridge generation.")
             
-    # Filter duplicate bridges (A->B and B->A)
+    # Filter duplicate bridges
     unique_bridges = []
     seen_bridges = set()
     for b in bridges:
         p1, p2 = b
-        # Round for hashing
         k = tuple(sorted(((round(p1[0], 1), round(p1[1], 1)), (round(p2[0], 1), round(p2[1], 1)))))
         if k not in seen_bridges:
             seen_bridges.add(k)
