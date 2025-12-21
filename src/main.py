@@ -17,10 +17,10 @@ import numpy as np
 from skimage.morphology import dilation, disk
 from skimage.draw import line
 
-from .svg_manager import load_svg_paths, save_rungs_svg, save_combined_svg, open_in_inkscape, extract_path_endpoints
-from .image_processor import rasterize_paths, compute_medial_axis
-from .rung_generator import generate_rungs
-from .debug_utils import save_debug_images
+from svg_manager import load_svg_paths, save_rungs_svg, save_combined_svg, open_in_inkscape, extract_path_endpoints
+from image_processor import rasterize_paths, compute_medial_axis
+from rung_generator import generate_rungs
+from debug_utils import save_debug_images
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

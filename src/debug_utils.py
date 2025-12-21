@@ -136,11 +136,11 @@ def save_rung_coverage_debug(debug_dir, binary_img, rungs, skeleton_paths, rejec
     covered_pixels = np.sum((binary_img > 0) & (coverage_dilated > 0))
     coverage_ratio = covered_pixels / total_shape_pixels if total_shape_pixels > 0 else 0
     
-    logger.info(".2f")
+    logger.info(f"Coverage: {coverage_ratio:.2f}")
     
     # Save statistics
     with open(os.path.join(debug_dir, "coverage_stats.txt"), 'w') as f:
         f.write(f"Total shape pixels: {total_shape_pixels}\n")
         f.write(f"Covered pixels: {covered_pixels}\n")
-        f.write(".2f")
+        f.write(f"Coverage ratio: {coverage_ratio:.2f}\n")
         f.write(f"Gaps: {np.sum(gaps)}\n")

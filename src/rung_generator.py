@@ -1,9 +1,8 @@
 import logging
 import numpy as np
 from scipy.interpolate import splprep, splev
-from .geometry_utils import get_skeleton_paths, merge_aligned_paths, find_shape_boundaries, segments_intersect
-from .image_processor import analyze_shapes
-from .debug_utils import save_debug_graph, save_rung_coverage_debug
+from geometry_utils import get_skeleton_paths, merge_aligned_paths, find_shape_boundaries, segments_intersect, get_ray_intersection
+from debug_utils import save_debug_graph, save_rung_coverage_debug
 
 logger = logging.getLogger(__name__)
 
@@ -163,16 +162,15 @@ def generate_rungs(skeleton, distance_map, spacing_px, transform, binary_img, pa
     """Generate rungs along the medial axis with adaptive spacing and bridges."""
     logger.info("Generating rungs...")
     
-    # Calculate dynamic pruning threshold (e.g., 2% of max dimension)
-    max_dim = max(binary_img.shape)
-    prune_threshold = max(15, int(max_dim * 0.02))
+    # Calculate dynamic pruning threshold
+    # Reduced to avoid removing valid endpoints (e.g. 0.5% or fixed small value)
+    # We want to keep endpoints that are part of the shape, even if short.
+    # But we want to remove pixel noise.
+    prune_threshold = 10 # Fixed small threshold for noise
     logger.info(f"Using skeleton pruning threshold: {prune_threshold}px")
     
     # Get all valid paths from the skeleton
-    skeleton_paths, G = get_skeleton_paths(skeleton, min_len_px=prune_threshold)
-    
-    # Analyze Structure
-    structure_info = analyze_shapes(binary_img, skeleton, G)
+    skeleton_paths, G = get_skeleton_paths(skeleton, binary_img=binary_img, min_len_px=prune_threshold)
     
     if debug_dir:
         save_debug_graph(debug_dir, G, binary_img.shape)
@@ -214,7 +212,8 @@ def generate_rungs(skeleton, distance_map, spacing_px, transform, binary_img, pa
             # Smoothing factor s. 
             # s=len(x) is a good compromise between smoothing noise and hugging the path.
             # Lower s means closer fit.
-            tck, u = splprep([x, y], s=len(x), k=k) 
+            # Increase smoothing to ensure stable normals and parallelism
+            tck, u = splprep([x, y], s=len(x) * 10, k=k) 
             
             # High-res evaluation for integration
             u_fine = np.linspace(0, 1, 1000)
@@ -237,171 +236,115 @@ def generate_rungs(skeleton, distance_map, spacing_px, transform, binary_img, pa
             dist_along = np.insert(dist_along, 0, 0)
             total_len = dist_along[-1]
             
-            # Define safe zones
-            start_dist = 0
-            end_dist = total_len
+            # --- Optimized Rung Generation ---
+            # Instead of global retry, we use a local conflict resolution strategy.
+            # We walk along the path and place rungs. If a rung intersects the previous one,
+            # we advance slightly until it fits.
             
-            # Adaptive stepping - ensure rungs at endpoints for proper satin definition
-            # For InkStitch-like behavior, place rungs from start to end with appropriate density
-            segment_length = total_len
+            path_generated_rungs = []
+            current_dist = 0.0
+            step_size = spacing_px * 0.1  # Small step for finding valid position
+            min_spacing = spacing_px * 0.8 # Allow slightly compressed spacing in curves
             
-            # Iterative density adjustment
-            # Try to generate rungs with current spacing. If intersections occur, increase spacing.
-            current_spacing = spacing_px
-            best_rungs = []
-            best_rejections = float('inf')
+            # Initial position
+            current_dist = 0.0
             
-            # Max attempts to find a non-intersecting set
-            for attempt in range(5):
-                # Calculate number of rungs based on current spacing
-                num_rungs = max(2, int(total_len / current_spacing) + 1)
+            while current_dist <= total_len:
+                # Find u for current distance
+                # np.interp requires sorted x, dist_along is sorted
+                target_u = np.interp(current_dist, dist_along, u_fine)
                 
-                # Generate target distances (uniform spacing)
-                if num_rungs == 2:
-                    target_dists = [0.0, total_len]
+                # Get position and derivative
+                cur_x, cur_y = splev(target_u, tck)
+                dx, dy = splev(target_u, tck, der=1)
+                
+                # Calculate normal
+                nx, ny = -dy, dx
+                norm = np.sqrt(nx**2 + ny**2)
+                if norm > 0:
+                    nx /= norm
+                    ny /= norm
                 else:
-                    target_dists = np.linspace(0.0, total_len, num_rungs)
+                    # Should not happen with spline, but safety check
+                    current_dist += step_size
+                    continue
                 
-                # Interpolate u for target distances
-                target_u = np.interp(target_dists, dist_along, u_fine)
+                # Find boundaries
+                est_radius = distance_map[int(np.clip(cur_y, 0, binary_img.shape[0]-1)), 
+                                          int(np.clip(cur_x, 0, binary_img.shape[1]-1))]
+                max_search = max(est_radius * 4.0, 20.0)
                 
-                x_rungs, y_rungs = splev(target_u, tck)
-                dx_rungs, dy_rungs = splev(target_u, tck, der=1)
+                boundaries = find_shape_boundaries(binary_img, cur_x, cur_y, nx, ny, max_search)
                 
-                if isinstance(x_rungs, float):
-                    x_rungs = [x_rungs]; y_rungs = [y_rungs]; dx_rungs = [dx_rungs]; dy_rungs = [dy_rungs]
-                
-                # --- Normal Smoothing Pass ---
-                # Calculate raw normals
-                raw_normals = []
-                for i in range(len(dx_rungs)):
-                    dx, dy = dx_rungs[i], dy_rungs[i]
-                    nx, ny = -dy, dx
-                    norm = np.sqrt(nx**2 + ny**2)
-                    if norm > 0:
-                        raw_normals.append((nx/norm, ny/norm))
-                    else:
-                        raw_normals.append((0, 0))
-                
-                # Smooth normals using a moving average
-                smoothed_normals = []
-                window_size = 5
-                half_window = window_size // 2
-                
-                for i in range(len(raw_normals)):
-                    start_idx = max(0, i - half_window)
-                    end_idx = min(len(raw_normals), i + half_window + 1)
-                    sum_nx = sum(raw_normals[j][0] for j in range(start_idx, end_idx))
-                    sum_ny = sum(raw_normals[j][1] for j in range(start_idx, end_idx))
-                    count = end_idx - start_idx
+                if boundaries is None:
+                    current_dist += step_size
+                    continue
                     
-                    if count > 0:
-                        avg_nx = sum_nx / count
-                        avg_ny = sum_ny / count
-                        norm = np.sqrt(avg_nx**2 + avg_ny**2)
-                        if norm > 0:
-                            smoothed_normals.append((avg_nx/norm, avg_ny/norm))
-                        else:
-                            smoothed_normals.append(raw_normals[i])
-                    else:
-                        smoothed_normals.append(raw_normals[i])
+                (p1_x, p1_y), (p2_x, p2_y) = boundaries
+                rung_length = np.sqrt((p1_x - p2_x)**2 + (p1_y - p2_y)**2)
                 
-                # Generate candidate rungs
-                candidate_rungs = []
-                valid_generation = True
+                if rung_length < 2.0:
+                    current_dist += step_size
+                    continue
                 
-                for i in range(len(x_rungs)):
-                    cur_x = x_rungs[i]
-                    cur_y = y_rungs[i]
-                    nx, ny = smoothed_normals[i]
-                    
-                    est_radius = distance_map[int(np.clip(cur_y, 0, binary_img.shape[0]-1)), 
-                                              int(np.clip(cur_x, 0, binary_img.shape[1]-1))]
-                    max_search = max(est_radius * 4.0, 20.0)
-                    
-                    boundaries = find_shape_boundaries(binary_img, cur_x, cur_y, nx, ny, max_search)
-                    
-                    if boundaries is None: continue
-                        
-                    (p1_x, p1_y), (p2_x, p2_y) = boundaries
-                    rung_length = np.sqrt((p1_x - p2_x)**2 + (p1_y - p2_y)**2)
-                    
-                    if rung_length < 2.0: continue
-                    
-                    # Extension
-                    extension = max(est_radius * 0.1, 3.0)
-                    vx = p1_x - p2_x
-                    vy = p1_y - p2_y
-                    v_len = np.sqrt(vx**2 + vy**2)
-                    if v_len > 0:
-                        vx /= v_len; vy /= v_len
-                        p1_x += vx * extension; p1_y += vy * extension
-                        p2_x -= vx * extension; p2_y -= vy * extension
-                    
-                    rung = ((p1_x, p1_y), (p2_x, p2_y))
-                    center = (cur_x, cur_y)
-                    candidate_rungs.append({'rung': rung, 'center': center, 'u': target_u[i], 'length': rung_length})
+                # Extension
+                extension = max(est_radius * 0.1, 3.0)
+                vx = p1_x - p2_x
+                vy = p1_y - p2_y
+                v_len = np.sqrt(vx**2 + vy**2)
+                if v_len > 0:
+                    vx /= v_len; vy /= v_len
+                    p1_x += vx * extension; p1_y += vy * extension
+                    p2_x -= vx * extension; p2_y -= vy * extension
                 
-                # Check for intersections in this candidate set
-                intersections_count = 0
-                if len(candidate_rungs) > 1:
-                    for i in range(len(candidate_rungs)-1):
-                        p1, p2 = candidate_rungs[i]['rung']
-                        p3, p4 = candidate_rungs[i+1]['rung']
-                        if segments_intersect(p1, p2, p3, p4):
-                            intersections_count += 1
+                new_rung = ((p1_x, p1_y), (p2_x, p2_y))
                 
-                if intersections_count == 0:
-                    # Perfect! No intersections.
-                    path_generated_rungs = candidate_rungs
-                    logger.info(f"Found optimal spacing {current_spacing:.1f}px with {len(candidate_rungs)} rungs (0 intersections).")
-                    break
+                # Check intersection with previous valid rung
+                intersects = False
+                if path_generated_rungs:
+                    last_rung_data = path_generated_rungs[-1]
+                    lp1, lp2 = last_rung_data['rung']
+                    if segments_intersect(lp1, lp2, (p1_x, p1_y), (p2_x, p2_y)):
+                        intersects = True
+                
+                if intersects:
+                    # If intersects, we are too close (likely due to curvature).
+                    # Advance a small step and try again.
+                    # But don't advance if we are already past total_len
+                    current_dist += step_size
+                    continue
                 else:
-                    # Intersections found, try reducing density
-                    logger.info(f"Attempt {attempt+1}: {intersections_count} intersections with spacing {current_spacing:.1f}px. Reducing density...")
-                    if intersections_count < best_rejections:
-                        best_rejections = intersections_count
-                        best_rungs = candidate_rungs
-                    
-                    current_spacing *= 1.5  # Increase spacing by 50%
-            else:
-                # If we exhausted attempts, use the best one we found (fewest intersections)
-                logger.warning(f"Could not find intersection-free placement. Using best attempt with {best_rejections} intersections.")
-                path_generated_rungs = best_rungs
+                    # Valid rung!
+                    path_generated_rungs.append({
+                        'rung': new_rung,
+                        'center': (float(cur_x), float(cur_y)),
+                        'u': target_u,
+                        'length': rung_length,
+                        'dist': current_dist
+                    })
+                    # Advance by full spacing
+                    current_dist += spacing_px
 
-            # Final pass to remove any remaining crossing rungs from the chosen set
-            valid_rungs = []
-            if path_generated_rungs:
-                valid_rungs.append(path_generated_rungs[0])
-                for i in range(1, len(path_generated_rungs)):
-                    current = path_generated_rungs[i]
-                    last = valid_rungs[-1]
-                    p1, p2 = last['rung']
-                    p3, p4 = current['rung']
-                    
-                    if segments_intersect(p1, p2, p3, p4):
-                        logger.warning(f"Removing crossing rung at index {i} (final cleanup).")
-                        rejected_rungs_debug.append(current['rung'])
-                    else:
-                        valid_rungs.append(current)
-            
-            path_generated_rungs = valid_rungs
-            
             # Add valid rungs to main list
-            for item in valid_rungs:
+            for item in path_generated_rungs:
                 rungs.append(item['rung'])
                 
-            path_rungs_map[p_idx] = valid_rungs
+            path_rungs_map[p_idx] = path_generated_rungs
+            logger.info(f"Generated {len(path_generated_rungs)} rungs for path segment {p_idx}")
+                
+        except Exception as e:
+            logger.error(f"Spline fitting failed for a segment: {e}")
+            continue
                 
         except Exception as e:
             logger.error(f"Spline fitting failed for a segment: {e}")
             continue
 
     # --- 2. Generate Bridges (Conditional) ---
-    if structure_info['has_intersections']:
+    junctions = [n for n, d in G.degree() if d > 2]
+    if junctions:
         logger.info("Intersections detected. Generating bridges at junctions...")
         # Graph-guided bridge generation
-        junctions = structure_info['junctions']
         
         # Map Junction -> Set of PathIndices
         j_map = {j: set() for j in junctions}

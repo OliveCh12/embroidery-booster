@@ -7,7 +7,8 @@ from PIL import Image, ImageDraw
 from skimage.morphology import skeletonize, remove_small_holes, closing, disk
 from skimage.transform import hough_line, hough_line_peaks, hough_circle, hough_circle_peaks
 from skimage.feature import canny
-from scipy.ndimage import distance_transform_edt
+from skimage.draw import line
+from scipy.ndimage import distance_transform_edt, convolve
 from svgelements import Matrix, Move, Line, Close
 
 logger = logging.getLogger(__name__)
@@ -154,6 +155,121 @@ def rasterize_paths(svg, paths, dpi, svg_filename=None):
 
     return np.array(img), transform, (w_px, h_px)
 
+def extend_skeleton(skeleton, binary_mask):
+    """
+    Extend the skeleton endpoints to the boundary of the binary_mask.
+    """
+    # Find endpoints
+    # An endpoint in a 1-pixel wide skeleton has 1 neighbor.
+    # We use convolution to count neighbors.
+    # Kernel:
+    # 1 1 1
+    # 1 10 1
+    # 1 1 1
+    # Center pixel value is 10. Neighbors are 1.
+    # Sum = 11 means center is set (10) and exactly one neighbor is set (1).
+    
+    skel_int = skeleton.astype(int)
+    kernel = np.array([[1, 1, 1],
+                       [1, 10, 1],
+                       [1, 1, 1]])
+    
+    # Use scipy.ndimage.convolve
+    neighbors = convolve(skel_int, kernel, mode='constant', cval=0)
+    
+    endpoints = np.argwhere(neighbors == 11)
+    
+    if len(endpoints) == 0:
+        return skeleton
+
+    extended_skeleton = skeleton.copy()
+    h, w = skeleton.shape
+    
+    for r, c in endpoints:
+        # Walk back to find direction
+        # We want to find the connected neighbor, then its neighbor, etc.
+        # to get a stable direction vector.
+        
+        path = [(r, c)]
+        curr_r, curr_c = r, c
+        visited = set([(r, c)])
+        
+        # Walk back up to 10 pixels for better direction estimation
+        for _ in range(10):
+            found = False
+            # Check 8 neighbors
+            for dr in [-1, 0, 1]:
+                for dc in [-1, 0, 1]:
+                    if dr == 0 and dc == 0: continue
+                    nr, nc = curr_r + dr, curr_c + dc
+                    
+                    if 0 <= nr < h and 0 <= nc < w:
+                        if skeleton[nr, nc] and (nr, nc) not in visited:
+                            path.append((nr, nc))
+                            visited.add((nr, nc))
+                            curr_r, curr_c = nr, nc
+                            found = True
+                            break
+                if found: break
+            if not found: break
+            
+        if len(path) < 2:
+            continue
+            
+        # Calculate direction vector from the inner part towards the endpoint
+        # Use the last point in path (furthest from endpoint) and the endpoint
+        start_node = path[-1]
+        end_node = path[0]
+        
+        vr = end_node[0] - start_node[0]
+        vc = end_node[1] - start_node[1]
+        
+        norm = np.sqrt(vr*vr + vc*vc)
+        if norm == 0: continue
+        
+        vr /= norm
+        vc /= norm
+        
+        # Ray cast
+        cur_r, cur_c = float(end_node[0]), float(end_node[1])
+        
+        # Step size
+        step = 0.5
+        
+        # Max distance to prevent infinite loop (e.g. diagonal of image)
+        max_dist = np.sqrt(h*h + w*w)
+        dist = 0
+        
+        hit_boundary = False
+        target_r, target_c = cur_r, cur_c
+        
+        while dist < max_dist:
+            cur_r += vr * step
+            cur_c += vc * step
+            dist += step
+            
+            ir = int(round(cur_r))
+            ic = int(round(cur_c))
+            
+            if not (0 <= ir < h and 0 <= ic < w):
+                # Out of bounds
+                break
+                
+            if not binary_mask[ir, ic]:
+                # Hit background
+                hit_boundary = True
+                target_r, target_c = ir, ic
+                break
+        
+        if hit_boundary:
+            # Draw line
+            rr, cc = line(end_node[0], end_node[1], target_r, target_c)
+            # Clip
+            valid = (rr >= 0) & (rr < h) & (cc >= 0) & (cc < w)
+            extended_skeleton[rr[valid], cc[valid]] = True
+            
+    return extended_skeleton
+
 def compute_medial_axis(binary_image):
     """Compute Skeleton and Distance Map."""
     logger.info("Computing Skeleton and Distance Map...")
@@ -189,78 +305,8 @@ def compute_medial_axis(binary_image):
         
     # Use distance transform for width estimation
     distance = distance_transform_edt(cleaned_image)
+    
+    # Extend skeleton to boundaries
+    skeleton = extend_skeleton(skeleton, cleaned_image)
+    
     return skeleton, distance, cleaned_image
-
-def analyze_shapes(binary_img, skeleton, G):
-    """
-    Analyze the image structure using Hough Transforms and Skeleton Graph.
-    Returns a dictionary with shape analysis results.
-    """
-    logger.info("Analyzing image structure...")
-    results = {
-        'has_intersections': False,
-        'detected_shapes': [],
-        'junctions': []
-    }
-    
-    # 1. Analyze Skeleton Graph for Intersections
-    # Junctions are nodes with degree > 2
-    junctions = [n for n, d in G.degree() if d > 2]
-    if junctions:
-        results['has_intersections'] = True
-        results['junctions'] = junctions
-        logger.info(f"Detected {len(junctions)} intersections in the skeleton.")
-    else:
-        logger.info("No intersections detected in the skeleton (Simple structure).")
-        
-    # 2. Hough Transform for Circles (Simple Shape Detection)
-    # Optimization: Downscale for Hough Transform to improve performance
-    from skimage.transform import resize
-    
-    scale_hough = 500.0 / max(binary_img.shape)
-    if scale_hough < 1.0:
-        img_small = resize(binary_img, (int(binary_img.shape[0]*scale_hough), int(binary_img.shape[1]*scale_hough)), anti_aliasing=True)
-    else:
-        img_small = binary_img
-        scale_hough = 1.0
-        
-    # Detect edges for Hough on small image
-    edges = canny(img_small, sigma=2) # Lower sigma for smaller image
-    
-    # Detect radii range (heuristic)
-    # Scale radii range
-    min_rad = max(5, int(10 * scale_hough))
-    max_rad = max(10, int(max(binary_img.shape)//2 * scale_hough))
-    step = max(1, int(2 * scale_hough))
-    
-    h_radii = np.arange(min_rad, max_rad, 2) # Step 2 is fine for small image
-    
-    if len(h_radii) > 0:
-        hough_res = hough_circle(edges, h_radii)
-        
-        # Select the most prominent 3 circles
-        accums, cx, cy, radii = hough_circle_peaks(hough_res, h_radii, total_num_peaks=3)
-        
-        for center_y, center_x, radius in zip(cy, cx, radii):
-            # Scale back to original coordinates
-            orig_cx = center_x / scale_hough
-            orig_cy = center_y / scale_hough
-            orig_r = radius / scale_hough
-            
-            logger.info(f"Potential Circle detected: center=({orig_cx:.1f}, {orig_cy:.1f}), radius={orig_r:.1f}")
-            results['detected_shapes'].append({'type': 'circle', 'center': (orig_cx, orig_cy), 'radius': orig_r})
-
-    # 3. Hough Transform for Lines
-    tested_angles = np.linspace(-np.pi / 2, np.pi / 2, 360, endpoint=False)
-    h, theta, d = hough_line(edges, theta=tested_angles)
-    
-    for _, angle, dist in zip(*hough_line_peaks(h, theta, d, num_peaks=3)):
-        # Scale distance back?
-        # dist = x * cos(theta) + y * sin(theta)
-        # If x, y are scaled by S, dist is scaled by S.
-        orig_dist = dist / scale_hough
-        logger.info(f"Potential Line detected: angle={np.degrees(angle):.1f}°, dist={orig_dist:.1f}")
-        results['detected_shapes'].append({'type': 'line', 'angle': angle, 'dist': orig_dist})
-
-        
-    return results

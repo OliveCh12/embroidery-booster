@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 import networkx as nx
+from scipy.spatial import cKDTree
 
 logger = logging.getLogger(__name__)
 
@@ -152,22 +153,34 @@ def prune_skeleton_graph(G, min_spur_length_px):
     logger.info(f"Pruned {total_pruned} spur branches.")
     return G
 
-def get_skeleton_paths(skeleton, min_len_px=15):
-    """Decompose skeleton into simple paths between junctions/endpoints."""
-    G = skeleton_to_graph(skeleton)
-    logger.info(f"Initial graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+def connect_close_endpoints(G, max_connect_dist_px):
+    """Connect endpoints that are close to each other to close open loops."""
+    logger.info(f"Connecting close endpoints within {max_connect_dist_px}px...")
+    endpoints = [n for n, d in G.degree() if d == 1]
     
-    if G.number_of_nodes() == 0:
-        return [], G
+    connected = 0
+    for i in range(len(endpoints)):
+        for j in range(i+1, len(endpoints)):
+            n1 = endpoints[i]
+            n2 = endpoints[j]
+            if n1 not in G or n2 not in G: continue
+            
+            p1 = np.array(G.nodes[n1]['pos'])
+            p2 = np.array(G.nodes[n2]['pos'])
+            dist = np.linalg.norm(p1 - p2)
+            
+            if dist <= max_connect_dist_px:
+                # Check if connecting them would create a cycle or something bad
+                # For now, just connect if not already connected
+                if not G.has_edge(n1, n2):
+                    G.add_edge(n1, n2, weight=dist)
+                    connected += 1
+                    logger.debug(f"Connected endpoints {n1} and {n2} at distance {dist:.1f}px")
     
-    # Fix topology: Collapse small cycles (knots)
-    # Use a larger threshold to catch all knots in high-res images
-    G = collapse_cycles(G, max_len=200)
-    
-    # Prune spurs
-    G = prune_skeleton_graph(G, min_len_px)
-    logger.info(f"Pruned graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
-    
+    logger.info(f"Connected {connected} close endpoints.")
+    return G
+
+def get_skeleton_paths_from_graph(G):
     paths = []
     visited_edges = set()
     
@@ -227,7 +240,106 @@ def get_skeleton_paths(skeleton, min_len_px=15):
                 
     return paths, G
 
+def extend_skeleton_endpoints(G, binary_img, max_dist_px=50):
+    """Extend skeleton endpoints to the shape boundary."""
+    logger.info(f"Extending skeleton endpoints to boundary (max {max_dist_px}px)...")
+    endpoints = [n for n, d in G.degree() if d == 1]
+    extended_count = 0
+    
+    # Get next available node ID
+    next_id = max(G.nodes()) + 1 if G.number_of_nodes() > 0 else 0
+    
+    for n in endpoints:
+        if n not in G: continue
+        
+        neighbors = list(G.neighbors(n))
+        if not neighbors: continue
+        nbr = neighbors[0]
+        
+        p_end = np.array(G.nodes[n]['pos'])
+        p_nbr = np.array(G.nodes[nbr]['pos'])
+        
+        # Vector from neighbor to endpoint
+        v = p_end - p_nbr
+        norm = np.linalg.norm(v)
+        if norm == 0: continue
+        v = v / norm
+        
+        # Cast ray
+        # Use get_ray_intersection logic inline or call it if available
+        # We need integer coordinates for image check
+        start_x, start_y = p_end[1], p_end[0] # pos is (row, col) -> (y, x)
+        dx, dy = v[1], v[0]
+        
+        # Find boundary
+        end_x, end_y = get_ray_intersection(binary_img, start_x, start_y, dx, dy, max_dist_px)
+        
+        # Distance to boundary
+        dist = np.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
+        
+        if dist > 0.5 and dist <= max_dist_px:
+            # Add new node at boundary
+            # We might want to add intermediate nodes if dist is large, but for straight line one is enough
+            # However, to keep graph density consistent, maybe add nodes every few pixels?
+            # For now, just add the endpoint.
+            
+            new_node_pos = (end_y, end_x)
+            G.add_node(next_id, pos=new_node_pos)
+            G.add_edge(n, next_id, weight=dist)
+            next_id += 1
+            extended_count += 1
+            
+    logger.info(f"Extended {extended_count} endpoints.")
+    return G
+
 def get_ray_intersection(binary_img, start_x, start_y, dx, dy, max_dist):
+    """Cast a ray and find where it hits the background (0)."""
+    h, w = binary_img.shape
+
+    # Walk along the ray
+    steps = int(max_dist)
+    if steps <= 0:
+        return start_x, start_y
+
+    for i in range(1, steps + 1):
+        cx = int(start_x + dx * i)
+        cy = int(start_y + dy * i)
+
+        if cx < 0 or cx >= w or cy < 0 or cy >= h:
+            return cx - dx, cy - dy # Return last valid
+
+        if binary_img[cy, cx] == 0:
+            # Found edge
+            return cx, cy
+
+    return start_x + dx * max_dist, start_y + dy * max_dist
+
+def get_skeleton_paths(skeleton, binary_img=None, min_len_px=15):
+    """Decompose skeleton into simple paths between junctions/endpoints."""
+    G = skeleton_to_graph(skeleton)
+    logger.info(f"Initial graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+    
+    if G.number_of_nodes() == 0:
+        return [], G
+    
+    # Fix topology: Collapse small cycles (knots)
+    # Use a larger threshold to catch all knots in high-res images
+    G = collapse_cycles(G, max_len=200)
+    
+    # Prune spurs
+    G = prune_skeleton_graph(G, min_len_px)
+    logger.info(f"Pruned graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+    
+    # Extend endpoints if binary image is provided
+    if binary_img is not None:
+        G = extend_skeleton_endpoints(G, binary_img, max_dist_px=50)
+    
+    # Connect close endpoints to close open loops
+    G = connect_close_endpoints(G, max_connect_dist_px=100)
+    
+    paths, G = get_skeleton_paths_from_graph(G)
+    
+    return paths, G
     """Cast a ray and find where it hits the background (0)."""
     h, w = binary_img.shape
 
