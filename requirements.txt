@@ -1,0 +1,6 @@
+numpy
+scipy
+scikit-image
+pillow
+svgelements
+networkx

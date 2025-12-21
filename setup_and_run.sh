@@ -13,7 +13,7 @@ echo "✅ Python 3 found."
 
 # Create virtual environment (optional but recommended)
 if [ ! -d "venv" ]; then
-    echo "📦 Creating virtual environment..."
+    echo "�� Creating virtual environment..."
     python3 -m venv venv
 fi
 
@@ -22,9 +22,9 @@ source venv/bin/activate
 
 # Install dependencies
 echo "⬇️  Installing dependencies..."
-pip install numpy scipy scikit-image pillow svgelements
+pip install -r requirements.txt
 
 echo "✅ Setup complete!"
 echo ""
 echo "To run the generator:"
-echo "python3 embroidery_auto_rung_generator.py <your_svg_file>"
+echo "python3 -m embroidery_generator.main <your_svg_file>"
