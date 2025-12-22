@@ -16,7 +16,7 @@ CORS(app)
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
-OUTPUT_FOLDER = '../src/output'
+OUTPUT_FOLDER = 'output'
 STATIC_FOLDER = 'static'
 
 for folder in [UPLOAD_FOLDER, OUTPUT_FOLDER, STATIC_FOLDER]:
@@ -88,8 +88,14 @@ def optimize_svg():
             debug_images = {}
             if os.path.exists(OUTPUT_FOLDER):
                 for filename in os.listdir(OUTPUT_FOLDER):
-                    if filename.endswith(('_rungs.svg', '_ready.svg')) or filename.endswith('.svg'):
-                        output_files[f'{OUTPUT_FOLDER}/{filename}'] = filename
+                    if filename.endswith(('_rungs.svg', '_ready.svg')) or (filename.endswith('.svg') and not filename.startswith('debug_')):
+                        # Map display name to filename
+                        if '_rungs.svg' in filename:
+                            output_files['Rungs Only'] = filename
+                        elif '_ready.svg' in filename:
+                            output_files['Ready to Edit'] = filename
+                        else:
+                            output_files[filename] = filename
 
                 # Chercher les images de debug
                 debug_dir = os.path.join(OUTPUT_FOLDER, 'debug')
@@ -137,19 +143,8 @@ def parse_logs(logs):
             except:
                 pass
 
-        # Intersections
-        elif 'intersections' in line and 'Generating bridges' in line:
-            try:
-                parts = line.split()
-                for part in parts:
-                    if part.isdigit():
-                        result['intersections'] = int(part)
-                        break
-            except:
-                pass
-
         # Bridges
-        elif 'bridges' in line and 'to output' in line:
+        elif 'Saving' in line and 'bridges' in line:
             try:
                 parts = line.split()
                 for i, part in enumerate(parts):
@@ -160,18 +155,28 @@ def parse_logs(logs):
                 pass
 
         # Couverture
-        elif 'couverture' in line or 'coverage' in line:
+        elif 'Coverage:' in line:
             try:
-                import re
-                match = re.search(r'(\d+\.?\d*)%', line)
-                if match:
-                    result['coverage'] = float(match.group(1))
+                parts = line.split()
+                for part in parts:
+                    if ':' in part:
+                        value = part.split(':')[1]
+                        try:
+                            coverage_ratio = float(value)
+                            result['coverage'] = coverage_ratio * 100  # Convert to percentage
+                            break
+                        except:
+                            pass
             except:
                 pass
 
         # Succès
         elif 'Done!' in line:
             result['success'] = True
+
+    # Set intersections to bridges if not found
+    if 'intersections' not in result:
+        result['intersections'] = result.get('bridges', 0)
 
     return result
 
@@ -191,13 +196,20 @@ def download_file(filename):
 def serve_debug_image(filename):
     """Servir les images de debug"""
     try:
+        print(f"DEBUG: Current working directory: {os.getcwd()}")
         debug_dir = os.path.join(OUTPUT_FOLDER, 'debug')
+        print(f"DEBUG: Debug dir: {debug_dir}")
         file_path = os.path.join(debug_dir, filename)
+        print(f"DEBUG: Looking for file: {file_path}")
+        print(f"DEBUG: File exists: {os.path.exists(file_path)}")
         if os.path.exists(file_path):
-            return send_file(file_path)
+            print(f"DEBUG: Serving file: {file_path}")
+            return send_file(file_path, mimetype='image/png')
         else:
+            print(f"DEBUG: File not found: {file_path}")
             return jsonify({'error': 'Image de debug non trouvée'}), 404
     except Exception as e:
+        print(f"DEBUG: Error serving file: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':

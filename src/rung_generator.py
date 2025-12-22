@@ -2,8 +2,8 @@ import logging
 import numpy as np
 import networkx as nx
 from scipy.interpolate import splprep, splev
-from geometry_utils import get_skeleton_paths, merge_aligned_paths, find_shape_boundaries, segments_intersect, get_ray_intersection
-from debug_utils import save_debug_graph, save_rung_coverage_debug
+from .geometry_utils import get_skeleton_paths, merge_aligned_paths, find_shape_boundaries, segments_intersect, get_ray_intersection
+from .debug_utils import save_debug_graph, save_rung_coverage_debug
 
 logger = logging.getLogger(__name__)
 
