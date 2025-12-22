@@ -4,305 +4,387 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Embroidery Rung Optimizer</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            900: '#212121', // Main Background
+                            800: '#2d2d2d', // Surface Cards
+                            700: '#3d3d3d', // Inputs/Borders
+                        },
+                        accent: {
+                            DEFAULT: '#2cf2ba', // Mint Green
+                            hover: '#26dba6',
+                            dim: 'rgba(44, 242, 186, 0.1)'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Roboto', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
-        .slider-thumb::-webkit-slider-thumb {
+        body { font-family: 'Roboto', sans-serif; }
+        
+        /* Custom Range Slider Styling to match Accent Color */
+        input[type=range] {
+            -webkit-appearance: none; 
+            background: transparent; 
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
+            height: 20px;
+            width: 20px;
             border-radius: 50%;
-            background: #3b82f6;
+            background: #2cf2ba;
             cursor: pointer;
+            margin-top: -8px; 
+            box-shadow: 0 0 10px rgba(44, 242, 186, 0.4);
+            transition: transform 0.1s;
         }
-        .slider-thumb::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #3b82f6;
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
             cursor: pointer;
-            border: none;
+            background: #4b5563;
+            border-radius: 2px;
         }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #212121; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #2cf2ba; }
     </style>
 </head>
-</head>
-<body class="bg-gray-900 text-white min-h-screen p-4">
-    <div class="max-w-6xl mx-auto bg-gray-800 rounded-lg shadow-lg p-6">
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold mb-2">Embroidery Rung Optimizer</h1>
-            <p class="text-gray-300">Optimisez automatiquement les paramètres de vos motifs d'embroidery</p>
-        </div>
+<body class="bg-dark-900 text-gray-200 min-h-screen">
+    
+    <div id="root"></div>
 
-        <div class="grid md:grid-cols-2 gap-6 mb-6">
-            <div>
-                <div class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center bg-gray-700 hover:border-gray-500 transition-colors cursor-pointer" id="uploadArea">
-                    <h4 class="text-xl mb-4">Glissez-déposez votre fichier SVG ici</h4>
-                    <p class="text-gray-400 mb-4">ou cliquez pour sélectionner un fichier</p>
-                    <input type="file" id="fileInput" accept=".svg" class="hidden">
-                    <button class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded transition-colors" onclick="document.getElementById('fileInput').click()">
-                        Sélectionner un fichier
-                    </button>
-                </div>
+    <script type="text/babel">
+        const { useState, useRef } = React;
 
-                <div id="fileInfo" class="mt-4 hidden">
-                    <div class="bg-gray-700 border border-gray-600 rounded p-3">
-                        <strong>Fichier sélectionné:</strong> <span id="fileName"></span>
-                    </div>
-                </div>
-            </div>
+        // SVG Icons
+        const UploadIcon = () => (
+            <svg className="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+        );
+        
+        const FileIcon = () => (
+            <svg className="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        );
 
-            <div>
-                <h4 class="text-xl mb-4">Paramètres d'optimisation</h4>
+        const App = () => {
+            const [file, setFile] = useState(null);
+            const [spacing, setSpacing] = useState(3.0);
+            const [density, setDensity] = useState(1.0);
+            const [loading, setLoading] = useState(false);
+            const [results, setResults] = useState(null);
+            const [error, setError] = useState(null);
+            const [isDragging, setIsDragging] = useState(false);
+            
+            const fileInputRef = useRef(null);
 
-                <div class="mb-4">
-                    <label class="block mb-2">
-                        Espacement (mm): <span id="spacingValue" class="font-semibold">3.0</span>
-                    </label>
-                    <input type="range" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb" id="spacingSlider" min="1.0" max="10.0" step="0.5" value="3.0">
-                </div>
-
-                <div class="mb-4">
-                    <label class="block mb-2">
-                        Densité: <span id="densityValue" class="font-semibold">1.0</span>
-                    </label>
-                    <input type="range" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb" id="densitySlider" min="0.1" max="2.0" step="0.1" value="1.0">
-                </div>
-
-                <button class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg w-full font-semibold transition-colors" id="optimizeBtn" disabled>
-                    Lancer l'optimisation
-                </button>
-            </div>
-        </div>
-
-        <div id="results" class="hidden">
-            <hr class="border-gray-600 mb-6">
-            <h3 class="text-2xl mb-4">Résultats</h3>
-
-            <div id="statsContainer" class="mb-6">
-                <!-- Les statistiques seront insérées ici -->
-            </div>
-
-            <div class="mb-6">
-                <h4 class="text-xl mb-4">Prévisualisation</h4>
-                <div id="previewContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <!-- Les images de prévisualisation seront insérées ici -->
-                </div>
-            </div>
-
-            <div class="mb-6">
-                <h5 class="text-lg mb-3">Fichiers générés</h5>
-                <div id="filesContainer">
-                    <!-- Les liens de téléchargement seront insérés ici -->
-                </div>
-            </div>
-
-            <div>
-                <h5 class="text-lg mb-3">Logs de traitement</h5>
-                <div class="bg-gray-700 border border-gray-600 rounded p-3 max-h-64 overflow-y-auto font-mono text-sm text-gray-300" id="logsContainer">
-                    <!-- Les logs seront insérés ici -->
-                </div>
-            </div>
-        </div>
-
-        <div id="loading" class="hidden text-center mt-8">
-            <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <h4 class="mt-4">Optimisation en cours...</h4>
-            <p class="text-gray-400">Cela peut prendre quelques minutes selon la complexité du motif</p>
-        </div>
-    </div>
-
-    <script>
-        let selectedFile = null;
-
-        // Gestion du drag & drop
-        const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
-        const fileInfo = document.getElementById('fileInfo');
-        const fileName = document.getElementById('fileName');
-        const optimizeBtn = document.getElementById('optimizeBtn');
-
-        uploadArea.addEventListener('click', () => fileInput.click());
-
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-
-            const files = e.dataTransfer.files;
-            if (files.length > 0 && files[0].name.toLowerCase().endsWith('.svg')) {
-                handleFileSelect(files[0]);
-            } else {
-                alert('Veuillez sélectionner un fichier SVG valide.');
-            }
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFileSelect(e.target.files[0]);
-            }
-        });
-
-        function handleFileSelect(file) {
-            selectedFile = file;
-            fileName.textContent = file.name;
-            fileInfo.classList.remove('hidden');
-            optimizeBtn.disabled = false;
-        }
-
-        // Gestion des sliders
-        const spacingSlider = document.getElementById('spacingSlider');
-        const spacingValue = document.getElementById('spacingValue');
-        const densitySlider = document.getElementById('densitySlider');
-        const densityValue = document.getElementById('densityValue');
-
-        spacingSlider.addEventListener('input', () => {
-            spacingValue.textContent = spacingSlider.value;
-        });
-
-        densitySlider.addEventListener('input', () => {
-            densityValue.textContent = densitySlider.value;
-        });
-
-        // Gestion de l'optimisation
-        optimizeBtn.addEventListener('click', async () => {
-            if (!selectedFile) return;
-
-            // Afficher le loading
-            document.getElementById('loading').classList.remove('hidden');
-            document.getElementById('results').classList.add('hidden');
-            optimizeBtn.disabled = true;
-
-            try {
-                const formData = new FormData();
-                formData.append('file', selectedFile);
-                formData.append('spacing', spacingSlider.value);
-                formData.append('density', densitySlider.value);
-
-                const response = await fetch('/api/optimize', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    displayResults(result);
+            const handleFileSelect = (selectedFile) => {
+                if (selectedFile && selectedFile.name.toLowerCase().endsWith('.svg')) {
+                    setFile(selectedFile);
+                    setError(null);
                 } else {
-                    displayError(result.error);
+                    setError("Veuillez sélectionner un fichier SVG valide.");
                 }
+            };
 
-            } catch (error) {
-                displayError('Erreur de connexion: ' + error.message);
-            } finally {
-                document.getElementById('loading').classList.add('hidden');
-                optimizeBtn.disabled = false;
-            }
-        });
+            const onDragOver = (e) => {
+                e.preventDefault();
+                setIsDragging(true);
+            };
 
-        function displayResults(result) {
-            const statsContainer = document.getElementById('statsContainer');
-            const filesContainer = document.getElementById('filesContainer');
-            const logsContainer = document.getElementById('logsContainer');
-            const previewContainer = document.getElementById('previewContainer');
+            const onDragLeave = () => {
+                setIsDragging(false);
+            };
 
-            // Afficher les statistiques
-            statsContainer.innerHTML = `
-                <div class="bg-blue-600 text-white rounded-lg p-4">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                        <div>
-                            <div class="text-2xl font-bold">${result.rungs_count}</div>
-                            <div class="text-sm text-blue-200">Rungs</div>
-                        </div>
-                        <div>
-                            <div class="text-2xl font-bold">${result.intersections}</div>
-                            <div class="text-sm text-blue-200">Intersections</div>
-                        </div>
-                        <div>
-                            <div class="text-2xl font-bold">${result.bridges}</div>
-                            <div class="text-sm text-blue-200">Bridges</div>
-                        </div>
-                        <div>
-                            <div class="text-2xl font-bold">${result.coverage}%</div>
-                            <div class="text-sm text-blue-200">Couverture</div>
-                        </div>
+            const onDrop = (e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                if (e.dataTransfer.files.length > 0) {
+                    handleFileSelect(e.dataTransfer.files[0]);
+                }
+            };
+
+            const handleSubmit = async () => {
+                if (!file) return;
+
+                setLoading(true);
+                setResults(null);
+                setError(null);
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('spacing', spacing);
+                formData.append('density', density);
+
+                try {
+                    // Simulate API Call (Replace with your actual endpoint)
+                    const response = await fetch('/api/optimize', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        setResults(data);
+                    } else {
+                        setError(data.error || "Une erreur est survenue lors de l'optimisation.");
+                    }
+                } catch (err) {
+                    setError("Erreur de connexion au serveur.");
+                    console.error(err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="max-w-7xl mx-auto px-4 py-10">
+                    
+                    {/* Header */}
+                    <div className="text-center mb-10">
+                        <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
+                            Embroidery <span className="text-accent">Rung Optimizer</span>
+                        </h1>
+                        <p className="text-gray-400 text-lg">Optimisation intelligente de motifs pour machines à broder</p>
                     </div>
-                </div>
-            `;
 
-            // Afficher les images de prévisualisation
-            let previewHtml = '';
-            if (result.debug_images) {
-                const imageOrder = [
-                    'debug_01_original.png',
-                    'debug_07_coverage.png',
-                    'debug_04_skeleton.png',
-                    'debug_05_overlay.png'
-                ];
-
-                const imageTitles = {
-                    'debug_01_original.png': 'Image Originale',
-                    'debug_07_coverage.png': 'Couverture',
-                    'debug_04_skeleton.png': 'Squelette',
-                    'debug_05_overlay.png': 'Overlay'
-                };
-
-                imageOrder.forEach(imageName => {
-                    if (result.debug_images[imageName]) {
-                        const title = imageTitles[imageName] || imageName;
-                        previewHtml += `
-                            <div class="bg-gray-700 border border-gray-600 rounded-lg overflow-hidden">
-                                <div class="p-3 border-b border-gray-600">
-                                    <h6 class="font-semibold">${title}</h6>
-                                </div>
-                                <div class="p-2">
-                                    <img src="/debug/${imageName}" class="w-full h-48 object-contain rounded" alt="${title}">
+                    <div className="grid lg:grid-cols-12 gap-8">
+                        
+                        {/* LEFT COLUMN: Controls */}
+                        <div className="lg:col-span-5 space-y-6">
+                            
+                            {/* Upload Card */}
+                            <div className="bg-dark-800 p-6 rounded-2xl shadow-xl border border-white/5">
+                                <h3 className="text-xl font-medium text-white mb-4">1. Fichier Source</h3>
+                                
+                                <div 
+                                    onClick={() => fileInputRef.current.click()}
+                                    onDragOver={onDragOver}
+                                    onDragLeave={onDragLeave}
+                                    onDrop={onDrop}
+                                    className={`
+                                        border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300
+                                        ${isDragging ? 'border-accent bg-accent-dim' : 'border-gray-600 hover:border-accent hover:bg-dark-700'}
+                                        ${file ? 'border-accent bg-dark-700' : ''}
+                                    `}
+                                >
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        onChange={(e) => handleFileSelect(e.target.files[0])} 
+                                        accept=".svg" 
+                                        className="hidden" 
+                                    />
+                                    
+                                    {file ? (
+                                        <div className="flex flex-col items-center animate-fadeIn">
+                                            <FileIcon />
+                                            <span className="mt-2 font-medium text-white truncate max-w-[200px]">{file.name}</span>
+                                            <span className="text-xs text-accent mt-1">Cliquez pour changer</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center">
+                                            <UploadIcon />
+                                            <p className="text-gray-300 font-medium">Glissez un SVG ici</p>
+                                            <p className="text-gray-500 text-sm mt-1">ou cliquez pour parcourir</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                        `;
-                    }
-                });
-            }
-            previewContainer.innerHTML = previewHtml;
 
-            // Afficher les fichiers
-            let filesHtml = '';
-            if (result.output_files) {
-                for (const [filename, path] of Object.entries(result.output_files)) {
-                    filesHtml += `
-                        <div class="mb-2">
-                            <a href="/api/download/${filename}" class="text-blue-400 hover:text-blue-300 underline">
-                                ${filename}
-                            </a>
+                            {/* Settings Card */}
+                            <div className="bg-dark-800 p-6 rounded-2xl shadow-xl border border-white/5">
+                                <h3 className="text-xl font-medium text-white mb-6">2. Paramètres</h3>
+                                
+                                {/* Spacing Slider */}
+                                <div className="mb-8">
+                                    <div className="flex justify-between mb-2">
+                                        <label className="text-gray-300 text-sm uppercase tracking-wide font-semibold">Espacement (mm)</label>
+                                        <span className="text-accent font-bold bg-accent-dim px-2 py-0.5 rounded text-sm">{spacing}</span>
+                                    </div>
+                                    <input 
+                                        type="range" 
+                                        min="1.0" max="10.0" step="0.5" 
+                                        value={spacing}
+                                        onChange={(e) => setSpacing(e.target.value)}
+                                        className="w-full"
+                                    />
+                                </div>
+
+                                {/* Density Slider */}
+                                <div className="mb-8">
+                                    <div className="flex justify-between mb-2">
+                                        <label className="text-gray-300 text-sm uppercase tracking-wide font-semibold">Densité</label>
+                                        <span className="text-accent font-bold bg-accent-dim px-2 py-0.5 rounded text-sm">{density}</span>
+                                    </div>
+                                    <input 
+                                        type="range" 
+                                        min="0.1" max="2.0" step="0.1" 
+                                        value={density}
+                                        onChange={(e) => setDensity(e.target.value)}
+                                        className="w-full"
+                                    />
+                                </div>
+
+                                <button 
+                                    onClick={handleSubmit}
+                                    disabled={!file || loading}
+                                    className={`
+                                        w-full py-4 rounded-xl font-bold text-dark-900 text-lg shadow-lg transition-all transform
+                                        ${!file || loading 
+                                            ? 'bg-gray-600 cursor-not-allowed opacity-50' 
+                                            : 'bg-accent hover:bg-accent-hover hover:scale-[1.02] active:scale-[0.98]'}
+                                    `}
+                                >
+                                    {loading ? (
+                                        <span className="flex items-center justify-center gap-2">
+                                            <svg className="animate-spin h-5 w-5 text-dark-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                            Traitement...
+                                        </span>
+                                    ) : "Lancer l'Optimisation"}
+                                </button>
+                                
+                                {error && (
+                                    <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm text-center">
+                                        {error}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    `;
-                }
-            }
-            filesContainer.innerHTML = filesHtml;
 
-            // Afficher les logs
-            logsContainer.textContent = result.logs;
+                        {/* RIGHT COLUMN: Results */}
+                        <div className="lg:col-span-7">
+                            {!results && !loading && (
+                                <div className="h-full flex flex-col items-center justify-center text-gray-600 border-2 border-dashed border-gray-700 rounded-2xl p-10 min-h-[400px]">
+                                    <svg className="w-16 h-16 mb-4 opacity-20" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 00-1-1H3zm11 4a1 1 0 10-2 0v4a1 1 0 102 0V7zm-3 1a1 1 0 10-2 0v3a1 1 0 102 0V8zM8 9a1 1 0 10-2 0v2a1 1 0 102 0V9z" clipRule="evenodd"></path></svg>
+                                    <p>Les résultats apparaîtront ici après l'optimisation</p>
+                                </div>
+                            )}
 
-            document.getElementById('results').classList.remove('hidden');
-        }
+                            {loading && (
+                                <div className="h-full flex flex-col items-center justify-center min-h-[400px]">
+                                    <div className="w-16 h-16 border-4 border-dark-700 border-t-accent rounded-full animate-spin"></div>
+                                    <p className="mt-6 text-accent animate-pulse font-medium">Analyse du motif en cours...</p>
+                                </div>
+                            )}
 
-        function displayError(error) {
-            const statsContainer = document.getElementById('statsContainer');
-            statsContainer.innerHTML = `
-                <div class="bg-red-600 text-white rounded-lg p-4">
-                    <h5 class="text-lg font-semibold mb-2">Erreur</h5>
-                    <p>${error}</p>
+                            {results && (
+                                <div className="space-y-6 animate-fadeIn">
+                                    
+                                    {/* Stats Grid */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {[
+                                            { label: 'Rungs', value: results.rungs_count },
+                                            { label: 'Intersections', value: results.intersections },
+                                            { label: 'Bridges', value: results.bridges },
+                                            { label: 'Couverture', value: results.coverage + '%' }
+                                        ].map((stat, i) => (
+                                            <div key={i} className="bg-dark-800 p-4 rounded-xl border-l-4 border-accent shadow-lg">
+                                                <div className="text-2xl font-bold text-white">{stat.value}</div>
+                                                <div className="text-xs text-gray-400 uppercase tracking-wider mt-1">{stat.label}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Download Section */}
+                                    <div className="bg-accent/10 border border-accent/20 p-5 rounded-xl flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-bold text-white">Fichiers générés</h4>
+                                            <p className="text-sm text-gray-400">Téléchargez vos fichiers optimisés</p>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            {results.output_files && Object.entries(results.output_files).map(([name, path]) => (
+                                                <a 
+                                                    key={name}
+                                                    href={`/api/download/${name}`} 
+                                                    className="bg-accent hover:bg-accent-hover text-dark-900 px-4 py-2 rounded-lg text-sm font-bold transition-colors inline-flex items-center gap-2"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                                    {name}
+                                                </a>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Preview Images */}
+                                    <div className="bg-dark-800 p-6 rounded-2xl shadow-xl border border-white/5">
+                                        <h4 className="text-lg font-medium text-white mb-4">Prévisualisation</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {results.debug_images && [
+                                                { k: 'debug_01_original.png', t: 'Original' },
+                                                { k: 'debug_07_coverage.png', t: 'Couverture' },
+                                                { k: 'debug_04_skeleton.png', t: 'Squelette' },
+                                                { k: 'debug_05_overlay.png', t: 'Overlay' }
+                                            ].map((img) => (
+                                                results.debug_images[img.k] && (
+                                                    <div key={img.k} className="group relative overflow-hidden rounded-xl border border-gray-700 bg-black/40">
+                                                        <div className="absolute top-0 left-0 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-br-xl text-xs font-medium text-white z-10">
+                                                            {img.t}
+                                                        </div>
+                                                        <img 
+                                                            src={`/debug/${img.k}`} 
+                                                            alt={img.t} 
+                                                            className="w-full h-48 object-contain transition-transform duration-500 group-hover:scale-105" 
+                                                        />
+                                                    </div>
+                                                )
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Console Logs */}
+                                    <div className="bg-dark-900 border border-gray-700 rounded-xl overflow-hidden">
+                                        <div className="bg-dark-800 px-4 py-2 border-b border-gray-700 flex items-center gap-2">
+                                            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                                            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                                            <span className="text-xs text-gray-400 font-mono ml-2">Terminal Output</span>
+                                        </div>
+                                        <div className="p-4 font-mono text-sm text-gray-400 h-48 overflow-y-auto whitespace-pre-wrap">
+                                            {results.logs}
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
-            `;
-            document.getElementById('results').classList.remove('hidden');
-        }
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>

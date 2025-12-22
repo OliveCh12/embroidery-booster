@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+import networkx as nx
 from scipy.interpolate import splprep, splev
 from geometry_utils import get_skeleton_paths, merge_aligned_paths, find_shape_boundaries, segments_intersect, get_ray_intersection
 from debug_utils import save_debug_graph, save_rung_coverage_debug
@@ -244,7 +245,6 @@ def generate_rungs(skeleton, distance_map, spacing_px, transform, binary_img, pa
             path_generated_rungs = []
             current_dist = 0.0
             step_size = spacing_px * 0.1  # Small step for finding valid position
-            min_spacing = spacing_px * 0.8 # Allow slightly compressed spacing in curves
             
             # Initial position
             current_dist = 0.0
@@ -259,11 +259,11 @@ def generate_rungs(skeleton, distance_map, spacing_px, transform, binary_img, pa
                 dx, dy = splev(target_u, tck, der=1)
                 
                 # Calculate normal
-                nx, ny = -dy, dx
-                norm = np.sqrt(nx**2 + ny**2)
+                n_x, n_y = -dy, dx
+                norm = np.sqrt(n_x**2 + n_y**2)
                 if norm > 0:
-                    nx /= norm
-                    ny /= norm
+                    n_x /= norm
+                    n_y /= norm
                 else:
                     # Should not happen with spline, but safety check
                     current_dist += step_size
@@ -274,7 +274,7 @@ def generate_rungs(skeleton, distance_map, spacing_px, transform, binary_img, pa
                                           int(np.clip(cur_x, 0, binary_img.shape[1]-1))]
                 max_search = max(est_radius * 4.0, 20.0)
                 
-                boundaries = find_shape_boundaries(binary_img, cur_x, cur_y, nx, ny, max_search)
+                boundaries = find_shape_boundaries(binary_img, cur_x, cur_y, n_x, n_y, max_search)
                 
                 if boundaries is None:
                     current_dist += step_size
@@ -299,31 +299,115 @@ def generate_rungs(skeleton, distance_map, spacing_px, transform, binary_img, pa
                 
                 new_rung = ((p1_x, p1_y), (p2_x, p2_y))
                 
-                # Check intersection with previous valid rung
+                # Check intersection with previous valid rungs (check last 5 to be safe in curves)
                 intersects = False
                 if path_generated_rungs:
-                    last_rung_data = path_generated_rungs[-1]
-                    lp1, lp2 = last_rung_data['rung']
-                    if segments_intersect(lp1, lp2, (p1_x, p1_y), (p2_x, p2_y)):
-                        intersects = True
+                    # Check against last few rungs to prevent crossing in tight curves
+                    check_count = min(len(path_generated_rungs), 5)
+                    for i in range(1, check_count + 1):
+                        last_rung_data = path_generated_rungs[-i]
+                        lp1, lp2 = last_rung_data['rung']
+                        if segments_intersect(lp1, lp2, (p1_x, p1_y), (p2_x, p2_y)):
+                            intersects = True
+                            break
                 
                 if intersects:
-                    # If intersects, we are too close (likely due to curvature).
-                    # Advance a small step and try again.
-                    # But don't advance if we are already past total_len
-                    current_dist += step_size
-                    continue
+                    # If intersects, we are too close or turning too fast.
+                    # Try to rotate the rung to "fan out" and avoid intersection.
+                    # This is crucial for tight curves where normals cross inside the shape.
+                    
+                    found_rotated = False
+                    best_rotated_rung = None
+                    
+                    # Try angles: +/- 5, 10, 15, 20, 25, 30 degrees
+                    angles = [5, -5, 10, -10, 15, -15, 20, -20, 25, -25, 30, -30]
+                    
+                    for angle_deg in angles:
+                        rad = np.radians(angle_deg)
+                        c, s = np.cos(rad), np.sin(rad)
+                        
+                        # Rotate normal vector
+                        rot_nx = n_x * c - n_y * s
+                        rot_ny = n_x * s + n_y * c
+                        
+                        # Ray cast with rotated normal
+                        rot_boundaries = find_shape_boundaries(binary_img, cur_x, cur_y, rot_nx, rot_ny, max_search)
+                        
+                        if rot_boundaries:
+                            (rp1_x, rp1_y), (rp2_x, rp2_y) = rot_boundaries
+                            
+                            # Apply extension
+                            rvx = rp1_x - rp2_x
+                            rvy = rp1_y - rp2_y
+                            rv_len = np.sqrt(rvx**2 + rvy**2)
+                            
+                            if rv_len > 2.0:
+                                rvx /= rv_len; rvy /= rv_len
+                                rp1_x += rvx * extension; rp1_y += rvy * extension
+                                rp2_x -= rvx * extension; rp2_y -= rvy * extension
+                                
+                                candidate_rung = ((rp1_x, rp1_y), (rp2_x, rp2_y))
+                                
+                                # Check intersection again
+                                rot_intersects = False
+                                for i in range(1, check_count + 1):
+                                    last_rung_data = path_generated_rungs[-i]
+                                    lp1, lp2 = last_rung_data['rung']
+                                    if segments_intersect(lp1, lp2, (rp1_x, rp1_y), (rp2_x, rp2_y)):
+                                        rot_intersects = True
+                                        break
+                                
+                                if not rot_intersects:
+                                    # Found a valid rotated rung!
+                                    new_rung = candidate_rung
+                                    rung_length = rv_len # Approximate
+                                    found_rotated = True
+                                    break
+                    
+                    if found_rotated:
+                        # Use the rotated rung
+                        pass
+                    else:
+                        # Still intersects even after rotation attempts.
+                        # Advance a small step and try again.
+                        current_dist += step_size
+                        continue
+                
+                # Valid rung (either original or rotated)
+                path_generated_rungs.append({
+                    'rung': new_rung,
+                    'center': (float(cur_x), float(cur_y)),
+                    'u': target_u,
+                    'length': rung_length,
+                    'dist': current_dist
+                })
+                
+                # Determine next spacing based on curvature
+                # High curvature -> smaller spacing to guide satin better
+                # Low curvature -> larger spacing to reduce density
+                # Curvature is roughly 1/radius.
+                local_k = np.interp(target_u, u_fine, curvature)
+                
+                # Base spacing
+                next_spacing = spacing_px
+                
+                if local_k > 0.05:
+                    # High curvature: reduce spacing (down to 50%)
+                    factor = max(0.5, 1.0 - (local_k * 5.0)) 
+                    next_spacing = spacing_px * factor
+                    next_spacing = max(next_spacing, spacing_px * 0.5)
+                elif local_k < 0.01:
+                    # Low curvature (straight lines): increase spacing (up to 200%)
+                    # This significantly reduces density in straight sections
+                    next_spacing = spacing_px * 2.0
                 else:
-                    # Valid rung!
-                    path_generated_rungs.append({
-                        'rung': new_rung,
-                        'center': (float(cur_x), float(cur_y)),
-                        'u': target_u,
-                        'length': rung_length,
-                        'dist': current_dist
-                    })
-                    # Advance by full spacing
-                    current_dist += spacing_px
+                    # Moderate curvature: linear interpolation
+                    # 0.01 -> 2.0x, 0.05 -> 1.0x
+                    t = (local_k - 0.01) / (0.04) # 0 to 1 range
+                    factor = 2.0 - t # 2.0 to 1.0
+                    next_spacing = spacing_px * factor
+                
+                current_dist += next_spacing
 
             # Add valid rungs to main list
             for item in path_generated_rungs:
@@ -387,8 +471,19 @@ def generate_rungs(skeleton, distance_map, spacing_px, transform, binary_img, pa
                         
                 if best_rung:
                     junction_rungs.append(best_rung)
-                
-            # Create bridges between these endpoints
+            
+            if len(junction_rungs) < 2:
+                continue
+
+            # Create bridges using Minimum Spanning Tree (MST) to avoid crossing bridges
+            # and ensure minimal connectivity (N rungs -> N-1 bridges)
+            
+            # Create a small graph for this junction
+            G_bridge = nx.Graph()
+            for i in range(len(junction_rungs)):
+                G_bridge.add_node(i)
+            
+            # Add edges between all pairs with weight = distance
             for i in range(len(junction_rungs)):
                 for k in range(i+1, len(junction_rungs)):
                     r1 = junction_rungs[i]
@@ -396,8 +491,19 @@ def generate_rungs(skeleton, distance_map, spacing_px, transform, binary_img, pa
                     
                     # Distance check (sanity)
                     d = np.linalg.norm(np.array(r1['center']) - np.array(r2['center']))
-                    if d < spacing_px * 10: # Allow larger gap for junctions
-                        bridges.append((r1['center'], r2['center']))
+                    
+                    # Only consider reasonable connections
+                    if d < spacing_px * 10: 
+                        G_bridge.add_edge(i, k, weight=d)
+            
+            # Compute MST
+            if G_bridge.number_of_edges() > 0:
+                mst = nx.minimum_spanning_tree(G_bridge)
+                
+                for u, v in mst.edges():
+                    r1 = junction_rungs[u]
+                    r2 = junction_rungs[v]
+                    bridges.append((r1['center'], r2['center']))
                         
     else:
         logger.info("No intersections. Skipping bridge generation.")
