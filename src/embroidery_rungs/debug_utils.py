@@ -3,7 +3,6 @@ import logging
 import numpy as np
 from PIL import Image
 from skimage.morphology import dilation, disk
-from skimage import measure
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,4 @@
 import os
-import sys
 import logging
 import subprocess
 from svgelements import SVG, Path, Shape, Point
@@ -9,9 +8,8 @@ logger = logging.getLogger(__name__)
 def load_svg_paths(svg_path):
     """Load paths from SVG file."""
     if not os.path.exists(svg_path):
-        logger.error(f"File not found: {svg_path}")
-        sys.exit(1)
-    
+        raise FileNotFoundError(f"SVG file not found: {svg_path}")
+
     svg = SVG.parse(svg_path)
     paths = []
     for element in svg.elements():
@@ -22,17 +20,6 @@ def load_svg_paths(svg_path):
             
     logger.info(f"Loaded {len(paths)} paths from {svg_path}")
     return svg, paths
-
-def extract_path_endpoints(paths):
-    """Extract start and end points of all paths."""
-    endpoints = []
-    for path in paths:
-        if len(path) > 0:
-            # Get the first and last points of the path
-            start_point = path.point(0)  # Start of path
-            end_point = path.point(path.length())  # End of path
-            endpoints.append((start_point, end_point))
-    return endpoints
 
 def save_rungs_svg(output_path, rungs, bridges, transform):
     """Save just the rungs to a new SVG file."""
@@ -47,7 +34,7 @@ def save_rungs_svg(output_path, rungs, bridges, transform):
         f.write('<svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" version="1.1">\n')
         
         # Normal Rungs (Red)
-        f.write(f'<g id="rungs" stroke="red" stroke-width="0.1">\n')
+        f.write('<g id="rungs" stroke="red" stroke-width="0.1">\n')
         for p1, p2 in rungs:
             pt1 = Point(p1[0], p1[1]) * inv_transform
             pt2 = Point(p2[0], p2[1]) * inv_transform
@@ -55,7 +42,7 @@ def save_rungs_svg(output_path, rungs, bridges, transform):
         f.write('</g>\n')
         
         # Bridges (Blue)
-        f.write(f'<g id="bridges" stroke="blue" stroke-width="0.1">\n')
+        f.write('<g id="bridges" stroke="blue" stroke-width="0.1">\n')
         for p1, p2 in bridges:
             pt1 = Point(p1[0], p1[1]) * inv_transform
             pt2 = Point(p2[0], p2[1]) * inv_transform
@@ -74,16 +61,16 @@ def save_combined_svg(original_path, output_path, rungs, bridges, transform):
     inv_transform = ~transform
     
     rungs_svg = []
-    rungs_svg.append(f'<g id="generated_rungs" inkscape:label="Rungs">')
-    
-    rungs_svg.append(f'  <g id="rungs_normal" stroke="red" stroke-width="0.1">')
+    rungs_svg.append('<g id="generated_rungs" inkscape:label="Rungs">')
+
+    rungs_svg.append('  <g id="rungs_normal" stroke="red" stroke-width="0.1">')
     for p1, p2 in rungs:
         pt1 = Point(p1[0], p1[1]) * inv_transform
         pt2 = Point(p2[0], p2[1]) * inv_transform
         rungs_svg.append(f'    <line x1="{pt1.x:.2f}" y1="{pt1.y:.2f}" x2="{pt2.x:.2f}" y2="{pt2.y:.2f}" />')
     rungs_svg.append('  </g>')
     
-    rungs_svg.append(f'  <g id="rungs_bridges" stroke="blue" stroke-width="0.1">')
+    rungs_svg.append('  <g id="rungs_bridges" stroke="blue" stroke-width="0.1">')
     for p1, p2 in bridges:
         pt1 = Point(p1[0], p1[1]) * inv_transform
         pt2 = Point(p2[0], p2[1]) * inv_transform

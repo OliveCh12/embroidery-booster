@@ -1,108 +1,120 @@
 # Embroidery Auto Rung Generator
 
-An automatic embroidery rung placement system that uses Medial Axis Transform (MAT) to generate optimal rung patterns for embroidery satins.
+Automatic rung placement for embroidery satins. It uses the **Medial Axis
+Transform (MAT)** to generate optimal rung patterns from an SVG shape, ready to
+finish in Inkscape / Ink-Stitch.
 
 ## Features
 
-- **Automatic Parameter Optimization**: Finds optimal spacing and density for any SVG file to achieve ≤25 rungs without intersections
-- **Web Interface**: Modern drag-and-drop interface for interactive parameter testing with real-time preview
-- **Command Line Interface**: Full CLI support with manual parameter control
-- **Debug Visualization**: Generates debug images showing skeleton, distance maps, and rung placement
+- **Library-first**: a single `generate()` entry point; the CLI and web UI are thin clients.
+- **Automatic optimization**: searches spacing/density for a clean result (≤25 rungs, no intersections).
+- **Web interface**: drag-and-drop SVG upload with live preview and debug images.
+- **Command line**: full manual control over spacing, density, and DPI.
+- **Debug visualization**: skeleton, distance map, graph, and coverage overlays.
 
-## Project Structure
+## Project structure
 
 ```
 stich/
-├── src/                    # Core Python modules
-│   ├── __init__.py
-│   ├── main.py            # CLI entry point
-│   ├── svg_manager.py     # SVG loading and saving
-│   ├── image_processor.py # Rasterization and skeletonization
-│   ├── rung_generator.py  # Rung placement algorithm
-│   ├── debug_utils.py     # Debug image generation
-│   ├── geometry_utils.py  # Geometric utilities
-│   ├── inputs/            # Sample SVG files
-│   │   ├── svg/          # SVG test files
-│   │   └── png/          # PNG test files
-│   └── output/           # Generated files
-│       ├── debug/        # Debug images
-│       └── render/       # Rendered outputs
-├── web/                   # Web interface
-│   ├── app.py            # Flask API server
-│   └── index.html        # Frontend interface
-├── requirements.txt       # Python dependencies
-└── README.md             # This file
+├── pyproject.toml              # packaging, dependencies, CLI entry point
+├── src/
+│   └── embroidery_rungs/       # the package
+│       ├── __init__.py         # public API: generate(), GenerationParams, GenerationResult
+│       ├── pipeline.py         # core orchestration (the one entry point)
+│       ├── optimizer.py        # automatic parameter search
+│       ├── cli.py              # command-line wrapper
+│       ├── svg_manager.py      # SVG load / save / open
+│       ├── image_processor.py  # rasterization + medial axis
+│       ├── rung_generator.py   # rung placement algorithm
+│       ├── geometry_utils.py   # skeleton graph + geometry helpers
+│       └── debug_utils.py      # debug image generation
+├── web/                        # Flask web interface (thin client of the package)
+│   ├── app.py
+│   └── index.html
+├── examples/                   # sample SVG inputs
+├── notebooks/                  # exploration notebooks
+└── scripts/                    # helper scripts (e.g. Ink/Stitch export)
 ```
+
+Generated files go to `output/` (git-ignored), never into the source tree.
 
 ## Installation
 
-1. Install Python dependencies:
-```bash
-pip install -r requirements.txt
-```
+Requires Python ≥ 3.9 and [Inkscape](https://inkscape.org/) (for high-precision
+rasterization; a pure-PIL fallback is used if Inkscape is absent).
 
-2. Ensure Inkscape is installed (required for SVG rasterization)
+```bash
+python -m venv venv && source venv/bin/activate
+pip install -e .          # core (CLI + library)
+pip install -e ".[web]"   # also install the web server
+```
 
 ## Usage
 
-### Command Line
+### Library
 
-Run the generator on an SVG file:
+```python
+from embroidery_rungs import generate, GenerationParams
 
-```bash
-# From project root
-python -m src.main src/inputs/svg/nike.svg --auto-optimize --debug
-
-# Manual parameters
-python -m src.main src/inputs/svg/nike.svg --spacing 3.0 --density 1.0 --debug
+result = generate("examples/nike.svg",
+                  params=GenerationParams(auto_optimize=True, debug=True))
+print(result.rungs_count, result.bridges_count, result.coverage)
 ```
 
-### Web Interface
+### Command line
 
-Start the web server:
+```bash
+# Auto-optimized
+embroidery-rungs examples/nike.svg --auto-optimize --debug
+
+# Manual parameters
+embroidery-rungs examples/nike.svg --spacing 3.0 --density 1.0 --debug
+
+# (equivalent module form)
+python -m embroidery_rungs.cli examples/nike.svg --auto-optimize
+```
+
+### Web interface
 
 ```bash
 cd web
 python app.py
 ```
 
-Then open http://localhost:8000 in your browser.
+Then open <http://localhost:8000>.
 
 ## Parameters
 
-- `spacing`: Rung spacing in mm (default: 3.0)
-- `density`: Density multiplier (default: 1.0, higher = more rungs)
-- `dpi`: Processing DPI (default: 150, higher = better quality)
-- `--auto-optimize`: Automatically find optimal parameters
-- `--debug`: Save debug images
-- `--verbose`: Verbose output
+| Parameter         | Default | Description                                  |
+|-------------------|---------|----------------------------------------------|
+| `--spacing`       | `3.0`   | Rung spacing in mm                           |
+| `--density`       | `1.0`   | Density multiplier (higher = more rungs)     |
+| `--dpi`           | `150`   | Processing DPI (higher = better quality)     |
+| `--output-dir`    | `output`| Where generated files are written            |
+| `--auto-optimize` | off     | Search for optimal spacing/density           |
+| `--debug`         | off     | Save debug images                            |
+| `--no-preview`    | off     | Don't open Inkscape automatically            |
+| `--verbose`       | off     | Verbose logging                              |
 
-## Output Files
+## Output files
 
-For input file `example.svg`, the following are generated in `src/output/`:
+For input `example.svg`, the following appear in the output directory:
 
-- `example.svg`: Original file copy
-- `example_rungs.svg`: Rungs only
-- `example_ready.svg`: Combined file ready for editing
+- `example.svg` — copy of the original
+- `example_rungs.svg` — rungs only
+- `example_ready.svg` — original + rungs, ready to edit
 
-Debug images are saved in `src/output/debug/` when `--debug` is used.
+Debug images are written to `output/debug/` when `--debug` is set.
 
 ## Algorithm
 
-1. **SVG Loading**: Parse SVG paths and extract endpoints
-2. **Rasterization**: Convert to high-resolution binary image using Inkscape
-3. **Skeletonization**: Compute medial axis transform using scikit-image
-4. **Rung Generation**: Place rungs along skeleton with adaptive spacing
-5. **Optimization**: Test configurations to minimize intersections while maximizing coverage
+1. **Load** — parse SVG paths and extract endpoints.
+2. **Rasterize** — render to a high-resolution binary mask (Inkscape, PIL fallback).
+3. **Skeletonize** — compute the medial axis with scikit-image.
+4. **Generate rungs** — place rungs along the skeleton with curvature-adaptive spacing.
+5. **Optimize** (optional) — try candidate configs to minimize intersections and maximize coverage.
 
 ## Dependencies
 
-- numpy: Numerical computations
-- scipy: Scientific computing
-- scikit-image: Image processing and skeletonization
-- svgelements: SVG parsing
-- networkx: Graph operations
-- flask: Web framework
-- flask-cors: CORS support
-- Inkscape: SVG rasterization</content>
-<parameter name="filePath">/Users/olivierchemla/Dev/perso/stich/README.md
+`numpy`, `scipy`, `scikit-image`, `pillow`, `svgelements`, `networkx`; plus
+`flask` for the web UI, and Inkscape for rasterization.

@@ -1,12 +1,9 @@
 import os
-import sys
 import logging
 import subprocess
 import numpy as np
 from PIL import Image, ImageDraw
 from skimage.morphology import skeletonize, remove_small_holes, closing, disk
-from skimage.transform import hough_line, hough_line_peaks, hough_circle, hough_circle_peaks
-from skimage.feature import canny
 from skimage.draw import line
 from scipy.ndimage import distance_transform_edt, convolve
 from svgelements import Matrix, Move, Line, Close
@@ -27,24 +24,25 @@ def rasterize_paths(svg, paths, dpi, svg_filename=None):
                         max(bbox[2], b[2]), max(bbox[3], b[3]))
     
     if not bbox:
-        logger.error("No content found in SVG")
-        sys.exit(1)
+        raise ValueError("No content found in SVG")
 
     # Add some padding
     padding = 20
     width = int(bbox[2] - bbox[0] + 2 * padding)
     height = int(bbox[3] - bbox[1] + 2 * padding)
     
-    # Determine scale to ensure high resolution (min dimension 3000px)
-    min_dim_px = 3000
-    current_min_dim = min(width, height)
-    if current_min_dim < 1: current_min_dim = 1
-    
-    scale_factor = min_dim_px / current_min_dim
-    # Also respect DPI if it results in higher res, but usually 2000px is plenty
-    dpi_scale = dpi / 96.0
-    scale = max(scale_factor, dpi_scale)
-    
+    # Resolution: enough detail for a clean skeleton, but capped so wide/long
+    # shapes don't blow up to tens of megapixels (skeletonization is the
+    # bottleneck). Rung spacing is derived from the transform, so lowering this
+    # does NOT change the millimetre spacing of the rungs.
+    min_dim_px = 1500   # minimum across the short side
+    max_dim_px = 4000   # hard cap on the long side
+    current_min_dim = max(1, min(width, height))
+    current_max_dim = max(1, max(width, height))
+
+    scale = max(min_dim_px / current_min_dim, dpi / 96.0)
+    scale = min(scale, max_dim_px / current_max_dim)
+
     # Calculate target DPI for Inkscape
     # Inkscape base DPI is 96. So target_dpi = 96 * scale
     target_dpi = 96.0 * scale

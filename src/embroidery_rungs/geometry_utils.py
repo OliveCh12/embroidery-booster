@@ -1,7 +1,6 @@
 import logging
 import numpy as np
 import networkx as nx
-from scipy.spatial import cKDTree
 
 logger = logging.getLogger(__name__)
 
@@ -338,50 +337,8 @@ def get_skeleton_paths(skeleton, binary_img=None, min_len_px=15):
     G = connect_close_endpoints(G, max_connect_dist_px=100)
     
     paths, G = get_skeleton_paths_from_graph(G)
-    
+
     return paths, G
-    """Cast a ray and find where it hits the background (0)."""
-    h, w = binary_img.shape
-
-    # Walk along the ray
-    steps = int(max_dist)
-    if steps <= 0:
-        return start_x, start_y
-
-    for i in range(1, steps + 1):
-        cx = int(start_x + dx * i)
-        cy = int(start_y + dy * i)
-
-        if cx < 0 or cx >= w or cy < 0 or cy >= h:
-            return cx - dx, cy - dy # Return last valid
-
-        if binary_img[cy, cx] == 0:
-            # Found edge
-            return cx, cy
-
-    return start_x + dx * max_dist, start_y + dy * max_dist
-
-def find_shape_boundaries(binary_img, center_x, center_y, normal_x, normal_y, max_search_dist):
-    """
-    Find the boundaries of the shape by casting rays in both directions from center.
-    Returns the two boundary points that define the rung width.
-    """
-    # Cast ray in positive normal direction
-    p1_x, p1_y = get_ray_intersection(binary_img, center_x, center_y, normal_x, normal_y, max_search_dist)
-
-    # Cast ray in negative normal direction
-    p2_x, p2_y = get_ray_intersection(binary_img, center_x, center_y, -normal_x, -normal_y, max_search_dist)
-
-    # Check if we actually found boundaries (not just max distance)
-    dist1 = np.sqrt((p1_x - center_x)**2 + (p1_y - center_y)**2)
-    dist2 = np.sqrt((p2_x - center_x)**2 + (p2_y - center_y)**2)
-
-    # If both rays hit max distance, something is wrong
-    if dist1 >= max_search_dist * 0.9 and dist2 >= max_search_dist * 0.9:
-        logger.warning(f"Ray casting failed to find boundaries at ({center_x:.1f}, {center_y:.1f})")
-        return None
-
-    return (p1_x, p1_y), (p2_x, p2_y)
 
 def merge_aligned_paths(paths, G, spacing_px):
     """Merge paths that are aligned at junctions to form continuous flows."""
@@ -532,9 +489,7 @@ def merge_aligned_paths(paths, G, spacing_px):
             pts = curr_path['points']
             
         merged_points.append(pts)
-        
-        last_junction = None
-        
+
         for k in range(1, len(ordered_indices)):
             prev_idx = ordered_indices[k-1]
             curr_idx = ordered_indices[k]

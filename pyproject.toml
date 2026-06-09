@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "embroidery-rungs"
+version = "0.1.0"
+description = "Automatic rung placement for embroidery satins using the Medial Axis Transform"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "scipy",
+    "scikit-image",
+    "pillow",
+    "svgelements",
+    "networkx",
+]
+
+[project.optional-dependencies]
+web = [
+    "flask>=2.3",
+]
+dev = [
+    "pytest>=7",
+]
+
+[project.scripts]
+embroidery-rungs = "embroidery_rungs.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
