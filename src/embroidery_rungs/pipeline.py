@@ -22,6 +22,7 @@ from .image_processor import rasterize_paths, compute_medial_axis
 from .rung_generator import generate_rungs
 from .debug_utils import save_debug_images
 from .optimizer import optimize_rung_parameters
+from .routing import route_columns
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +159,7 @@ def generate(input_path: str, output_dir: str = "output",
         debug_dir=debug_dir if params.debug else None)
 
     coverage = compute_coverage(binary_img, rungs)
+    columns = route_columns(columns)
 
     save_rungs_svg(path_rungs, rungs, bridges, transform)
     save_combined_svg(input_path, path_ready, rungs, bridges, transform)

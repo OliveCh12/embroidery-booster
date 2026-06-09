@@ -125,8 +125,9 @@ ZIP=1 scripts/inkstitch_preview.sh output/example_satin.svg
 
 The script drives Ink/Stitch's bundled binary (`--extension=stitch_plan_preview`
 / `--extension=zip`) and Inkscape's CLI — there is no REST API, but both run
-headless. Note: each shape becomes one or more independent satin columns; use
-Ink/Stitch's *Auto-Route Satin* to optimize travel/jump stitches between them.
+headless. The satin columns are automatically ordered (nearest-neighbour + 2-opt)
+to minimize travel/jump stitches between them, so the design stitches in an
+efficient sequence out of the box.
 
 ## Algorithm
 
