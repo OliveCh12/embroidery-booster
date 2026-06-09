@@ -27,6 +27,46 @@ logger = logging.getLogger(__name__)
 _MIN_RUNG_LEN = 2.0      # px; ignore degenerate rungs
 _MIN_PATH_LEN = 6.0      # px; ignore noise paths
 
+# Rung checkpoints are geometry-driven (Ink/Stitch guidance: dense in curves,
+# sparse in straights, a rung at each width change). The rails themselves keep
+# all their sampled nodes so curves stay smooth.
+_CHECKPOINT_ANGLE = np.radians(30.0)  # a checkpoint about every 30 deg of turn
+_WIDTH_CHANGE = 0.30                   # ... or when the half-width changes 30%
+
+
+def _angle_diff(a, b):
+    """Signed smallest difference between two angles (radians)."""
+    d = a - b
+    return np.arctan2(np.sin(d), np.cos(d))
+
+
+def _checkpoint_indices(centers, widths, max_gap):
+    """Pick a sparse set of rung-checkpoint indices along a column.
+
+    Always the two ends, plus a checkpoint whenever the centerline has turned by
+    _CHECKPOINT_ANGLE, the width has changed by _WIDTH_CHANGE, or the arc gap
+    reaches ``max_gap``. Dense in curves, sparse in straights.
+    """
+    n = len(centers)
+    if n <= 3:
+        return list(range(n))
+    arc = np.concatenate([[0.0], np.cumsum(np.hypot(*np.diff(centers, axis=0).T))])
+    idx = [0]
+    accum = 0.0
+    for i in range(1, n - 1):
+        v1, v2 = centers[i] - centers[i - 1], centers[i + 1] - centers[i]
+        if np.hypot(*v1) > 1e-6 and np.hypot(*v2) > 1e-6:
+            accum += abs(_angle_diff(np.arctan2(v2[1], v2[0]),
+                                     np.arctan2(v1[1], v1[0])))
+        wref = max(float(widths[idx[-1]]), 1e-6)
+        dwidth = abs(float(widths[i]) - wref) / wref
+        gap = arc[i] - arc[idx[-1]]
+        if accum >= _CHECKPOINT_ANGLE or dwidth >= _WIDTH_CHANGE or gap >= max_gap:
+            idx.append(i)
+            accum = 0.0
+    idx.append(n - 1)
+    return idx
+
 
 def _resample(points, step):
     """Resample an (N, 2) polyline at a uniform arc-length ``step``.
@@ -209,41 +249,32 @@ def _rungs_for_path(points_rc, distance_map, binary_img, spacing_px):
     tang /= tn[:, None]
     normals = np.column_stack([-tang[:, 1], tang[:, 0]])
 
-    # Curvature magnitude (1 / turn radius), in 1/px.
-    dtang = np.gradient(tang, axis=0)
-    curv = np.hypot(dtang[:, 0], dtang[:, 1]) / step
-
     h, w = binary_img.shape
-    placed = []
-    recent = []
+    fx = np.clip(sm[:, 0].astype(int), 0, w - 1)
+    fy = np.clip(sm[:, 1].astype(int), 0, h - 1)
+    widths = distance_map[fy, fx]
+
+    # Sample the rails finely (a node every ~third of the spacing) so curves stay
+    # smooth; the actual rung checkpoints are chosen sparsely later. Never sample
+    # closer than the local width (that is what makes rungs cross / fan out).
+    sample_gap = max(spacing_px / 3.0, 3.0)
+    placed, recent = [], []
     s = 0.0
-    # Always include the two ends so the satin is capped.
     forced_end = False
     while True:
         i = min(int(np.searchsorted(arc, s)), len(sm) - 1)
-        cx, cy = sm[i]
-        iy = int(np.clip(cy, 0, h - 1))
-        ix = int(np.clip(cx, 0, w - 1))
-        local_w = float(distance_map[iy, ix])
-        max_search = max(local_w * 2.2, 12.0)
-
-        rung = _make_rung(binary_img, cx, cy, normals[i, 0], normals[i, 1], max_search)
+        local_w = float(widths[i])
+        rung = _make_rung(binary_img, sm[i, 0], sm[i, 1],
+                          normals[i, 0], normals[i, 1], max(local_w * 2.2, 12.0))
         if rung is not None and not _crosses_recent(rung, recent[-2:]):
-            placed.append({"rung": rung, "center": (float(cx), float(cy)),
+            placed.append({"rung": rung, "center": (float(sm[i, 0]), float(sm[i, 1])),
                            "half_width": local_w})
             recent.append(rung)
-
-        # Adaptive advance: denser in curves, but never closer than the local
-        # half-width (that is what makes perpendicular rungs cross / fan out).
-        radius = 1.0 / max(curv[i], 1e-6)
-        factor = float(np.clip(radius / (spacing_px * 2.0), 0.45, 1.5))
-        next_step = max(spacing_px * factor, local_w * 0.9, 3.0)
-        s += next_step
-
+        s += max(sample_gap, local_w * 0.9)
         if s >= total:
             if forced_end:
                 break
-            s = total          # place one final rung exactly at the end
+            s = total
             forced_end = True
 
     return placed
@@ -361,11 +392,16 @@ def generate_rungs(skeleton, distance_map, spacing_px, binary_img,
                 rail_b = _smooth_rail([it["rung"][1] for it in sub])
                 a = [(float(x), float(y)) for x, y in rail_a]
                 b = [(float(x), float(y)) for x, y in rail_b]
+                # Rails keep every node (smooth); rungs are a sparse, geometry-
+                # driven subset of checkpoints.
+                ck = _checkpoint_indices(centers,
+                                         [it["half_width"] for it in sub],
+                                         max_gap=spacing_px)
                 elements.append({
                     "type": "satin",
                     "rail_a": a,
                     "rail_b": b,
-                    "rungs": [(a[i], b[i]) for i in range(len(a))],
+                    "rungs": [(a[k], b[k]) for k in ck],
                 })
 
     bridges = _build_bridges(merged_paths, skeleton_paths, path_rungs_map, G, spacing_px)
