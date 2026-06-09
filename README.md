@@ -77,11 +77,23 @@ python -m embroidery_rungs.cli examples/nike.svg --auto-optimize
 ### Web interface
 
 ```bash
+pip install -e ".[web]"
 cd web
 python app.py
 ```
 
-Then open <http://localhost:8000>.
+Then open <http://localhost:8000>. The web app accepts **any file** — SVG, raster
+images (PNG/JPG, auto-vectorized), and vector formats (PDF/EPS/AI, via Inkscape) —
+and for each upload produces:
+
+- the **realistic satin preview** (Ink/Stitch stitch plan),
+- downloads: satin SVG, combined SVG, rungs SVG, and **embroidery files**
+  (`.dst`/`.pes`/threadlist as a `.zip`),
+- the live stats (rungs, satin columns, coverage, travel saved) and debug images.
+
+Raster vectorization is built in (scikit-image); PDF/EPS/AI conversion and the
+embroidery export/preview require Inkscape + Ink/Stitch (paths overridable via
+`INKSCAPE_BIN` / `INKSTITCH_BIN`).
 
 ## Parameters
 

@@ -3,417 +3,283 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Embroidery Rung Optimizer</title>
-    
+    <title>Embroidery Booster — SVG/Image → Satin</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <script>
         tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        dark: {
-                            900: '#212121', // Main Background
-                            800: '#2d2d2d', // Surface Cards
-                            700: '#3d3d3d', // Inputs/Borders
-                        },
-                        accent: {
-                            DEFAULT: '#2cf2ba', // Mint Green
-                            hover: '#26dba6',
-                            dim: 'rgba(44, 242, 186, 0.1)'
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['Roboto', 'sans-serif'],
-                    }
-                }
-            }
+            theme: { extend: {
+                colors: {
+                    dark: { 900: '#212121', 800: '#2d2d2d', 700: '#3d3d3d' },
+                    accent: { DEFAULT: '#2cf2ba', hover: '#26dba6', dim: 'rgba(44, 242, 186, 0.1)' }
+                },
+                fontFamily: { sans: ['Roboto', 'sans-serif'] }
+            } }
         }
     </script>
-
     <style>
         body { font-family: 'Roboto', sans-serif; }
-        
-        /* Custom Range Slider Styling to match Accent Color */
-        input[type=range] {
-            -webkit-appearance: none; 
-            background: transparent; 
-        }
-        
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 20px;
-            width: 20px;
-            border-radius: 50%;
-            background: #2cf2ba;
-            cursor: pointer;
-            margin-top: -8px; 
-            box-shadow: 0 0 10px rgba(44, 242, 186, 0.4);
-            transition: transform 0.1s;
-        }
-
-        input[type=range]::-webkit-slider-thumb:hover {
-            transform: scale(1.1);
-        }
-
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: #4b5563;
-            border-radius: 2px;
-        }
-
-        /* Custom Scrollbar */
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #2cf2ba; cursor: pointer; margin-top: -8px; box-shadow: 0 0 10px rgba(44,242,186,.4); }
+        input[type=range]:disabled::-webkit-slider-thumb { background: #6b7280; box-shadow: none; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #4b5563; border-radius: 2px; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #212121; }
         ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #2cf2ba; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        .animate-fadeIn { animation: fadeIn .4s ease; }
+        .checkerboard { background-image: linear-gradient(45deg,#333 25%,transparent 25%),linear-gradient(-45deg,#333 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#333 75%),linear-gradient(-45deg,transparent 75%,#333 75%); background-size: 20px 20px; background-position: 0 0,0 10px,10px -10px,-10px 0; }
     </style>
 </head>
 <body class="bg-dark-900 text-gray-200 min-h-screen">
-    
     <div id="root" class="w-full"></div>
 
     <script type="text/babel">
         const { useState, useRef, useEffect } = React;
+        const ACCEPT = ".svg,.png,.jpg,.jpeg,.bmp,.gif,.tiff,.webp,.pdf,.eps,.ps,.ai";
 
-        // SVG Icons
-        const UploadIcon = () => (
-            <svg className="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+        const Icon = ({ d, cls = "w-5 h-5" }) => (
+            <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={d} />
+            </svg>
         );
-        
-        const FileIcon = () => (
-            <svg className="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-        );
+        const DL = "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4";
+        const UP = "M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12";
 
         const Header = () => (
-            <div className="text-center mb-10">
+            <div className="text-center mb-8">
                 <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
-                    Embroidery <span className="text-accent">Rung Optimizer</span>
+                    Embroidery <span className="text-accent">Booster</span>
                 </h1>
-                <p className="text-gray-400 text-lg">Optimisation intelligente de motifs pour machines à broder</p>
+                <p className="text-gray-400 text-lg">Convertissez n'importe quel fichier en satin prêt à broder</p>
             </div>
         );
 
-        const UploadCard = ({ file, isDragging, fileInputRef, handleFileSelect, onDragOver, onDragLeave, onDrop }) => (
+        const UploadCard = ({ file, isDragging, fileInputRef, onPick, onDragOver, onDragLeave, onDrop }) => (
             <div className="bg-dark-800 p-6 rounded-2xl shadow-xl border border-white/5">
-                <h3 className="text-xl font-medium text-white mb-4">1. Fichier Source</h3>
-                
-                <div 
-                    onClick={() => fileInputRef.current.click()}
-                    onDragOver={onDragOver}
-                    onDragLeave={onDragLeave}
-                    onDrop={onDrop}
-                    className={`
-                        border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300
+                <h3 className="text-xl font-medium text-white mb-4">1. Fichier source</h3>
+                <div onClick={() => fileInputRef.current.click()}
+                    onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
+                    className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300
                         ${isDragging ? 'border-accent bg-accent-dim' : 'border-gray-600 hover:border-accent hover:bg-dark-700'}
-                        ${file ? 'border-accent bg-dark-700' : ''}
-                    `}
-                >
-                    <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        onChange={(e) => handleFileSelect(e.target.files[0])} 
-                        accept=".svg" 
-                        className="hidden" 
-                    />
-                    
+                        ${file ? 'border-accent bg-dark-700' : ''}`}>
+                    <input type="file" ref={fileInputRef} onChange={(e) => onPick(e.target.files[0])} accept={ACCEPT} className="hidden" />
                     {file ? (
                         <div className="flex flex-col items-center animate-fadeIn">
-                            <FileIcon />
-                            <span className="mt-2 font-medium text-white truncate max-w-[200px]">{file.name}</span>
+                            <Icon d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" cls="w-6 h-6 text-accent" />
+                            <span className="mt-2 font-medium text-white truncate max-w-[220px]">{file.name}</span>
                             <span className="text-xs text-accent mt-1">Cliquez pour changer</span>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center">
-                            <UploadIcon />
-                            <p className="text-gray-300 font-medium">Glissez un SVG ici</p>
-                            <p className="text-gray-500 text-sm mt-1">ou cliquez pour parcourir</p>
+                            <Icon d={UP} cls="w-12 h-12 text-gray-400 mb-3" />
+                            <p className="text-gray-300 font-medium">Glissez un fichier ici</p>
+                            <p className="text-gray-500 text-sm mt-1">SVG, PNG, JPG, PDF, EPS, AI…</p>
                         </div>
                     )}
                 </div>
             </div>
         );
 
-        const PreviewCard = ({ svgPreview }) => (
-            svgPreview && (
-                <div className="bg-dark-800 p-6 rounded-2xl shadow-xl border border-white/5">
-                    <h3 className="text-xl font-medium text-white mb-4">Aperçu du SVG</h3>
-                    <div className="bg-black/20 rounded-xl p-4 border border-gray-700">
-                        <img 
-                            src={svgPreview} 
-                            alt="SVG Preview" 
-                            className="w-full h-64 object-contain rounded-lg" 
-                        />
-                    </div>
-                </div>
-            )
-        );
-
-        const SettingsCard = ({ spacing, setSpacing, density, setDensity, loading, file, handleSubmit, error }) => (
+        const PreviewCard = ({ url }) => url && (
             <div className="bg-dark-800 p-6 rounded-2xl shadow-xl border border-white/5">
-                <h3 className="text-xl font-medium text-white mb-6">2. Paramètres</h3>
-                
-                {/* Spacing Slider */}
-                <div className="mb-8">
-                    <div className="flex justify-between mb-2">
-                        <label className="text-gray-300 text-sm uppercase tracking-wide font-semibold">Espacement (mm)</label>
-                        <span className="text-accent font-bold bg-accent-dim px-2 py-0.5 rounded text-sm">{spacing}</span>
-                    </div>
-                    <input 
-                        type="range" 
-                        min="1.0" max="10.0" step="0.5" 
-                        value={spacing}
-                        onChange={(e) => setSpacing(e.target.value)}
-                        className="w-full"
-                    />
+                <h3 className="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wide">Aperçu de l'entrée</h3>
+                <div className="checkerboard rounded-xl p-2 border border-gray-700">
+                    <img src={url} alt="preview" className="w-full h-56 object-contain rounded-lg" />
                 </div>
-
-                {/* Density Slider */}
-                <div className="mb-8">
-                    <div className="flex justify-between mb-2">
-                        <label className="text-gray-300 text-sm uppercase tracking-wide font-semibold">Densité</label>
-                        <span className="text-accent font-bold bg-accent-dim px-2 py-0.5 rounded text-sm">{density}</span>
-                    </div>
-                    <input 
-                        type="range" 
-                        min="0.1" max="2.0" step="0.1" 
-                        value={density}
-                        onChange={(e) => setDensity(e.target.value)}
-                        className="w-full"
-                    />
-                </div>
-
-                <button 
-                    onClick={handleSubmit}
-                    disabled={!file || loading}
-                    className={`
-                        w-full py-4 rounded-xl font-bold text-dark-900 text-lg shadow-lg transition-all transform
-                        ${!file || loading 
-                            ? 'bg-gray-600 cursor-not-allowed opacity-50' 
-                            : 'bg-accent hover:bg-accent-hover hover:scale-[1.02] active:scale-[0.98]'}
-                    `}
-                >
-                    {loading ? (
-                        <span className="flex items-center justify-center gap-2">
-                            <svg className="animate-spin h-5 w-5 text-dark-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            Traitement...
-                        </span>
-                    ) : "Lancer l'Optimisation"}
-                </button>
-                
-                {error && (
-                    <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm text-center">
-                        {error}
-                    </div>
-                )}
             </div>
         );
 
-        const ResultsSection = ({ results, loading }) => {
-            const [selectedFile, setSelectedFile] = useState('');
+        const Toggle = ({ on, set, label, hint }) => (
+            <div className="flex items-center justify-between">
+                <div>
+                    <div className="text-gray-200 text-sm font-semibold">{label}</div>
+                    {hint && <div className="text-gray-500 text-xs">{hint}</div>}
+                </div>
+                <button onClick={() => set(!on)}
+                    className={`relative w-12 h-6 rounded-full transition-colors ${on ? 'bg-accent' : 'bg-gray-600'}`}>
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${on ? 'translate-x-6' : ''}`}></span>
+                </button>
+            </div>
+        );
 
-            useEffect(() => {
-                if (results && results.output_files) {
-                    const keys = Object.keys(results.output_files);
-                    if (keys.length > 0) setSelectedFile(keys[0]);
-                }
-            }, [results]);
+        const Slider = ({ label, value, set, min, max, step, disabled }) => (
+            <div className={disabled ? 'opacity-40' : ''}>
+                <div className="flex justify-between mb-2">
+                    <label className="text-gray-300 text-sm uppercase tracking-wide font-semibold">{label}</label>
+                    <span className="text-accent font-bold bg-accent-dim px-2 py-0.5 rounded text-sm">{value}</span>
+                </div>
+                <input type="range" min={min} max={max} step={step} value={value} disabled={disabled}
+                    onChange={(e) => set(e.target.value)} className="w-full" />
+            </div>
+        );
 
-            if (!results && !loading) {
-                return (
-                    <div className="h-full flex flex-col items-center justify-center text-gray-600 border-2 border-dashed border-gray-700 rounded-2xl p-10 min-h-[400px]">
-                        <svg className="w-16 h-16 mb-4 opacity-20" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 00-1-1H3zm11 4a1 1 0 10-2 0v4a1 1 0 102 0V7zm-3 1a1 1 0 10-2 0v3a1 1 0 102 0V8zM8 9a1 1 0 10-2 0v2a1 1 0 102 0V9z" clipRule="evenodd"></path></svg>
-                        <p>Les résultats apparaîtront ici après l'optimisation</p>
-                    </div>
-                );
-            }
+        const SettingsCard = ({ s, setS, d, setD, auto, setAuto, loading, file, onSubmit }) => (
+            <div className="bg-dark-800 p-6 rounded-2xl shadow-xl border border-white/5 space-y-6">
+                <h3 className="text-xl font-medium text-white">2. Paramètres</h3>
+                <Toggle on={auto} set={setAuto} label="Optimisation automatique"
+                    hint="Cherche l'espacement/densité optimal" />
+                <Slider label="Espacement (mm)" value={s} set={setS} min="1.0" max="10.0" step="0.5" disabled={auto} />
+                <Slider label="Densité" value={d} set={setD} min="0.1" max="2.0" step="0.1" disabled={auto} />
+                <button onClick={onSubmit} disabled={!file || loading}
+                    className={`w-full py-4 rounded-xl font-bold text-dark-900 text-lg shadow-lg transition-all transform
+                        ${!file || loading ? 'bg-gray-600 cursor-not-allowed opacity-50' : 'bg-accent hover:bg-accent-hover hover:scale-[1.02] active:scale-[0.98]'}`}>
+                    {loading ? (
+                        <span className="flex items-center justify-center gap-2">
+                            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                            Traitement…
+                        </span>
+                    ) : "Convertir en satin"}
+                </button>
+            </div>
+        );
 
-            if (loading) {
-                return (
-                    <div className="h-full flex flex-col items-center justify-center min-h-[400px]">
-                        <div className="w-16 h-16 border-4 border-dark-700 border-t-accent rounded-full animate-spin"></div>
-                        <p className="mt-6 text-accent animate-pulse font-medium">Analyse du motif en cours...</p>
-                    </div>
-                );
-            }
+        const Stat = ({ label, value }) => (
+            <div className="bg-dark-800 p-4 rounded-xl border-l-4 border-accent shadow-lg">
+                <div className="text-2xl font-bold text-white">{value}</div>
+                <div className="text-xs text-gray-400 uppercase tracking-wider mt-1">{label}</div>
+            </div>
+        );
 
+        const Collapsible = ({ title, children, defaultOpen = false }) => {
+            const [open, setOpen] = useState(defaultOpen);
+            return (
+                <div className="bg-dark-800 rounded-2xl border border-white/5 overflow-hidden">
+                    <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-6 py-4 text-left">
+                        <span className="text-lg font-medium text-white">{title}</span>
+                        <Icon d={open ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} cls="w-5 h-5 text-gray-400" />
+                    </button>
+                    {open && <div className="px-6 pb-6">{children}</div>}
+                </div>
+            );
+        };
+
+        const Empty = () => (
+            <div className="h-full flex flex-col items-center justify-center text-gray-600 border-2 border-dashed border-gray-700 rounded-2xl p-10 min-h-[400px]">
+                <Icon d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z M4 15l4-4 3 3 5-5 4 4" cls="w-16 h-16 mb-4 opacity-20" />
+                <p>Le résultat apparaîtra ici après la conversion</p>
+            </div>
+        );
+
+        const Loading = () => (
+            <div className="h-full flex flex-col items-center justify-center min-h-[400px]">
+                <div className="w-16 h-16 border-4 border-dark-700 border-t-accent rounded-full animate-spin"></div>
+                <p className="mt-6 text-accent animate-pulse font-medium">Conversion, génération du satin et rendu…</p>
+            </div>
+        );
+
+        const Results = ({ r }) => {
+            const st = r.stats;
+            const primary = ["Satin (Ink/Stitch)", "Broderie (.dst/.pes)"];
             return (
                 <div className="space-y-6 animate-fadeIn">
-                    
-                    {/* Stats Grid */}
+                    {r.converted_from && (
+                        <div className="inline-flex items-center gap-2 text-xs bg-accent-dim text-accent px-3 py-1 rounded-full">
+                            <Icon d="M5 13l4 4L19 7" cls="w-4 h-4" /> Vectorisé depuis .{r.converted_from}
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {[
-                            { label: 'Rungs', value: results.rungs_count },
-                            { label: 'Intersections', value: results.intersections },
-                            { label: 'Bridges', value: results.bridges },
-                            { label: 'Couverture', value: results.coverage + '%' }
-                        ].map((stat, i) => (
-                            <div key={i} className="bg-dark-800 p-4 rounded-xl border-l-4 border-accent shadow-lg">
-                                <div className="text-2xl font-bold text-white">{stat.value}</div>
-                                <div className="text-xs text-gray-400 uppercase tracking-wider mt-1">{stat.label}</div>
+                        <Stat label="Rungs" value={st.rungs} />
+                        <Stat label="Colonnes satin" value={st.columns} />
+                        <Stat label="Couverture" value={st.coverage + '%'} />
+                        <Stat label="Trajet économisé" value={st.travel_saved != null ? '-' + st.travel_saved + '%' : '—'} />
+                    </div>
+
+                    {r.satin_preview && (
+                        <div className="bg-dark-800 p-6 rounded-2xl shadow-xl border border-white/5">
+                            <h4 className="text-lg font-medium text-white mb-4">Aperçu du satin brodé</h4>
+                            <div className="bg-white rounded-xl p-2 border border-gray-700">
+                                <img src={r.satin_preview} alt="satin" className="w-full max-h-[420px] object-contain rounded-lg" />
                             </div>
-                        ))}
-                    </div>
-
-                    {/* Download Section */}
-                    <div className="bg-accent/10 border border-accent/20 p-5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                        <div>
-                            <h4 className="font-bold text-white">Fichiers générés</h4>
-                            <p className="text-sm text-gray-400">Téléchargez vos fichiers optimisés</p>
                         </div>
-                        <div className="flex gap-3 w-full sm:w-auto">
-                            {results.output_files && (
-                                <>
-                                    <select 
-                                        className="bg-dark-900 text-white border border-gray-600 rounded-lg px-3 py-2 outline-none focus:border-accent flex-grow sm:flex-grow-0"
-                                        value={selectedFile}
-                                        onChange={(e) => setSelectedFile(e.target.value)}
-                                    >
-                                        {Object.keys(results.output_files).map(name => (
-                                            <option key={name} value={name}>{name}</option>
-                                        ))}
-                                    </select>
-                                    <a 
-                                        href={selectedFile ? `/api/download/${results.output_files[selectedFile]}` : '#'}
-                                        className={`bg-accent hover:bg-accent-hover text-dark-900 px-4 py-2 rounded-lg text-sm font-bold transition-colors inline-flex items-center gap-2 ${!selectedFile ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        onClick={(e) => !selectedFile && e.preventDefault()}
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                        Télécharger
-                                    </a>
-                                </>
-                            )}
-                        </div>
-                    </div>
+                    )}
 
-                    {/* Preview Images */}
-                    <div className="bg-dark-800 p-6 rounded-2xl shadow-xl border border-white/5">
-                        <h4 className="text-lg font-medium text-white mb-4">Prévisualisation</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {results.debug_images && [
-                                { k: 'debug_07_coverage.png', t: 'Couverture' },
-                                { k: 'debug_05_overlay.png', t: 'Overlay' }
-                            ].map((img) => (
-                                results.debug_images[img.k] && (
-                                    <div key={img.k} className="group relative overflow-hidden rounded-xl border border-gray-700 bg-black/40">
-                                        <div className="absolute top-0 left-0 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-br-xl text-xs font-medium text-white z-10">
-                                            {img.t}
-                                        </div>
-                                        <img 
-                                            src={`/debug/${img.k}`} 
-                                            alt={img.t} 
-                                            className="w-full h-48 object-contain transition-transform duration-500 group-hover:scale-105" 
-                                        />
-                                    </div>
-                                )
+                    <div className="bg-accent/5 border border-accent/20 p-5 rounded-2xl">
+                        <h4 className="font-bold text-white mb-3">Téléchargements</h4>
+                        <div className="flex flex-wrap gap-3">
+                            {Object.entries(r.files).map(([label, url]) => (
+                                <a key={label} href={url}
+                                    className={`px-4 py-2 rounded-lg text-sm font-bold inline-flex items-center gap-2 transition-colors
+                                        ${primary.includes(label) ? 'bg-accent hover:bg-accent-hover text-dark-900' : 'bg-dark-700 hover:bg-dark-900 text-gray-200 border border-gray-600'}`}>
+                                    <Icon d={DL} cls="w-4 h-4" /> {label}
+                                </a>
                             ))}
                         </div>
                     </div>
 
-                    {/* Console Logs */}
-                    <div className="bg-dark-900 border border-gray-700 rounded-xl overflow-hidden">
-                        <div className="bg-dark-800 px-4 py-2 border-b border-gray-700 flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                            <span className="text-xs text-gray-400 font-mono ml-2">Terminal Output</span>
+                    {r.warnings && r.warnings.length > 0 && (
+                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-yellow-200 text-sm space-y-1">
+                            {r.warnings.map((w, i) => <div key={i}>⚠️ {w}</div>)}
                         </div>
-                        <div className="p-4 font-mono text-sm text-gray-400 h-48 overflow-y-auto whitespace-pre-wrap">
-                            {results.command && (
-                                <div className="text-accent mb-2 font-bold border-b border-gray-800 pb-2">
-                                    $ {results.command}
-                                </div>
-                            )}
-                            {results.logs}
-                        </div>
-                    </div>
-                    
+                    )}
+
+                    {r.debug_images && Object.keys(r.debug_images).length > 0 && (
+                        <Collapsible title="Images de debug">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {Object.entries(r.debug_images).map(([name, url]) => (
+                                    <div key={name} className="rounded-xl border border-gray-700 bg-black/40 overflow-hidden">
+                                        <img src={url} alt={name} className="w-full h-36 object-contain" />
+                                        <div className="text-[10px] text-gray-500 px-2 py-1 truncate">{name}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </Collapsible>
+                    )}
+
+                    <Collapsible title="Journal">
+                        <div className="bg-dark-900 rounded-lg p-3 font-mono text-xs text-gray-400 max-h-64 overflow-y-auto whitespace-pre-wrap">{r.logs}</div>
+                    </Collapsible>
                 </div>
             );
         };
 
         const App = () => {
             const [file, setFile] = useState(null);
-            const [spacing, setSpacing] = useState(3.0);
-            const [density, setDensity] = useState(1.0);
+            const [s, setS] = useState(3.0);
+            const [d, setD] = useState(1.0);
+            const [auto, setAuto] = useState(false);
             const [loading, setLoading] = useState(false);
             const [results, setResults] = useState(null);
             const [error, setError] = useState(null);
             const [isDragging, setIsDragging] = useState(false);
-            const [svgPreview, setSvgPreview] = useState(null);
-            
+            const [inputPreview, setInputPreview] = useState(null);
             const fileInputRef = useRef(null);
 
-            const handleFileSelect = (selectedFile) => {
-                if (selectedFile && selectedFile.name.toLowerCase().endsWith('.svg')) {
-                    setFile(selectedFile);
-                    setError(null);
-                    // Create preview URL for SVG
-                    const url = URL.createObjectURL(selectedFile);
-                    setSvgPreview(url);
-                } else {
-                    setError("Veuillez sélectionner un fichier SVG valide.");
-                    setSvgPreview(null);
-                }
+            const onPick = (f) => {
+                if (!f) return;
+                setFile(f); setError(null); setResults(null);
+                const isImg = f.type.startsWith('image/') || f.name.toLowerCase().endsWith('.svg');
+                setInputPreview(isImg ? URL.createObjectURL(f) : null);
             };
+            const onDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+            const onDragLeave = () => setIsDragging(false);
+            const onDrop = (e) => { e.preventDefault(); setIsDragging(false); if (e.dataTransfer.files[0]) onPick(e.dataTransfer.files[0]); };
 
-            const onDragOver = (e) => {
-                e.preventDefault();
-                setIsDragging(true);
-            };
-
-            const onDragLeave = () => {
-                setIsDragging(false);
-            };
-
-            const onDrop = (e) => {
-                e.preventDefault();
-                setIsDragging(false);
-                if (e.dataTransfer.files.length > 0) {
-                    handleFileSelect(e.dataTransfer.files[0]);
-                }
-            };
-
-            const handleSubmit = async () => {
+            const onSubmit = async () => {
                 if (!file) return;
-
-                setLoading(true);
-                setResults(null);
-                setError(null);
-
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('spacing', spacing);
-                formData.append('density', density);
-
+                setLoading(true); setResults(null); setError(null);
+                const fd = new FormData();
+                fd.append('file', file);
+                fd.append('spacing', s);
+                fd.append('density', d);
+                fd.append('auto_optimize', auto ? 'true' : 'false');
                 try {
-                    // Simulate API Call (Replace with your actual endpoint)
-                    const response = await fetch('/api/optimize', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok) {
-                        setResults(data);
-                    } else {
-                        setError(data.error || "Une erreur est survenue lors de l'optimisation.");
-                    }
+                    const res = await fetch('/api/convert', { method: 'POST', body: fd });
+                    const data = await res.json();
+                    if (res.ok) setResults(data);
+                    else setError(data.error || "Une erreur est survenue.");
                 } catch (err) {
                     setError("Erreur de connexion au serveur.");
-                    console.error(err);
                 } finally {
                     setLoading(false);
                 }
@@ -422,46 +288,26 @@
             return (
                 <div className="max-w-7xl mx-auto px-4 py-10">
                     <Header />
-
                     <div className="grid lg:grid-cols-12 gap-8">
-                        
-                        {/* LEFT COLUMN: Controls */}
                         <div className="lg:col-span-5 space-y-6">
-                            <UploadCard 
-                                file={file}
-                                isDragging={isDragging}
-                                fileInputRef={fileInputRef}
-                                handleFileSelect={handleFileSelect}
-                                onDragOver={onDragOver}
-                                onDragLeave={onDragLeave}
-                                onDrop={onDrop}
-                            />
-
-                            <PreviewCard svgPreview={svgPreview} />
-
-                            <SettingsCard 
-                                spacing={spacing}
-                                setSpacing={setSpacing}
-                                density={density}
-                                setDensity={setDensity}
-                                loading={loading}
-                                file={file}
-                                handleSubmit={handleSubmit}
-                                error={error}
-                            />
+                            <UploadCard file={file} isDragging={isDragging} fileInputRef={fileInputRef}
+                                onPick={onPick} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} />
+                            <PreviewCard url={inputPreview} />
+                            <SettingsCard s={s} setS={setS} d={d} setD={setD} auto={auto} setAuto={setAuto}
+                                loading={loading} file={file} onSubmit={onSubmit} />
+                            {error && (
+                                <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm text-center">{error}</div>
+                            )}
                         </div>
-
-                        {/* RIGHT COLUMN: Results */}
                         <div className="lg:col-span-7">
-                            <ResultsSection results={results} loading={loading} />
+                            {loading ? <Loading /> : results ? <Results r={results} /> : <Empty />}
                         </div>
                     </div>
                 </div>
             );
         };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
 </body>
 </html>

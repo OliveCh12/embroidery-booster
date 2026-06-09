@@ -121,7 +121,8 @@ def generate(input_path: str, output_dir: str = "output",
     path_satin = os.path.join(output_dir, f"{base_name}_satin.svg")
 
     logger.info(f"Processing {input_path}...")
-    shutil.copy2(input_path, path_original)
+    if os.path.abspath(input_path) != os.path.abspath(path_original):
+        shutil.copy2(input_path, path_original)
 
     svg, paths = load_svg_paths(input_path)
     if not paths:

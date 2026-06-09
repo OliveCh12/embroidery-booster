@@ -17,3 +17,6 @@ uploads/
 
 # OS
 .DS_Store
+
+# Local agent tooling
+.claude/
