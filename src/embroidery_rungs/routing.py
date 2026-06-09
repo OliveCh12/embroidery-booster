@@ -101,9 +101,9 @@ def route_columns(columns):
     seq = _nearest_neighbour(ends)
     _two_opt(seq)
     after = _total_travel(seq)
+    pct = 100 * (baseline - after) / baseline if baseline > 1e-6 else 0.0
     logger.info(f"Routed {len(columns)} satin columns: "
-                f"travel {baseline:.0f}px -> {after:.0f}px "
-                f"(-{100 * (baseline - after) / baseline:.0f}%)")
+                f"travel {baseline:.0f}px -> {after:.0f}px (-{pct:.0f}%)")
 
     ordered = []
     for e in seq:

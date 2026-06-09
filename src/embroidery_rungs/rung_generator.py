@@ -57,6 +57,54 @@ def _smooth(points, window):
     return out
 
 
+_MIN_SPLIT_RUNGS = 10   # only split columns that are actually long
+_MIN_SEGMENT_RUNGS = 4  # never create tiny fragments
+
+
+def _split_at_sharp_curves(items, max_turn_deg=45.0, max_accum_deg=70.0):
+    """Split a long column's rungs where the centerline bends too much.
+
+    A satin column following a tight bend stitches unevenly (the inner rail gets
+    denser). Splitting at sharp local turns — or once the curve has accumulated
+    enough total turn — yields gentler sub-columns that stitch cleanly. Short
+    columns and smooth/gentle shapes are left intact, and splits that would
+    create tiny fragments are skipped (those degrade thin shapes). Sub-columns
+    overlap by one rung so the satins meet without a gap.
+    """
+    n = len(items)
+    if n < _MIN_SPLIT_RUNGS:
+        return [items]
+    centers = np.array([it["center"] for it in items], dtype=float)
+
+    splits = []
+    accum = 0.0
+    last = 0
+    for i in range(1, n - 1):
+        v1 = centers[i] - centers[i - 1]
+        v2 = centers[i + 1] - centers[i]
+        n1, n2 = np.hypot(*v1), np.hypot(*v2)
+        if n1 < 1e-6 or n2 < 1e-6:
+            continue
+        turn = np.degrees(np.arccos(np.clip(np.dot(v1, v2) / (n1 * n2), -1.0, 1.0)))
+        accum += turn
+        # Only split when both the piece left behind and what remains are big
+        # enough to be real columns.
+        if (turn >= max_turn_deg or accum >= max_accum_deg) \
+                and i - last >= _MIN_SEGMENT_RUNGS and n - i >= _MIN_SEGMENT_RUNGS:
+            splits.append(i)
+            accum = 0.0
+            last = i
+
+    if not splits:
+        return [items]
+    segments, start = [], 0
+    for s in splits:
+        segments.append(items[start:s + 1])  # overlap by the split rung
+        start = s
+    segments.append(items[start:])
+    return segments
+
+
 def _smooth_rail(points):
     """Light smoothing of a rail polyline (kills ray-cast jaggedness)."""
     arr = np.asarray(points, dtype=float)
@@ -289,15 +337,16 @@ def generate_rungs(skeleton, distance_map, spacing_px, binary_img, debug_dir=Non
     for items in path_rungs_map.values():
         if len(items) < 2:
             continue
-        rail_a = _smooth_rail([it["rung"][0] for it in items])
-        rail_b = _smooth_rail([it["rung"][1] for it in items])
-        a = [(float(x), float(y)) for x, y in rail_a]
-        b = [(float(x), float(y)) for x, y in rail_b]
-        columns.append({
-            "rail_a": a,
-            "rail_b": b,
-            "rungs": [(a[i], b[i]) for i in range(len(a))],  # cross-sections on smoothed rails
-        })
+        for sub in _split_at_sharp_curves(items):
+            rail_a = _smooth_rail([it["rung"][0] for it in sub])
+            rail_b = _smooth_rail([it["rung"][1] for it in sub])
+            a = [(float(x), float(y)) for x, y in rail_a]
+            b = [(float(x), float(y)) for x, y in rail_b]
+            columns.append({
+                "rail_a": a,
+                "rail_b": b,
+                "rungs": [(a[i], b[i]) for i in range(len(a))],  # cross-sections on smoothed rails
+            })
 
     bridges = _build_bridges(merged_paths, skeleton_paths, path_rungs_map, G, spacing_px)
 
