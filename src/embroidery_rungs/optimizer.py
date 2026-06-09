@@ -59,7 +59,7 @@ def optimize_rung_parameters(skeleton, distance, binary_img, scale):
     def test_config(spacing_mm, density):
         spacing_px = _spacing_to_px(spacing_mm, density, scale)
         try:
-            rungs, bridges = generate_rungs(
+            rungs, bridges, _ = generate_rungs(
                 skeleton, distance, spacing_px, binary_img, debug_dir=None)
             return len(rungs), len(bridges), rungs
         except Exception as e:

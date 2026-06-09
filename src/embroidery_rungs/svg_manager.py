@@ -61,7 +61,9 @@ def save_combined_svg(original_path, output_path, rungs, bridges, transform):
     inv_transform = ~transform
     
     rungs_svg = []
-    rungs_svg.append('<g id="generated_rungs" inkscape:label="Rungs">')
+    # No inkscape:label here: the original root may not declare that namespace,
+    # which makes the file non-conformant.
+    rungs_svg.append('<g id="generated_rungs">')
 
     rungs_svg.append('  <g id="rungs_normal" stroke="red" stroke-width="0.1">')
     for p1, p2 in rungs:
@@ -93,6 +95,59 @@ def save_combined_svg(original_path, output_path, rungs, bridges, transform):
         
     with open(output_path, 'w') as f:
         f.write(new_content)
+
+_INKSTITCH_NS = "http://inkstitch.org/namespace"
+
+
+def save_satin_svg(output_path, columns, transform, svg):
+    """Write a standalone SVG of Ink/Stitch satin columns.
+
+    Each column is one ``<path>`` with two rail subpaths plus the rungs as
+    crossing subpaths, tagged ``inkstitch:satin_column`` so Ink/Stitch stitches
+    it as a satin. No fill artwork is included, so the stitch preview shows the
+    satin alone (not a fill of the original shape).
+    """
+    logger.info(f"Saving {len(columns)} satin columns to {output_path}")
+    inv = ~transform
+
+    def to_svg(p):
+        q = Point(p[0], p[1]) * inv
+        return q.x, q.y
+
+    if svg.viewbox:
+        vb = svg.viewbox
+        view_box = f"{vb.x} {vb.y} {vb.width} {vb.height}"
+        width = svg.width or vb.width
+        height = svg.height or vb.height
+    else:
+        width, height = svg.width, svg.height
+        view_box = f"0 0 {width} {height}"
+
+    lines = [
+        '<?xml version="1.0" encoding="utf-8" ?>',
+        f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkstitch="{_INKSTITCH_NS}" '
+        f'width="{width}" height="{height}" viewBox="{view_box}" version="1.1">',
+        '<g id="satin_columns">',
+    ]
+    for col in columns:
+        # A satin column = two rail subpaths. The rails are the ordered rung
+        # endpoints, so they already correspond 1:1 along the column; no extra
+        # rung subpaths are needed (and adding one per point confuses Ink/Stitch's
+        # rail-vs-rung classifier on short columns).
+        segments = []
+        for rail in (col["rail_a"], col["rail_b"]):
+            pts = [to_svg(p) for p in rail]
+            segments.append("M " + " L ".join(f"{x:.2f},{y:.2f}" for x, y in pts))
+        d = " ".join(segments)
+        lines.append(
+            f'  <path inkstitch:satin_column="true" '
+            f'style="fill:none;stroke:#e02020;stroke-width:1" d="{d}" />')
+    lines.append("</g>")
+    lines.append("</svg>")
+
+    with open(output_path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+
 
 def open_in_inkscape(filepath):
     """Open the file in Inkscape (macOS)."""

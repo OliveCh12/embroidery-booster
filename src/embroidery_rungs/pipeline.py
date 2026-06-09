@@ -17,7 +17,7 @@ from skimage.draw import line
 from skimage.morphology import dilation, disk
 from svgelements import Matrix
 
-from .svg_manager import load_svg_paths, save_rungs_svg, save_combined_svg
+from .svg_manager import load_svg_paths, save_rungs_svg, save_combined_svg, save_satin_svg
 from .image_processor import rasterize_paths, compute_medial_axis
 from .rung_generator import generate_rungs
 from .debug_utils import save_debug_images
@@ -43,10 +43,12 @@ class GenerationResult:
 
     rungs_count: int
     bridges_count: int
+    columns_count: int
     coverage: float                       # 0..1, or -1.0 when not computed
     original_path: str
     rungs_path: str
     ready_path: str
+    satin_path: str
     debug_dir: Optional[str] = None
     params: GenerationParams = field(default_factory=GenerationParams)
 
@@ -115,6 +117,7 @@ def generate(input_path: str, output_dir: str = "output",
     path_original = os.path.join(output_dir, input_filename)
     path_rungs = os.path.join(output_dir, f"{base_name}_rungs.svg")
     path_ready = os.path.join(output_dir, f"{base_name}_ready.svg")
+    path_satin = os.path.join(output_dir, f"{base_name}_satin.svg")
 
     logger.info(f"Processing {input_path}...")
     shutil.copy2(input_path, path_original)
@@ -150,7 +153,7 @@ def generate(input_path: str, output_dir: str = "output",
             logger.warning("Optimization failed, using default parameters")
 
     spacing_px = spacing_to_px(spacing, density, scale)
-    rungs, bridges = generate_rungs(
+    rungs, bridges, columns = generate_rungs(
         skeleton, distance, spacing_px, binary_img,
         debug_dir=debug_dir if params.debug else None)
 
@@ -158,18 +161,21 @@ def generate(input_path: str, output_dir: str = "output",
 
     save_rungs_svg(path_rungs, rungs, bridges, transform)
     save_combined_svg(input_path, path_ready, rungs, bridges, transform)
+    save_satin_svg(path_satin, columns, transform, svg)
 
     logger.info(
-        f"Done! {len(rungs)} rungs, {len(bridges)} bridges, "
-        f"{coverage:.1%} coverage -> '{output_dir}/'")
+        f"Done! {len(rungs)} rungs, {len(columns)} satin columns, "
+        f"{len(bridges)} bridges, {coverage:.1%} coverage -> '{output_dir}/'")
 
     return GenerationResult(
         rungs_count=len(rungs),
         bridges_count=len(bridges),
+        columns_count=len(columns),
         coverage=coverage,
         original_path=path_original,
         rungs_path=path_rungs,
         ready_path=path_ready,
+        satin_path=path_satin,
         debug_dir=debug_dir if params.debug else None,
         params=GenerationParams(spacing=spacing, density=density, dpi=params.dpi,
                                 debug=params.debug, auto_optimize=params.auto_optimize),

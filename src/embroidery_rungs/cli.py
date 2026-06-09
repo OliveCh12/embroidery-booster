@@ -59,6 +59,7 @@ def main(argv=None):
     logger.info(f"  - {result.original_path} (Original)")
     logger.info(f"  - {result.rungs_path} (Rungs only)")
     logger.info(f"  - {result.ready_path} (Ready to edit)")
+    logger.info(f"  - {result.satin_path} ({result.columns_count} Ink/Stitch satin columns)")
 
     if not args.no_preview:
         open_in_inkscape(result.ready_path)

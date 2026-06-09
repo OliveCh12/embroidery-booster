@@ -270,10 +270,24 @@ def generate_rungs(skeleton, distance_map, spacing_px, binary_img, debug_dir=Non
     for item in accepted:
         path_rungs_map.setdefault(item["p_idx"], []).append(item)
 
+    # Build satin columns: each path's ordered rungs define two parallel rails
+    # (one endpoint of every rung per side, kept consistent by the continuous
+    # normal). A column needs at least two rungs to form rails.
+    columns = []
+    for items in path_rungs_map.values():
+        if len(items) < 2:
+            continue
+        columns.append({
+            "rail_a": [it["rung"][0] for it in items],
+            "rail_b": [it["rung"][1] for it in items],
+            "rungs": [it["rung"] for it in items],
+        })
+
     bridges = _build_bridges(merged_paths, skeleton_paths, path_rungs_map, G, spacing_px)
 
-    logger.info(f"Generated {len(rungs)} rungs and {len(bridges)} bridges.")
+    logger.info(f"Generated {len(rungs)} rungs, {len(columns)} satin columns, "
+                f"{len(bridges)} bridges.")
     if debug_dir:
         save_rung_coverage_debug(debug_dir, binary_img, rungs, skeleton_paths)
 
-    return rungs, bridges
+    return rungs, bridges, columns

@@ -101,10 +101,32 @@ Then open <http://localhost:8000>.
 For input `example.svg`, the following appear in the output directory:
 
 - `example.svg` — copy of the original
-- `example_rungs.svg` — rungs only
-- `example_ready.svg` — original + rungs, ready to edit
+- `example_rungs.svg` — rungs only (visual guide)
+- `example_ready.svg` — original + rungs, ready to edit in Inkscape
+- `example_satin.svg` — **Ink/Stitch satin columns**, machine-ready
 
 Debug images are written to `output/debug/` when `--debug` is set.
+
+## Ink/Stitch satin & preview
+
+`example_satin.svg` contains real Ink/Stitch *satin columns* (two rails built
+from the rung endpoints), tagged so Ink/Stitch stitches them as satin — no
+manual conversion needed.
+
+To preview the stitches (or export embroidery files) headlessly on macOS:
+
+```bash
+# Renders <name>_plan.svg + <name>_plan.png (the rendered stitch plan)
+scripts/inkstitch_preview.sh output/example_satin.svg
+
+# Also export .dst/.pes/threadlist
+ZIP=1 scripts/inkstitch_preview.sh output/example_satin.svg
+```
+
+The script drives Ink/Stitch's bundled binary (`--extension=stitch_plan_preview`
+/ `--extension=zip`) and Inkscape's CLI — there is no REST API, but both run
+headless. Note: each shape becomes one or more independent satin columns; use
+Ink/Stitch's *Auto-Route Satin* to optimize travel/jump stitches between them.
 
 ## Algorithm
 
