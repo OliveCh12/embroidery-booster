@@ -130,14 +130,30 @@ def save_satin_svg(output_path, columns, transform, svg):
         '<g id="satin_columns">',
     ]
     for col in columns:
-        # A satin column = two rail subpaths. The rails are the ordered rung
-        # endpoints, so they already correspond 1:1 along the column; no extra
-        # rung subpaths are needed (and adding one per point confuses Ink/Stitch's
-        # rail-vs-rung classifier on short columns).
+        # A satin column = two rail subpaths plus "rung" subpaths that act as
+        # direction checkpoints. Without rungs Ink/Stitch pairs the rails
+        # proportionally, which fans out where the rails differ in length
+        # (tight curves). The rungs are exactly the cross-sections we computed.
+        rail_a, rail_b, rungs = col["rail_a"], col["rail_b"], col["rungs"]
         segments = []
-        for rail in (col["rail_a"], col["rail_b"]):
+        for rail in (rail_a, rail_b):
             pts = [to_svg(p) for p in rail]
             segments.append("M " + " L ".join(f"{x:.2f},{y:.2f}" for x, y in pts))
+
+        # Ink/Stitch needs >= 3 rungs (2 is ambiguous). Each rung must clearly
+        # cross both rails, so extend it past each endpoint.
+        if len(rungs) >= 3:
+            for a, b in rungs:
+                ax, ay = a
+                bx, by = b
+                dx, dy = bx - ax, by - ay
+                length = (dx * dx + dy * dy) ** 0.5 or 1.0
+                ux, uy = dx / length, dy / length
+                ext = min(max(3.0, 0.1 * length), 8.0)
+                sx, sy = to_svg((ax - ux * ext, ay - uy * ext))
+                ex, ey = to_svg((bx + ux * ext, by + uy * ext))
+                segments.append(f"M {sx:.2f},{sy:.2f} L {ex:.2f},{ey:.2f}")
+
         d = " ".join(segments)
         lines.append(
             f'  <path inkstitch:satin_column="true" '
