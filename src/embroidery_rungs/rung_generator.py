@@ -57,6 +57,18 @@ def _smooth(points, window):
     return out
 
 
+def _smooth_rail(points):
+    """Light smoothing of a rail polyline (kills ray-cast jaggedness)."""
+    arr = np.asarray(points, dtype=float)
+    if len(arr) < 5:
+        return arr
+    out = arr.copy()
+    out[:, 0] = uniform_filter1d(arr[:, 0], size=5, mode="nearest")
+    out[:, 1] = uniform_filter1d(arr[:, 1], size=5, mode="nearest")
+    out[0], out[-1] = arr[0], arr[-1]   # keep the caps anchored
+    return out
+
+
 def _cast_to_boundary(mask, cx, cy, dx, dy, max_dist, step=0.5):
     """March from (cx, cy) along (dx, dy) until leaving the shape.
 
@@ -277,10 +289,14 @@ def generate_rungs(skeleton, distance_map, spacing_px, binary_img, debug_dir=Non
     for items in path_rungs_map.values():
         if len(items) < 2:
             continue
+        rail_a = _smooth_rail([it["rung"][0] for it in items])
+        rail_b = _smooth_rail([it["rung"][1] for it in items])
+        a = [(float(x), float(y)) for x, y in rail_a]
+        b = [(float(x), float(y)) for x, y in rail_b]
         columns.append({
-            "rail_a": [it["rung"][0] for it in items],
-            "rail_b": [it["rung"][1] for it in items],
-            "rungs": [it["rung"] for it in items],
+            "rail_a": a,
+            "rail_b": b,
+            "rungs": [(a[i], b[i]) for i in range(len(a))],  # cross-sections on smoothed rails
         })
 
     bridges = _build_bridges(merged_paths, skeleton_paths, path_rungs_map, G, spacing_px)

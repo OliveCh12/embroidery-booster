@@ -102,38 +102,23 @@ _INKSTITCH_NS = "http://inkstitch.org/namespace"
 def save_satin_svg(output_path, columns, transform, svg):
     """Write a standalone SVG of Ink/Stitch satin columns.
 
-    Each column is one ``<path>`` with two rail subpaths plus the rungs as
-    crossing subpaths, tagged ``inkstitch:satin_column`` so Ink/Stitch stitches
-    it as a satin. No fill artwork is included, so the stitch preview shows the
-    satin alone (not a fill of the original shape).
+    Each column is one ``<path>`` with two rail subpaths plus rung subpaths
+    (direction checkpoints), tagged ``inkstitch:satin_column``. The file carries
+    the Ink/Stitch SVG-version metadata so Ink/Stitch does not prompt to update
+    it, and the viewBox is fitted to the satin so nothing is cropped.
     """
     logger.info(f"Saving {len(columns)} satin columns to {output_path}")
     inv = ~transform
+    xs, ys = [], []
 
     def to_svg(p):
         q = Point(p[0], p[1]) * inv
+        xs.append(q.x)
+        ys.append(q.y)
         return q.x, q.y
 
-    if svg.viewbox:
-        vb = svg.viewbox
-        view_box = f"{vb.x} {vb.y} {vb.width} {vb.height}"
-        width = svg.width or vb.width
-        height = svg.height or vb.height
-    else:
-        width, height = svg.width, svg.height
-        view_box = f"0 0 {width} {height}"
-
-    lines = [
-        '<?xml version="1.0" encoding="utf-8" ?>',
-        f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkstitch="{_INKSTITCH_NS}" '
-        f'width="{width}" height="{height}" viewBox="{view_box}" version="1.1">',
-        '<g id="satin_columns">',
-    ]
+    path_data = []
     for col in columns:
-        # A satin column = two rail subpaths plus "rung" subpaths that act as
-        # direction checkpoints. Without rungs Ink/Stitch pairs the rails
-        # proportionally, which fans out where the rails differ in length
-        # (tight curves). The rungs are exactly the cross-sections we computed.
         rail_a, rail_b, rungs = col["rail_a"], col["rail_b"], col["rungs"]
         segments = []
         for rail in (rail_a, rail_b):
@@ -153,11 +138,28 @@ def save_satin_svg(output_path, columns, transform, svg):
                 sx, sy = to_svg((ax - ux * ext, ay - uy * ext))
                 ex, ey = to_svg((bx + ux * ext, by + uy * ext))
                 segments.append(f"M {sx:.2f},{sy:.2f} L {ex:.2f},{ey:.2f}")
+        path_data.append(" ".join(segments))
 
-        d = " ".join(segments)
-        lines.append(
-            f'  <path inkstitch:satin_column="true" '
-            f'style="fill:none;stroke:#e02020;stroke-width:1" d="{d}" />')
+    # Fit the viewBox to the satin so nothing is clipped.
+    if xs:
+        pad = 5.0
+        minx, miny = min(xs) - pad, min(ys) - pad
+        w, h = max(xs) - min(xs) + 2 * pad, max(ys) - min(ys) + 2 * pad
+    else:
+        minx, miny, w, h = 0, 0, svg.width or 100, svg.height or 100
+    view_box = f"{minx:.2f} {miny:.2f} {w:.2f} {h:.2f}"
+
+    lines = [
+        '<?xml version="1.0" encoding="utf-8" ?>',
+        f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkstitch="{_INKSTITCH_NS}" '
+        f'width="{w:.2f}" height="{h:.2f}" viewBox="{view_box}" version="1.1">',
+        # Mark as a current Ink/Stitch file (suppresses the "update?" dialog).
+        '<metadata><inkstitch:inkstitch_svg_version>3</inkstitch:inkstitch_svg_version></metadata>',
+        '<g id="satin_columns">',
+    ]
+    for d in path_data:
+        lines.append(f'  <path inkstitch:satin_column="true" '
+                     f'style="fill:none;stroke:#e02020;stroke-width:1" d="{d}" />')
     lines.append("</g>")
     lines.append("</svg>")
 
