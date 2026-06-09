@@ -44,7 +44,8 @@ class GenerationResult:
 
     rungs_count: int
     bridges_count: int
-    columns_count: int
+    columns_count: int                    # satin columns
+    running_count: int                    # running-stitch elements
     coverage: float                       # 0..1, or -1.0 when not computed
     original_path: str
     rungs_path: str
@@ -55,6 +56,11 @@ class GenerationResult:
 
 
 _WORLD_UNITS_PER_MM = 96.0 / 25.4  # SVG default: 1 user unit = 1px @ 96 dpi
+
+# Below this real-world column width, a satin degrades into a thin/uneven zigzag,
+# so the piece is emitted as a running stitch instead. ~1.5mm is the common
+# digitizer floor for a clean, reliable satin column.
+MIN_SATIN_WIDTH_MM = 1.5
 
 
 def image_scale(transform) -> float:
@@ -155,25 +161,30 @@ def generate(input_path: str, output_dir: str = "output",
             logger.warning("Optimization failed, using default parameters")
 
     spacing_px = spacing_to_px(spacing, density, scale)
-    rungs, bridges, columns = generate_rungs(
+    min_satin_width_px = MIN_SATIN_WIDTH_MM * _WORLD_UNITS_PER_MM * scale
+    rungs, bridges, elements = generate_rungs(
         skeleton, distance, spacing_px, binary_img,
+        min_satin_width_px=min_satin_width_px,
         debug_dir=debug_dir if params.debug else None)
 
     coverage = compute_coverage(binary_img, rungs)
-    columns = route_columns(columns)
+    elements = route_columns(elements)
+    n_satin = sum(1 for e in elements if e["type"] == "satin")
+    n_running = len(elements) - n_satin
 
     save_rungs_svg(path_rungs, rungs, bridges, transform)
     save_combined_svg(input_path, path_ready, rungs, bridges, transform)
-    save_satin_svg(path_satin, columns, transform, svg)
+    save_satin_svg(path_satin, elements, transform, svg)
 
     logger.info(
-        f"Done! {len(rungs)} rungs, {len(columns)} satin columns, "
-        f"{len(bridges)} bridges, {coverage:.1%} coverage -> '{output_dir}/'")
+        f"Done! {len(rungs)} rungs, {n_satin} satin columns, "
+        f"{n_running} running stitches, {coverage:.1%} coverage -> '{output_dir}/'")
 
     return GenerationResult(
         rungs_count=len(rungs),
         bridges_count=len(bridges),
-        columns_count=len(columns),
+        columns_count=n_satin,
+        running_count=n_running,
         coverage=coverage,
         original_path=path_original,
         rungs_path=path_rungs,

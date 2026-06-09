@@ -189,8 +189,8 @@
                     )}
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <Stat label="Rungs" value={st.rungs} />
                         <Stat label="Colonnes satin" value={st.columns} />
+                        <Stat label="Points arrière" value={st.running != null ? st.running : 0} />
                         <Stat label="Couverture" value={st.coverage + '%'} />
                         <Stat label="Trajet économisé" value={st.travel_saved != null ? '-' + st.travel_saved + '%' : '—'} />
                     </div>

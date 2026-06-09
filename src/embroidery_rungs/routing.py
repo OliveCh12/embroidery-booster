@@ -18,10 +18,13 @@ def _dist(p, q):
     return math.hypot(p[0] - q[0], p[1] - q[1])
 
 
-def _endpoints(column):
-    """Centre of each cap of a column: (start, end) in image coords."""
-    a0, b0 = column["rail_a"][0], column["rail_b"][0]
-    a1, b1 = column["rail_a"][-1], column["rail_b"][-1]
+def _endpoints(element):
+    """Entry/exit points of an element: (start, end) in image coords."""
+    if element["type"] == "running":
+        pts = element["points"]
+        return pts[0], pts[-1]
+    a0, b0 = element["rail_a"][0], element["rail_b"][0]
+    a1, b1 = element["rail_a"][-1], element["rail_b"][-1]
     start = ((a0[0] + b0[0]) / 2.0, (a0[1] + b0[1]) / 2.0)
     end = ((a1[0] + b1[0]) / 2.0, (a1[1] + b1[1]) / 2.0)
     return start, end
@@ -88,12 +91,23 @@ def _two_opt(seq, max_passes=20):
     return seq
 
 
-def route_columns(columns):
-    """Reorder and reverse columns to minimize travel between them."""
-    if len(columns) <= 1:
-        return columns
+def _reversed_element(el):
+    if el["type"] == "running":
+        return {"type": "running", "points": el["points"][::-1]}
+    return {
+        "type": "satin",
+        "rail_a": el["rail_a"][::-1],
+        "rail_b": el["rail_b"][::-1],
+        "rungs": list(reversed(el["rungs"])),
+    }
 
-    ends = [_endpoints(c) for c in columns]
+
+def route_columns(elements):
+    """Reorder and reverse embroidery elements to minimize travel between them."""
+    if len(elements) <= 1:
+        return elements
+
+    ends = [_endpoints(e) for e in elements]
 
     # Baseline: travel in the original document order (each entered at its start).
     baseline = sum(_dist(ends[k][1], ends[k + 1][0]) for k in range(len(ends) - 1))
@@ -102,18 +116,11 @@ def route_columns(columns):
     _two_opt(seq)
     after = _total_travel(seq)
     pct = 100 * (baseline - after) / baseline if baseline > 1e-6 else 0.0
-    logger.info(f"Routed {len(columns)} satin columns: "
+    logger.info(f"Routed {len(elements)} elements: "
                 f"travel {baseline:.0f}px -> {after:.0f}px (-{pct:.0f}%)")
 
     ordered = []
     for e in seq:
-        c = columns[e["col"]]
-        if e["rev"]:
-            ordered.append({
-                "rail_a": c["rail_a"][::-1],
-                "rail_b": c["rail_b"][::-1],
-                "rungs": list(reversed(c["rungs"])),
-            })
-        else:
-            ordered.append(c)
+        el = elements[e["col"]]
+        ordered.append(_reversed_element(el) if e["rev"] else el)
     return ordered

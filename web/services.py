@@ -140,7 +140,10 @@ def render_stitch_preview(satin_svg, png_path):
     # Strip our input design group so only the rendered stitch plan is shown.
     with open(plan_svg) as f:
         content = f.read()
-    content = re.sub(r'<g id="satin_columns">.*?</g>', "", content, flags=re.DOTALL)
+    content = re.sub(r'<g id="embroidery">.*?</g>', "", content, flags=re.DOTALL)
+    # Drop Ink/Stitch command symbols (e.g. the "ignore layer" badge) so only the
+    # rendered stitches remain.
+    content = re.sub(r'<use\b[^>]*inkstitch[^>]*?>', "", content)
     with open(plan_svg, "w") as f:
         f.write(content)
 

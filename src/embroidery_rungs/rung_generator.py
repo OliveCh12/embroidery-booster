@@ -229,7 +229,8 @@ def _rungs_for_path(points_rc, distance_map, binary_img, spacing_px):
 
         rung = _make_rung(binary_img, cx, cy, normals[i, 0], normals[i, 1], max_search)
         if rung is not None and not _crosses_recent(rung, recent[-2:]):
-            placed.append({"rung": rung, "center": (float(cx), float(cy))})
+            placed.append({"rung": rung, "center": (float(cx), float(cy)),
+                           "half_width": local_w})
             recent.append(rung)
 
         # Adaptive advance: denser in curves, but never closer than the local
@@ -303,8 +304,15 @@ def _build_bridges(merged_paths, skeleton_paths, path_rungs_map, G, spacing_px):
     return unique
 
 
-def generate_rungs(skeleton, distance_map, spacing_px, binary_img, debug_dir=None):
-    """Generate perpendicular rungs (and junction bridges) for a skeleton."""
+def generate_rungs(skeleton, distance_map, spacing_px, binary_img,
+                   min_satin_width_px=0.0, debug_dir=None):
+    """Generate embroidery elements (satin columns + running stitches).
+
+    Each centerline path becomes one or more elements. A piece wide enough for a
+    satin (median width >= ``min_satin_width_px``) is emitted as a satin column;
+    a thinner piece is emitted as a running stitch down its centerline. This
+    adapts the stitch type to the local shape so fine strokes stay crisp.
+    """
     logger.info(f"Generating rungs (spacing {spacing_px:.1f}px)...")
 
     skeleton_paths, G = get_skeleton_paths(skeleton, binary_img=binary_img, min_len_px=10)
@@ -312,7 +320,7 @@ def generate_rungs(skeleton, distance_map, spacing_px, binary_img, debug_dir=Non
         save_debug_graph(debug_dir, G, binary_img.shape)
     if not skeleton_paths:
         logger.warning("No valid skeleton paths found.")
-        return [], []
+        return [], [], []
 
     merged_paths = merge_aligned_paths(skeleton_paths, G, spacing_px)
     logger.info(f"Merged {len(skeleton_paths)} segments into {len(merged_paths)} continuous paths.")
@@ -330,29 +338,43 @@ def generate_rungs(skeleton, distance_map, spacing_px, binary_img, debug_dir=Non
     for item in accepted:
         path_rungs_map.setdefault(item["p_idx"], []).append(item)
 
-    # Build satin columns: each path's ordered rungs define two parallel rails
-    # (one endpoint of every rung per side, kept consistent by the continuous
-    # normal). A column needs at least two rungs to form rails.
-    columns = []
+    # Build embroidery elements. Each path (after splitting tight curves) becomes
+    # a satin column where it is wide enough, or a running stitch where it is too
+    # thin for a clean satin.
+    elements = []
     for items in path_rungs_map.values():
         if len(items) < 2:
             continue
         for sub in _split_at_sharp_curves(items):
-            rail_a = _smooth_rail([it["rung"][0] for it in sub])
-            rail_b = _smooth_rail([it["rung"][1] for it in sub])
-            a = [(float(x), float(y)) for x, y in rail_a]
-            b = [(float(x), float(y)) for x, y in rail_b]
-            columns.append({
-                "rail_a": a,
-                "rail_b": b,
-                "rungs": [(a[i], b[i]) for i in range(len(a))],  # cross-sections on smoothed rails
-            })
+            width = 2.0 * float(np.median([it["half_width"] for it in sub]))
+            centers = _smooth_rail([it["center"] for it in sub])
+            length = float(np.hypot(*np.diff(centers, axis=0).T).sum())
+            # Running stitch when too thin for a clean satin, or too stubby to be
+            # a real column (a satin must be clearly longer than it is wide).
+            if width < min_satin_width_px or length < 1.5 * width:
+                elements.append({
+                    "type": "running",
+                    "points": [(float(x), float(y)) for x, y in centers],
+                })
+            else:
+                rail_a = _smooth_rail([it["rung"][0] for it in sub])
+                rail_b = _smooth_rail([it["rung"][1] for it in sub])
+                a = [(float(x), float(y)) for x, y in rail_a]
+                b = [(float(x), float(y)) for x, y in rail_b]
+                elements.append({
+                    "type": "satin",
+                    "rail_a": a,
+                    "rail_b": b,
+                    "rungs": [(a[i], b[i]) for i in range(len(a))],
+                })
 
     bridges = _build_bridges(merged_paths, skeleton_paths, path_rungs_map, G, spacing_px)
 
-    logger.info(f"Generated {len(rungs)} rungs, {len(columns)} satin columns, "
-                f"{len(bridges)} bridges.")
+    n_satin = sum(1 for e in elements if e["type"] == "satin")
+    n_run = len(elements) - n_satin
+    logger.info(f"Generated {len(rungs)} rungs -> {n_satin} satin columns, "
+                f"{n_run} running stitches, {len(bridges)} bridges.")
     if debug_dir:
         save_rung_coverage_debug(debug_dir, binary_img, rungs, skeleton_paths)
 
-    return rungs, bridges, columns
+    return rungs, bridges, elements

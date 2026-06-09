@@ -132,6 +132,7 @@ def convert():
         "stats": {
             "rungs": result.rungs_count,
             "columns": result.columns_count,
+            "running": result.running_count,
             "coverage": round(result.coverage * 100, 1),
             "travel_saved": int(travel.group(3)) if travel else None,
         },

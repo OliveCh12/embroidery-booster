@@ -99,15 +99,39 @@ def save_combined_svg(original_path, output_path, rungs, bridges, transform):
 _INKSTITCH_NS = "http://inkstitch.org/namespace"
 
 
-def save_satin_svg(output_path, columns, transform, svg):
-    """Write a standalone SVG of Ink/Stitch satin columns.
+def _satin_path(element, to_svg):
+    """Build the ``d`` for a satin column (two rails + rung checkpoints)."""
+    rail_a, rail_b, rungs = element["rail_a"], element["rail_b"], element["rungs"]
+    segments = []
+    for rail in (rail_a, rail_b):
+        pts = [to_svg(p) for p in rail]
+        segments.append("M " + " L ".join(f"{x:.2f},{y:.2f}" for x, y in pts))
+    # Ink/Stitch needs >= 3 rungs (2 is ambiguous). Each rung must clearly cross
+    # both rails, so extend it past each endpoint.
+    if len(rungs) >= 3:
+        for a, b in rungs:
+            ax, ay = a
+            bx, by = b
+            dx, dy = bx - ax, by - ay
+            length = (dx * dx + dy * dy) ** 0.5 or 1.0
+            ux, uy = dx / length, dy / length
+            ext = min(max(3.0, 0.1 * length), 8.0)
+            sx, sy = to_svg((ax - ux * ext, ay - uy * ext))
+            ex, ey = to_svg((bx + ux * ext, by + uy * ext))
+            segments.append(f"M {sx:.2f},{sy:.2f} L {ex:.2f},{ey:.2f}")
+    return " ".join(segments)
 
-    Each column is one ``<path>`` with two rail subpaths plus rung subpaths
-    (direction checkpoints), tagged ``inkstitch:satin_column``. The file carries
-    the Ink/Stitch SVG-version metadata so Ink/Stitch does not prompt to update
-    it, and the viewBox is fitted to the satin so nothing is cropped.
+
+def save_satin_svg(output_path, elements, transform, svg):
+    """Write a standalone Ink/Stitch SVG of the embroidery elements.
+
+    Wide pieces are satin columns (two rails + rung checkpoints); thin pieces are
+    running stitches down their centerline. The file carries the Ink/Stitch
+    SVG-version metadata (no update prompt) and a viewBox fitted to the content.
     """
-    logger.info(f"Saving {len(columns)} satin columns to {output_path}")
+    n_satin = sum(1 for e in elements if e["type"] == "satin")
+    logger.info(f"Saving {n_satin} satin columns + {len(elements) - n_satin} "
+                f"running stitches to {output_path}")
     inv = ~transform
     xs, ys = [], []
 
@@ -117,30 +141,16 @@ def save_satin_svg(output_path, columns, transform, svg):
         ys.append(q.y)
         return q.x, q.y
 
-    path_data = []
-    for col in columns:
-        rail_a, rail_b, rungs = col["rail_a"], col["rail_b"], col["rungs"]
-        segments = []
-        for rail in (rail_a, rail_b):
-            pts = [to_svg(p) for p in rail]
-            segments.append("M " + " L ".join(f"{x:.2f},{y:.2f}" for x, y in pts))
+    paths = []  # (kind, d)
+    for el in elements:
+        if el["type"] == "running":
+            pts = [to_svg(p) for p in el["points"]]
+            d = "M " + " L ".join(f"{x:.2f},{y:.2f}" for x, y in pts)
+            paths.append(("running", d))
+        else:
+            paths.append(("satin", _satin_path(el, to_svg)))
 
-        # Ink/Stitch needs >= 3 rungs (2 is ambiguous). Each rung must clearly
-        # cross both rails, so extend it past each endpoint.
-        if len(rungs) >= 3:
-            for a, b in rungs:
-                ax, ay = a
-                bx, by = b
-                dx, dy = bx - ax, by - ay
-                length = (dx * dx + dy * dy) ** 0.5 or 1.0
-                ux, uy = dx / length, dy / length
-                ext = min(max(3.0, 0.1 * length), 8.0)
-                sx, sy = to_svg((ax - ux * ext, ay - uy * ext))
-                ex, ey = to_svg((bx + ux * ext, by + uy * ext))
-                segments.append(f"M {sx:.2f},{sy:.2f} L {ex:.2f},{ey:.2f}")
-        path_data.append(" ".join(segments))
-
-    # Fit the viewBox to the satin so nothing is clipped.
+    # Fit the viewBox to the content so nothing is clipped.
     if xs:
         pad = 5.0
         minx, miny = min(xs) - pad, min(ys) - pad
@@ -155,11 +165,17 @@ def save_satin_svg(output_path, columns, transform, svg):
         f'width="{w:.2f}" height="{h:.2f}" viewBox="{view_box}" version="1.1">',
         # Mark as a current Ink/Stitch file (suppresses the "update?" dialog).
         '<metadata><inkstitch:inkstitch_svg_version>3</inkstitch:inkstitch_svg_version></metadata>',
-        '<g id="satin_columns">',
+        '<g id="embroidery">',
     ]
-    for d in path_data:
-        lines.append(f'  <path inkstitch:satin_column="true" '
-                     f'style="fill:none;stroke:#e02020;stroke-width:1" d="{d}" />')
+    for kind, d in paths:
+        if kind == "satin":
+            lines.append(f'  <path inkstitch:satin_column="true" '
+                         f'style="fill:none;stroke:#e02020;stroke-width:1" d="{d}" />')
+        else:  # running stitch: dashed stroke + explicit method
+            lines.append(f'  <path inkstitch:stroke_method="running_stitch" '
+                         f'inkstitch:running_stitch_length_mm="2.5" '
+                         f'style="fill:none;stroke:#1466c8;stroke-width:0.6;'
+                         f'stroke-dasharray:1.5,1.0" d="{d}" />')
     lines.append("</g>")
     lines.append("</svg>")
 
