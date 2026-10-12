@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="80mm" height="48mm" viewBox="0 0 50 30">
+  <!-- Geometric regression fixture: half-turn symmetry, intentionally not mirror symmetry. -->
+  <rect width="50" height="30" fill="#012169"/>
+  <path d="M0 0L50 30M0 30L50 0" fill="none" stroke="#fff" stroke-width="6"/>
+  <path d="M0 0V2L25 17V15ZM50 30V28L25 13V15ZM25 15V13L50 -2V0ZM25 15V17L0 32V30Z" fill="#c8102e"/>
+  <path d="M25 0V30M0 15H50" fill="none" stroke="#fff" stroke-width="10"/>
+  <path d="M25 0V30M0 15H50" fill="none" stroke="#c8102e" stroke-width="6"/>
+</svg>

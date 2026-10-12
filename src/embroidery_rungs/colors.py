@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 from PIL import Image
+from scipy.ndimage import binary_dilation
+from scipy.optimize import nnls
 from scipy.spatial import cKDTree
 from skimage.color import rgb2lab
 
@@ -31,25 +33,57 @@ def separate_colors(rgba: np.ndarray, max_colors: int = 12) -> tuple[np.ndarray,
             packed[1:-1, 1:-1]
             == packed[1 + dr : packed.shape[0] - 1 + dr, 1 + dc : packed.shape[1] - 1 + dc]
         )
+    visible_values, visible_counts = np.unique(packed[visible], return_counts=True)
     values, counts = np.unique(packed[interior], return_counts=True)
+    # Thin repeated details may have no four-neighbour interior at all. Their
+    # complete colour histogram still identifies flat paints without relying on
+    # the raster's orientation or on an aliased stride through its pixels.
     exact = interior.sum() >= 0.5 * len(pixels) and 0 < len(values) <= max_colors
+    if not exact and len(visible_values) <= max_colors:
+        values, counts = visible_values, visible_counts
+        exact = True
+    elif exact and len(visible_values) <= max_colors:
+        # A genuine thin accent can lack an interior. Edge colours blend nearby
+        # paints; isolated accents or colours outside their RGB convex hull must
+        # remain visible for the stitchability audit, even when very small.
+        paints = np.column_stack([values >> 16, (values >> 8) & 255, values & 255])
+        blends = np.vstack([paints.T, np.full(len(paints), 255)])
+        adjacent = binary_dilation(visible & np.isin(packed, values))
+        touching_values = np.unique(packed[visible & adjacent])
+        accents = []
+        for value in np.setdiff1d(visible_values, values):
+            color = np.array([value >> 16, (value >> 8) & 255, value & 255, 255])
+            if value not in touching_values or nnls(blends, color)[1] > 2:
+                accents.append(value)
+        if accents:
+            values = np.union1d(values, accents)
+            counts = visible_counts[np.searchsorted(visible_values, values)]
     reduced = False
     if exact:
         values = values[np.argsort(-counts, kind="stable")]
         palette = np.column_stack([values >> 16, (values >> 8) & 255, values & 255]).astype(
             np.uint8
         )
-        flat = True
     else:
-        # Bound palette discovery for textured images independently of image size.
-        sample = pixels[:: max(1, len(pixels) // 100_000)]
-        unique, frequencies = np.unique(sample, axis=0, return_counts=True)
-        order = np.argsort(-frequencies, kind="stable")
-        flat = frequencies[order[:max_colors]].sum() / len(sample) >= 0.97
-        reduced = not flat or len(values) > max_colors
+        order = np.argsort(-visible_counts, kind="stable")
+        flat = visible_counts[order[:max_colors]].sum() / len(pixels) >= 0.97
+        reduced = True
         if flat:
-            palette = unique[order[:max_colors]]
+            paints = visible_values[order[:max_colors]]
+            palette = np.column_stack([paints >> 16, (paints >> 8) & 255, paints & 255]).astype(
+                np.uint8
+            )
         else:
+            # Equal quantiles of the sorted RGB histogram retain colour weights
+            # in a bounded sample. A flip/rotation changes pixel order, never the
+            # histogram or the median-cut result. Remainder allocation by RGB
+            # tie order would bias photographs containing many unique colours.
+            sample_count = min(100_000, len(pixels))
+            ranks = (np.arange(sample_count) + 0.5) * len(pixels) / sample_count
+            paints = visible_values[np.searchsorted(np.cumsum(visible_counts), ranks, side="right")]
+            sample = np.column_stack([paints >> 16, (paints >> 8) & 255, paints & 255]).astype(
+                np.uint8
+            )
             quantized = Image.fromarray(sample.reshape(1, -1, 3)).quantize(colors=max_colors)
             palette, frequencies = np.unique(
                 np.asarray(quantized.convert("RGB")).reshape(-1, 3), axis=0, return_counts=True

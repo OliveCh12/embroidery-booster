@@ -120,7 +120,12 @@ def _make_blocks(elements, params):
             ):
                 fill_area = _compensated_fill(polygon, compensation, angle)
                 if element.get("underlay", params.underlay):
-                    paths.extend(("underlay", p) for p in fill_underlay(polygon, angle, params))
+                    paths.extend(
+                        ("underlay", p)
+                        for p in fill_underlay(
+                            polygon, angle, params, edge_walk=element.get("underlay_edge")
+                        )
+                    )
                 paths.extend(
                     ("fill", p)
                     for p in _ordered_fill_paths(
@@ -153,15 +158,28 @@ def _make_blocks(elements, params):
                             )
                         )
             else:
-                if params.underlay:
-                    paths.extend(("underlay", p) for p in satin_underlay(a, b, params))
+                if element.get("underlay", params.underlay):
+                    paths.extend(
+                        ("underlay", p)
+                        for p in satin_underlay(
+                            a,
+                            b,
+                            params,
+                            edge_walk=element.get("underlay_edge"),
+                            zigzag=element.get("underlay_zigzag"),
+                        )
+                    )
                 paths.append(("satin", satin_points(a, b, params)))
-        areas.append(area)
+        frame = element.get("frame")
+        areas.append(frame.geometry_to_world(area) if frame is not None else area)
         for kind, points in paths:
             points = _subdivide(points, params.max_stitch_mm)
             pieces, bad = _safe_pieces(points, area)
             rejected += bad
-            blocks.extend(StitchBlock(kind, p, region) for p in pieces)
+            blocks.extend(
+                StitchBlock(kind, frame.to_world(p) if frame is not None else p, region)
+                for p in pieces
+            )
             point_count += sum(len(p) for p in pieces)
             if point_count > params.max_stitches:
                 raise ValueError("Stitch budget exceeded; simplify the design or increase spacing.")
@@ -175,17 +193,19 @@ def build_stitch_plan(
     params = params or StitchParams()
     params.validate()
     if not elements:
-        raise ValueError("No direct stitches could be generated.")
-    extents = np.vstack(
-        [
-            np.asarray(e["polygon"].exterior.coords)
-            if e["type"] == "fill"
-            else np.asarray(e["points"], dtype=float)
-            if e["type"] == "running"
-            else np.vstack([e["rail_a"], e["rail_b"]])
-            for e in elements
-        ]
-    )
+        raise UnstitchableRegion("No direct stitches could be generated; enlarge the design.")
+    extents = []
+    for element in elements:
+        points = (
+            np.asarray(element["polygon"].exterior.coords)
+            if element["type"] == "fill"
+            else np.asarray(element["points"], dtype=float)
+            if element["type"] == "running"
+            else np.vstack([element["rail_a"], element["rail_b"]])
+        )
+        frame = element.get("frame")
+        extents.append(frame.to_world(points) if frame is not None else points)
+    extents = np.vstack(extents)
     if not np.isfinite(extents).all():
         raise ValueError("Stitch coordinates must be finite.")
     if np.any(np.ptp(extents, axis=0) > [params.hoop_width_mm, params.hoop_height_mm]):
@@ -194,7 +214,7 @@ def build_stitch_plan(
         )
     blocks, areas, rejected = _make_blocks(elements, params)
     if not blocks:
-        raise ValueError("No direct stitches could be generated.")
+        raise UnstitchableRegion("No direct stitches could be generated; enlarge the design.")
     all_points = np.vstack([b.points for b in blocks])
     low, high = all_points.min(axis=0), all_points.max(axis=0)
     size = high - low
@@ -205,9 +225,12 @@ def build_stitch_plan(
     origin = (low + high) / 2 if origin_mm is None else np.asarray(origin_mm, dtype=float)
     original_regions = set(range(len(elements)))
     machine_blocks = []
+    # A region may contain hundreds of clipped rows. Its quantization allowance
+    # is invariant: buffering the full contour per row dominates complex logos.
+    quantized_areas = [area.buffer(0.08) for area in areas]
     for block in blocks:
         points = _machine_points(block.points, origin, params.min_stitch_mm)
-        pieces, bad = _safe_pieces(points, areas[block.region].buffer(0.08))
+        pieces, bad = _safe_pieces(points, quantized_areas[block.region])
         rejected += bad
         machine_blocks.extend(StitchBlock(block.kind, p, block.region) for p in pieces)
     sewn_regions = {b.region for b in machine_blocks if b.kind != "underlay"}

@@ -15,10 +15,11 @@ from scipy.ndimage import distance_transform_edt, label, maximum
 
 from ..image_processor import rasterize_svg, render_preview
 from ..svg_manager import UNITS_PER_MM
-from .digitizer import _physical_elements, digitize
+from .digitizer import digitize
 from .params import StitchParams
 from .planner import StitchPlan, build_stitch_plan
 from .quality import measure_stitches
+from .regions import physical_elements
 from .selection import mask_polygons
 
 
@@ -116,7 +117,7 @@ def export_direct(
     if params.auto_select:
         plan, layers = digitize(svg, params)
     else:
-        physical = _physical_elements(elements, transform)
+        physical = physical_elements(elements, transform)
         gap_fills = (
             _gap_fills(residual, transform) if params.fill_gaps and residual is not None else []
         )

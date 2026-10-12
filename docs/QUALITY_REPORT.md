@@ -1,139 +1,140 @@
-# Qualité de couture du moteur direct — 12 octobre 2026
+# Fiabilité et homogénéité du moteur direct — 12 octobre 2026
 
-**Le direct automatique reste recommandé pour un premier plan complet.** Il
-conserve une stratégie supérieure par région de couleur : satin régulier lorsque
-la géométrie le permet, sinon tatami complet. Ink/Stitch reste disponible pour
-inspection et finition. Aucun essai cousu Brother n'a encore été effectué.
+Le moteur direct automatique est recommandé pour préparer une broderie complète.
+Cette itération stabilise surtout les régions homologues, les couleurs et les
+règles de couture. Les SVG Ink/Stitch, l’API publique, la CLI et les exports PES/DST
+sont conservés. Aucun essai cousu Brother n’a encore été réalisé.
 
-## Constats et corrections
+## Défauts reproduits et règles corrigées
 
-- Le buffer circulaire de compensation ajoutait aussi des rangées perpendiculaires
-  aux points. La compensation agit désormais dans leur axe, avec limitation
-  surface/périmètre et trous conservés.
-- La sous-couche du fill touchait les bords. Les fondations sont en retrait de
-  0,3–0,5 mm, avec contour et rangées croisées espacées. Jersey et éponge reçoivent
-  plus de soutien, sans densifier le dessus. Les petits détails évitent une
-  fondation complète qui ajouterait du volume.
-- Un détail de 0,1 × 0,1 mm pouvait exporter une seule piqûre sans couture.
-  Le filtrage se fait avant émission sur la grille machine réelle. Les régions
-  non cousables sont déclarées `omitted` et signalées ; une couleur entièrement
-  non cousable provoque une erreur demandant un agrandissement.
-- Le filtrage pouvait perdre une extrémité ou couper un angle. L'extrémité est
-  conservée lorsque possible et les nouvelles cordes sont contrôlées après arrondi.
-- Une largeur satin évaluée par percentile pouvait cacher une extrémité large.
-  Le maximum de chaque colonne est contrôlé, avec réserve pour compensation et
-  arrondi sous la longueur maximale, afin d'éviter les subdivisions dans sa face.
-- Un candidat running invalide abandonnait la génération. Le fallback de région
-  entière s'applique maintenant aussi à ces candidats.
+- Le MAT déterministe n’était pas invariant sous rotation ; la simplification
+  des contours et l’origine des rangées dépendaient aussi du repère global.
+  Les régions sont désormais calculées dans un repère local canonique, puis
+  replacées dans leur géométrie source avant l’arrondi machine commun.
+- Un satin pouvait être accepté puis renversé par le routage. Le routage conserve
+  désormais sa direction et sa phase validées, en déplaçant des régions entières.
+- De petites différences de masque faisaient choisir satin d’un côté et fill de
+  l’autre. Les régions rigides équivalentes partagent une décision conservatrice,
+  les densités, la compensation bornée, l’angle local, l’underlay et la finition.
+  Chaque membre conserve son contour et doit passer l’audit sur la grille réelle.
+- L’angle fill dépendait d’un coût de trajet échantillonné à un pas physique fixe.
+  Il suit maintenant l’axe des moments surfaciques, trous soustraits, arrondi par
+  bandes de 15°. Les formes presque isotropes conservent l’angle configuré.
+- Un échantillonnage de pixels pouvait perdre une couleur ou dépendre de la
+  rotation. La palette utilise l’histogramme complet et des quantiles pondérés
+  bornés pour les photos. Les accents fins isolés/distincts sont conservés.
+- La parité des bounds raster pouvait rejeter une symétrie correcte. Une recherche
+  d’alignement ±1 pixel corrige ce biais, sans relâcher les limites de surface,
+  de distance aux bords ou de topologie. Le fond utilise huit voisins, dual du
+  premier plan à quatre voisins : un canal diagonal ouvert n’est plus un trou.
+- Les détails non cousables restent explicitement omis. Une couleur entièrement
+  non cousable est signalée, conserve une couverture nulle et n’abandonne plus
+  les autres couleurs. Aucun export ne se réduit à une piqûre isolée.
+- Une fondation pouvait être annoncée sans points effectivement émis. Si un
+  homologue n’a aucun point de soutien après filtrage, le profil commun est
+  désactivé et contrôlé à nouveau. Les petits détails évitent du volume inutile.
+- Le buffer de sécurité était recalculé pour chaque rangée ; sa mise en cache
+  par région conserve exactement les commandes et accélère les logos complexes.
 
-MAT par couleur, contreformes, vrais changements de fil, absence de patches
-satin/fill, contrôle dans les deux sens et audit supérieur indépendant des
-sous-couches restent en place. L'API et les SVG Ink/Stitch sont préservés.
+Les règles et tolérances sont détaillées dans [DIRECT_STITCHES.md](DIRECT_STITCHES.md).
+L’organisation des responsabilités figure dans [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## Avant/après sur 30 SVG à 80 mm
+## Drapeau fourni : huit paires à 180°
 
-Révision `6bde1eb` isolée par `git archive`, même code de mesure des **points
-supérieurs quantifiés** pour les deux versions. Document de 80 mm de large,
-cadre de mesure 500 × 500 mm, pas satin/fill 0,4 mm, compensation demandée 0,15 mm,
-longueur maximale 8 mm. Corpus : logos, multicolore, courbes, pointes, trous,
-petites îles et nouveau coupon. Temps d'un passage local avec caches.
+Image WebP originale de 3840 × 2304 pixels, trois fils, tissu stable, fil 40,
+cutaway, profil Skitch PP1. La comparaison porte sur la révision `e5ad164` et le
+moteur corrigé. Le Union Jack possède une symétrie à 180°, pas une symétrie miroir.
+
+| Largeur | Types divergents avant → après | Angles fill divergents avant → après | Écart médian p95 entre pénétrations homologues avant → après |
+|---|---:|---:|---:|
+| 60 mm | 0 → 0 | 3 → 0 | 0,660 → 0,260 mm |
+| 80 mm | 1 → 0 | 3 → 0 | 0,681 → 0,240 mm |
+| 94 mm | 1 → 0 | 2 → 0 | 0,683 → 0,265 mm |
+
+Toutes les paires partagent type, angle local, densités, compensation et profil
+underlay. Aucun point court ; couverture structurelle supérieure de 100 % aux
+trois tailles. Répéter le WebP et utiliser sa version PNG de 960 pixels donnent
+exactement les mêmes commandes et décisions à 80 mm. Le contour interprété
+présente néanmoins un peu de bruit raster ; les positions ne sont pas clonées.
+
+Le SVG public [union-jack.svg](../examples/quality/union-jack.svg), recréé
+indépendamment, ajoute un second cas de rasterisation aux tests. Ses huit paires,
+les angles réellement cousus et les PES/DST relus sont vérifiés à 80 et 94 mm.
+Données détaillées : [flag-consistency.json](benchmarks/flag-consistency.json).
+
+## Corpus de 31 SVG à 80 mm
+
+Même préparation et même audit des points supérieurs quantifiés pour les deux
+versions ; baseline isolée par `git archive`. Cadre de mesure 500 × 500 mm,
+pas satin/fill 0,4 mm, compensation demandée 0,15 mm, point maximal 8 mm.
+Ce cadre de mesure n’est pas une recommandation de taille pour le Skitch.
+Les temps correspondent à un passage local, sans garantie statistique.
 
 | Mesure | Avant | Après |
 |---|---:|---:|
-| Plans réussis | 30/30 | 30/30 |
-| Couverture structurelle supérieure moyenne | 99,9993 % | 99,9993 % |
-| Plus grand manque | 0,05 mm² | 0,05 mm² |
-| Couverture brute moyenne | 87,29 % | 87,15 % |
-| IoU brut moyen | 79,60 % | 80,05 % |
-| Débordement moyen | 57,31 mm² | 52,07 mm² |
-| Coupes totales | 979 | 903 |
-| Temps médian complet | 0,327 s | 0,412 s |
+| Plans réussis | 31/31 | 31/31 |
+| Couverture structurelle supérieure moyenne | 99,9994 % | 99,9994 % |
+| Plus grand manque structurel | 0,05 mm² | 0,02 mm² |
+| Points courts / crowding satin détecté | 0 / 0 | 0 / 0 |
 | Point cousu maximal | 5,20 mm | 5,20 mm |
+| Couverture brute moyenne | 87,06 % | 84,46 % |
+| IoU brut moyen | 80,18 % | 77,92 % |
+| Débordement moyen | 51,19 mm² | 48,98 mm² |
+| Coupes totales | 1001 | 1069 |
+| Microdétails omis | 72 | 73 |
+| Temps médian complet | 0,422 s | 0,437 s |
+| Temps cumulé des 31 cas | 29,81 s | 20,85 s |
+| Cas complexe flower | 7,59 s | 4,68 s |
 
-Le débordement simulé baisse d'environ 9 %. Les coupes diminuent en partie par
-suppression des piqûres sans couture. **72 microdétails sont désormais déclarés
-non cousables**, principalement dans la fleur : cette suppression ne les rend
-pas fidèles. Leurs avertissements recommandent l'agrandissement. La fondation
-plus complète et les contrôles coûtent du temps ; ce passage ne constitue pas
-une étude statistique de performance.
+L’amélioration démontrée concerne l’homogénéité, la stabilité des règles et le
+contrôle des points émis. Les directions changent volontairement : couverture
+brute et IoU simulés baissent sur ce corpus, et les coupes augmentent légèrement.
+Les omissions ne sont pas assimilées à une reconstruction fidèle. Le nouveau
+moteur ne prétend pas améliorer toutes les métriques sur chaque dessin.
+Données : [consistent-digitizing.json](benchmarks/consistent-digitizing.json).
 
-Données : [sewing-quality.json](benchmarks/sewing-quality.json).
+La galerie `/quality` contient 31 dessins et les nouveaux plans directs ; les
+30 comparaisons manuelles et Ink/Stitch précédentes sont conservées. Leur présence
+ne signifie pas une nouvelle validation de couture native. Voir le
+[rapport JSON](quality-comparison.json).
 
-## Quatre méthodes à taille originale
+## Validation et limites pratiques
 
-**120 plans réussis sur 30 SVG**, dont 30 exports réels d'Ink/Stitch officiel
-3.3.0. La galerie `/quality` contient les aperçus et empreintes actuels. Le cadre
-de mesure 500 × 500 mm ne signifie pas que chaque taille originale tient dans
-le Skitch.
+289 tests Python couvrent couleurs, D4, formes réellement différentes, trous,
+canaux ouverts, cadres rectangulaires, angles, translation, répétabilité,
+densité, sous-couches réelles, omissions, géométrie et contrats API/CLI.
+Ruff valide ; wheel et sdist sont construits. Les PES/DST relus conservent les
+positions quantifiées et les changements de fil. L’API locale relancée a importé
+le SVG du drapeau via Next.js et généré un plan à trois couleurs avec succès.
 
-| Méthode | Couverture structurelle commune | IoU brut | Coupes | Point maximal |
-|---|---:|---:|---:|---:|
-| Direct manuel · fill | 97,08 % | 75,58 % | 1514 | 7,92 mm |
-| Direct manuel · satin subdivisé | 97,08 % | 80,55 % | 973 | 7,93 mm |
-| Direct automatique | 100,00 % | 79,33 % | 1105 | 6,45 mm |
-| Ink/Stitch · réglages explicites | 91,73 % | 75,66 % | 803 | 12,65 mm |
+Le fil simulé fait 0,3 mm ; la couverture structurelle admet une distance de
+0,25 mm au fil. 100 % ne prouve donc pas une surface opaque, ni l’absence de
+fronces sur tissu. Sous-couches, locks et trajets cousus sont exclus de l’audit
+supérieur. Les couleurs omises restent comptées dans les manques.
 
-L'empreinte commune inclut sous-couches et trajets cousus, sauts exclus. L'audit
-**supérieur seulement** du direct automatique donne 99,9993 % en moyenne et un
-manque maximal de 0,08 mm². Il déclare 39 détails omis à ces tailles. Le direct
-automatique sépare les couleurs ; rails natifs et direct manuel sont monochromes.
-Les exports natifs utilisent nos rails, pas une numérisation professionnelle.
-Certains contours restent plus fidèles dans le natif ou le satin manuel. Les
-longueurs natives dépassant le maximum demandé restent affichées comme telles.
+La normalisation couvre translations, réflexions et rotations de 90° ; les
+motifs à rotations arbitraires ne sont pas encore explicitement regroupés.
+Redimensionner peut changer satin en fill lorsque les limites physiques ou le
+contrôle de crowding l’exigent ; les homologues restent cohérents à chaque taille.
+Un changement proche d’une frontière de classification reste possible.
+Les photos sont quantifiées sans reconnaissance sémantique. Tension, étalement
+du fil, stabilisation et déformation du tissu ne sont pas simulés.
 
-Données : [quality-comparison.json](quality-comparison.json).
-
-## Sens des mesures et limites
-
-Fil de référence 0,3 mm. Couverture, IoU et débordement bruts n'ont aucune
-tolérance. La couverture structurelle admet 0,25 mm autour du fil pour distinguer
-l'espacement régulier des lacunes importantes. 100 % ne prouve donc pas l'opacité
-du tissu ni la reproduction au pixel près. Chaque couleur est contrôlée aussi
-indépendamment dans le JSON. Inspecter omissions et distance maximale au fil,
-même lorsque la surface manquante est petite.
-
-La grille de 0,1 mm et la longueur minimale ne reproduisent pas tous les détails
-d'une scène. Les photos sont quantifiées sans reconnaissance sémantique. Les
-presets sont modifiables ; aucune simulation de tension, déformation ou étalement
-du fil n'est revendiquée.
-
-Le profil `brother-skitch-pp1` valide **100 × 100 mm** et propose six fils/7 mm de
-satin, avec overrides pour ces deux recommandations.
-[Brother indique cette surface et l'utilisation d'Artspira](https://www.brother-usa.com/p/sewing-embroidery/PP1).
-[Artspira accepte PES et DST pour la broderie](https://support.brother.com/g/s/hf/mobileapp_info/artspira/plan/func1/en.html),
-selon l'offre et la disponibilité locale. Vérifier la coupe des fils de saut
-sur la machine ; une commande TRIM relue ne suffit pas.
-
-Le [coupon et protocole](SEWOUT.md) couvrent satin droit, courbe, taper, fill troué
-et détails fins. Stable/40, stretch/40, textured/30 et stable/60 passent les
-contrôles numériques. Stable/40 contient 2347 points, trois fils et deux changements,
-sans point court ni détail omis. **La validation sur tissu reste à réaliser.**
-
-## Validation et reproduction
-
-**210 tests Python, 12 tests frontend**, Ruff, TypeScript/ESLint, build Next.js,
-wheel et sdist. PES/DST relus conservent exactement positions cousues et palettes.
-Tests : fondations en retrait, compensation directionnelle, minimum configurable,
-extrémités, absence de faux segment, erreurs machine, dimensions et API/CLI.
-
-L'API locale relancée traite le coupon Skitch et fournit ses quatre téléchargements.
-Le contrôle visuel navigateur de cette itération a été bloqué après redémarrage
-sur une page d'erreur interne ; aucun nouveau test visuel complet de l'interface
-n'est revendiqué. Le build et le contrat frontend passent.
+Le profil Skitch PP1 valide le cadre de 100 × 100 mm et propose six fils / 7 mm
+satin, recommandations modifiables. Les [spécifications Brother](https://www.brother-usa.com/p/sewing-embroidery/PP1)
+et le [protocole de sew-out](SEWOUT.md) précisent l’import Artspira et les essais.
+La validation sur le tissu, le fil et le stabilisateur réels reste indispensable.
 
 ```bash
-uv run python scripts/benchmark_direct.py --baseline-ref 6bde1eb --design-width-mm 80 --output docs/benchmarks/sewing-quality.json
-uv run python scripts/compare_quality.py --inkstitch /path/to/inkstitch
-uv run python scripts/compare_quality.py --reuse
 uv run pytest -q
-pnpm test:frontend
-pnpm check
-pnpm build
+uv run python scripts/benchmark_direct.py --baseline-ref e5ad164 --design-width-mm 80 --output docs/benchmarks/consistent-digitizing.json
+uv run python scripts/compare_quality.py --modes direct-auto
+uv run embroidery-rungs examples/quality/union-jack.svg --method direct --design-width 80 --machine brother-skitch-pp1 --fabric stable --thread-weight 40 --stabilizer cutaway -o output/flag
 uv build
 ```
 
-Historique : [itération couleurs](benchmarks/QUALITY_REPORT_2026-10-12_COLORS.md),
+Historique : [couture physique précédente](benchmarks/QUALITY_REPORT_2026-10-12_SEWING.md),
+[couleurs](benchmarks/QUALITY_REPORT_2026-10-12_COLORS.md),
 [rapport du 11 octobre](benchmarks/QUALITY_REPORT_2026-10-11.md).
 Références : [satin Ink/Stitch](https://inkstitch.org/docs/stitches/satin-column/),
-[tatami et sous-couche](https://inkstitch.org/docs/stitches/fill-stitch/),
 [pyembroidery](https://github.com/EmbroidePy/pyembroidery/blob/main/README.md).

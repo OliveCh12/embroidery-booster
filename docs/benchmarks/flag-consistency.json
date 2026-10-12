@@ -1,0 +1,327 @@
+{
+  "schema_version": 1,
+  "measurement_date": "2026-10-12",
+  "source": "User-supplied 3840x2304 Union Jack WebP; source attachment is not committed. Public tests use the independently recreated examples/quality/union-jack.svg fixture.",
+  "baseline_revision": "e5ad16448e83e810bc6f75cbdafb52c9a61a41d8",
+  "settings": {
+    "fabric": "stable",
+    "thread_weight": 40,
+    "stabilizer": "cutaway",
+    "machine": "brother-skitch-pp1",
+    "satin_spacing_mm": 0.4,
+    "fill_spacing_mm": 0.4,
+    "pull_compensation_mm": 0.15
+  },
+  "measurement": {
+    "audit_pixels_per_mm": 12.008,
+    "thread_model_mm": 0.3,
+    "structural_tolerance_mm": 0.25,
+    "pairing": "Same-color connected components matched through a 180-degree rotation. Union Jack does not have mirror symmetry.",
+    "point_comparison": "Bidirectional nearest top penetration distances after aligning paired region centroids; not a thread/fabric simulation.",
+    "support_counts": "Non-top penetrations include underlay, locks and travel; they are not exact underlay counts.",
+    "source_color_agreement_rot180": 0.999595,
+    "prepared_80mm_color_agreement_rot180": 0.98654
+  },
+  "flag_runs": [
+    {
+      "width_mm": 60,
+      "before": {
+        "stats": {
+          "stitches": 6075,
+          "trims": 87,
+          "colors": 3,
+          "color_changes": 2,
+          "structural_coverage": 1.0,
+          "largest_gap_mm2": 0.01,
+          "uncovered_max_mm": 0.333,
+          "short_stitches": 0,
+          "max_stitch_mm": 3.9,
+          "spill_mm2": 180.74
+        },
+        "paired_regions": 8,
+        "method_mismatches": 0,
+        "fill_angle_mismatches": 3,
+        "median_pair_top_penetration_p95_mm": 0.66,
+        "all_pairs_share_group_and_policy": false,
+        "pairs": [
+          {"color":"#c8102e","source_components":[2,4],"methods":["satin","satin"],"angles":[null,null],"top_stitch_counts":[145,146],"centroid_aligned_top_penetration_p95_mm":0.19},
+          {"color":"#c8102e","source_components":[3,5],"methods":["satin","satin"],"angles":[null,null],"top_stitch_counts":[126,129],"centroid_aligned_top_penetration_p95_mm":0.148},
+          {"color":"#ffffff","source_components":[1,4],"methods":["fill","fill"],"angles":[0.0,0.0],"top_stitch_counts":[448,449],"centroid_aligned_top_penetration_p95_mm":0.69},
+          {"color":"#ffffff","source_components":[2,3],"methods":["fill","fill"],"angles":[0.0,90.0],"top_stitch_counts":[437,532],"centroid_aligned_top_penetration_p95_mm":0.63},
+          {"color":"#012169","source_components":[1,8],"methods":["fill","fill"],"angles":[30.0,0.0],"top_stitch_counts":[145,144],"centroid_aligned_top_penetration_p95_mm":0.719},
+          {"color":"#012169","source_components":[2,7],"methods":["fill","fill"],"angles":[0.0,0.0],"top_stitch_counts":[140,146],"centroid_aligned_top_penetration_p95_mm":0.724},
+          {"color":"#012169","source_components":[3,6],"methods":["fill","fill"],"angles":[30.0,0.0],"top_stitch_counts":[106,107],"centroid_aligned_top_penetration_p95_mm":0.594},
+          {"color":"#012169","source_components":[4,5],"methods":["fill","fill"],"angles":[0.0,0.0],"top_stitch_counts":[109,98],"centroid_aligned_top_penetration_p95_mm":0.723}
+        ]
+      },
+      "after": {
+        "stats": {
+          "stitches": 6132,
+          "trims": 93,
+          "colors": 3,
+          "color_changes": 2,
+          "structural_coverage": 1.0,
+          "largest_gap_mm2": 0.0,
+          "uncovered_max_mm": 0.186,
+          "short_stitches": 0,
+          "max_stitch_mm": 3.83,
+          "spill_mm2": 154.19
+        },
+        "paired_regions": 8,
+        "method_mismatches": 0,
+        "fill_angle_mismatches": 0,
+        "median_pair_top_penetration_p95_mm": 0.26,
+        "all_pairs_share_group_and_policy": true,
+        "pairs": [
+          {"color":"#c8102e","source_components":[2,4],"methods":["satin","satin"],"angles":[null,null],"top_stitch_counts":[145,145],"centroid_aligned_top_penetration_p95_mm":0.145},
+          {"color":"#c8102e","source_components":[3,5],"methods":["fill","fill"],"angles":[30.0,30.0],"top_stitch_counts":[122,116],"centroid_aligned_top_penetration_p95_mm":0.434},
+          {"color":"#ffffff","source_components":[1,4],"methods":["fill","fill"],"angles":[0.0,0.0],"top_stitch_counts":[448,456],"centroid_aligned_top_penetration_p95_mm":0.254},
+          {"color":"#ffffff","source_components":[2,3],"methods":["fill","fill"],"angles":[0.0,0.0],"top_stitch_counts":[446,435],"centroid_aligned_top_penetration_p95_mm":0.255},
+          {"color":"#012169","source_components":[1,8],"methods":["fill","fill"],"angles":[15.0,15.0],"top_stitch_counts":[140,142],"centroid_aligned_top_penetration_p95_mm":0.286},
+          {"color":"#012169","source_components":[2,7],"methods":["fill","fill"],"angles":[165.0,165.0],"top_stitch_counts":[141,140],"centroid_aligned_top_penetration_p95_mm":0.276},
+          {"color":"#012169","source_components":[3,6],"methods":["fill","fill"],"angles":[15.0,15.0],"top_stitch_counts":[100,107],"centroid_aligned_top_penetration_p95_mm":0.265},
+          {"color":"#012169","source_components":[4,5],"methods":["fill","fill"],"angles":[165.0,165.0],"top_stitch_counts":[107,99],"centroid_aligned_top_penetration_p95_mm":0.232}
+        ]
+      }
+    },
+    {
+      "width_mm": 80,
+      "before": {
+        "stats": {
+          "stitches": 9755,
+          "trims": 101,
+          "colors": 3,
+          "color_changes": 2,
+          "structural_coverage": 1.0,
+          "largest_gap_mm2": 0.03,
+          "uncovered_max_mm": 0.416,
+          "short_stitches": 0,
+          "max_stitch_mm": 3.94,
+          "spill_mm2": 213.18
+        },
+        "paired_regions": 8,
+        "method_mismatches": 1,
+        "fill_angle_mismatches": 3,
+        "median_pair_top_penetration_p95_mm": 0.681,
+        "all_pairs_share_group_and_policy": false,
+        "pairs": [
+          {"color":"#c8102e","source_components":[1,5],"methods":["fill","satin"],"angles":[30.0,null],"top_stitch_counts":[183,170],"centroid_aligned_top_penetration_p95_mm":1.15},
+          {"color":"#c8102e","source_components":[3,4],"methods":["satin","satin"],"angles":[null,null],"top_stitch_counts":[192,186],"centroid_aligned_top_penetration_p95_mm":0.207},
+          {"color":"#ffffff","source_components":[1,4],"methods":["fill","fill"],"angles":[0.0,60.0],"top_stitch_counts":[711,805],"centroid_aligned_top_penetration_p95_mm":0.64},
+          {"color":"#ffffff","source_components":[2,3],"methods":["fill","fill"],"angles":[0.0,0.0],"top_stitch_counts":[771,751],"centroid_aligned_top_penetration_p95_mm":0.765},
+          {"color":"#012169","source_components":[1,8],"methods":["fill","fill"],"angles":[0.0,30.0],"top_stitch_counts":[256,238],"centroid_aligned_top_penetration_p95_mm":0.667},
+          {"color":"#012169","source_components":[2,7],"methods":["fill","fill"],"angles":[0.0,0.0],"top_stitch_counts":[256,219],"centroid_aligned_top_penetration_p95_mm":0.695},
+          {"color":"#012169","source_components":[3,6],"methods":["fill","fill"],"angles":[30.0,0.0],"top_stitch_counts":[154,171],"centroid_aligned_top_penetration_p95_mm":0.634},
+          {"color":"#012169","source_components":[4,5],"methods":["fill","fill"],"angles":[0.0,0.0],"top_stitch_counts":[179,173],"centroid_aligned_top_penetration_p95_mm":0.772}
+        ]
+      },
+      "after": {
+        "stats": {
+          "stitches": 9669,
+          "trims": 105,
+          "colors": 3,
+          "color_changes": 2,
+          "structural_coverage": 1.0,
+          "largest_gap_mm2": 0.0,
+          "uncovered_max_mm": 0.186,
+          "short_stitches": 0,
+          "max_stitch_mm": 3.93,
+          "spill_mm2": 190.73
+        },
+        "paired_regions": 8,
+        "method_mismatches": 0,
+        "fill_angle_mismatches": 0,
+        "median_pair_top_penetration_p95_mm": 0.24,
+        "all_pairs_share_group_and_policy": true,
+        "pairs": [
+          {"color":"#c8102e","source_components":[1,5],"methods":["fill","fill"],"angles":[30.0,30.0],"top_stitch_counts":[214,188],"centroid_aligned_top_penetration_p95_mm":0.262},
+          {"color":"#c8102e","source_components":[3,4],"methods":["satin","satin"],"angles":[null,null],"top_stitch_counts":[186,187],"centroid_aligned_top_penetration_p95_mm":0.218},
+          {"color":"#ffffff","source_components":[1,4],"methods":["fill","fill"],"angles":[0.0,0.0],"top_stitch_counts":[710,711],"centroid_aligned_top_penetration_p95_mm":0.231},
+          {"color":"#ffffff","source_components":[2,3],"methods":["fill","fill"],"angles":[0.0,0.0],"top_stitch_counts":[727,746],"centroid_aligned_top_penetration_p95_mm":0.215},
+          {"color":"#012169","source_components":[1,8],"methods":["fill","fill"],"angles":[15.0,15.0],"top_stitch_counts":[251,244],"centroid_aligned_top_penetration_p95_mm":0.25},
+          {"color":"#012169","source_components":[2,7],"methods":["fill","fill"],"angles":[165.0,165.0],"top_stitch_counts":[245,213],"centroid_aligned_top_penetration_p95_mm":0.336},
+          {"color":"#012169","source_components":[3,6],"methods":["fill","fill"],"angles":[15.0,15.0],"top_stitch_counts":[143,172],"centroid_aligned_top_penetration_p95_mm":0.313},
+          {"color":"#012169","source_components":[4,5],"methods":["fill","fill"],"angles":[165.0,165.0],"top_stitch_counts":[176,176],"centroid_aligned_top_penetration_p95_mm":0.102}
+        ]
+      }
+    },
+    {
+      "width_mm": 94,
+      "before": {
+        "stats": {
+          "stitches": 12260,
+          "trims": 108,
+          "colors": 3,
+          "color_changes": 2,
+          "structural_coverage": 1.0,
+          "largest_gap_mm2": 0.01,
+          "uncovered_max_mm": 0.333,
+          "short_stitches": 0,
+          "max_stitch_mm": 4.19,
+          "spill_mm2": 252.41
+        },
+        "paired_regions": 8,
+        "method_mismatches": 1,
+        "fill_angle_mismatches": 2,
+        "median_pair_top_penetration_p95_mm": 0.683,
+        "all_pairs_share_group_and_policy": false,
+        "pairs": [
+          {"color":"#c8102e","source_components":[1,5],"methods":["fill","fill"],"angles":[30.0,0.0],"top_stitch_counts":[233,314],"centroid_aligned_top_penetration_p95_mm":0.575},
+          {"color":"#c8102e","source_components":[3,4],"methods":["satin","fill"],"angles":[null,0.0],"top_stitch_counts":[227,319],"centroid_aligned_top_penetration_p95_mm":1.324},
+          {"color":"#ffffff","source_components":[1,4],"methods":["fill","fill"],"angles":[0.0,30.0],"top_stitch_counts":[892,761],"centroid_aligned_top_penetration_p95_mm":0.68},
+          {"color":"#ffffff","source_components":[2,3],"methods":["fill","fill"],"angles":[90.0,90.0],"top_stitch_counts":[1072,1074],"centroid_aligned_top_penetration_p95_mm":0.686},
+          {"color":"#012169","source_components":[1,8],"methods":["fill","fill"],"angles":[30.0,30.0],"top_stitch_counts":[296,287],"centroid_aligned_top_penetration_p95_mm":0.764},
+          {"color":"#012169","source_components":[2,7],"methods":["fill","fill"],"angles":[0.0,0.0],"top_stitch_counts":[318,299],"centroid_aligned_top_penetration_p95_mm":0.225},
+          {"color":"#012169","source_components":[3,6],"methods":["fill","fill"],"angles":[30.0,30.0],"top_stitch_counts":[212,201],"centroid_aligned_top_penetration_p95_mm":0.77},
+          {"color":"#012169","source_components":[4,5],"methods":["fill","fill"],"angles":[0.0,0.0],"top_stitch_counts":[202,205],"centroid_aligned_top_penetration_p95_mm":0.223}
+        ]
+      },
+      "after": {
+        "stats": {
+          "stitches": 12212,
+          "trims": 115,
+          "colors": 3,
+          "color_changes": 2,
+          "structural_coverage": 1.0,
+          "largest_gap_mm2": 0.0,
+          "uncovered_max_mm": 0.25,
+          "short_stitches": 0,
+          "max_stitch_mm": 4.0,
+          "spill_mm2": 224.15
+        },
+        "paired_regions": 8,
+        "method_mismatches": 0,
+        "fill_angle_mismatches": 0,
+        "median_pair_top_penetration_p95_mm": 0.265,
+        "all_pairs_share_group_and_policy": true,
+        "pairs": [
+          {"color":"#c8102e","source_components":[1,5],"methods":["fill","fill"],"angles":[30.0,30.0],"top_stitch_counts":[255,251],"centroid_aligned_top_penetration_p95_mm":0.241},
+          {"color":"#c8102e","source_components":[3,4],"methods":["fill","fill"],"angles":[150.0,150.0],"top_stitch_counts":[288,271],"centroid_aligned_top_penetration_p95_mm":0.312},
+          {"color":"#ffffff","source_components":[1,4],"methods":["fill","fill"],"angles":[0.0,0.0],"top_stitch_counts":[891,817],"centroid_aligned_top_penetration_p95_mm":0.208},
+          {"color":"#ffffff","source_components":[2,3],"methods":["fill","fill"],"angles":[0.0,0.0],"top_stitch_counts":[920,905],"centroid_aligned_top_penetration_p95_mm":0.193},
+          {"color":"#012169","source_components":[1,8],"methods":["fill","fill"],"angles":[15.0,15.0],"top_stitch_counts":[299,290],"centroid_aligned_top_penetration_p95_mm":0.293},
+          {"color":"#012169","source_components":[2,7],"methods":["fill","fill"],"angles":[165.0,165.0],"top_stitch_counts":[314,289],"centroid_aligned_top_penetration_p95_mm":0.264},
+          {"color":"#012169","source_components":[3,6],"methods":["fill","fill"],"angles":[15.0,15.0],"top_stitch_counts":[207,219],"centroid_aligned_top_penetration_p95_mm":0.266},
+          {"color":"#012169","source_components":[4,5],"methods":["fill","fill"],"angles":[165.0,165.0],"top_stitch_counts":[205,216],"centroid_aligned_top_penetration_p95_mm":0.288}
+        ]
+      }
+    }
+  ],
+  "fixture_runs": [
+    {
+      "name": "paired-rings",
+      "width_mm": 80,
+      "before": {
+        "stats": {
+          "stitches": 978,
+          "trims": 5,
+          "colors": 1,
+          "color_changes": 0,
+          "structural_coverage": 1.0,
+          "largest_gap_mm2": 0.0,
+          "uncovered_max_mm": 0.118,
+          "short_stitches": 0,
+          "max_stitch_mm": 3.41,
+          "spill_mm2": 43.14
+        },
+        "paired_regions": 1,
+        "method_mismatches": 0,
+        "fill_angle_mismatches": 0,
+        "median_pair_top_penetration_p95_mm": 0.191,
+        "all_pairs_share_group_and_policy": false,
+        "pairs": [
+          {"color":"#012169","source_components":[1,2],"methods":["satin","satin"],"angles":[null,null],"top_stitch_counts":[377,376],"centroid_aligned_top_penetration_p95_mm":0.191}
+        ]
+      },
+      "after": {
+        "stats": {
+          "stitches": 992,
+          "trims": 2,
+          "colors": 1,
+          "color_changes": 0,
+          "structural_coverage": 1.0,
+          "largest_gap_mm2": 0.0,
+          "uncovered_max_mm": 0.118,
+          "short_stitches": 0,
+          "max_stitch_mm": 3.41,
+          "spill_mm2": 43.94
+        },
+        "paired_regions": 1,
+        "method_mismatches": 0,
+        "fill_angle_mismatches": 0,
+        "median_pair_top_penetration_p95_mm": 0.199,
+        "all_pairs_share_group_and_policy": true,
+        "pairs": [
+          {"color":"#012169","source_components":[1,2],"methods":["satin","satin"],"angles":[null,null],"top_stitch_counts":[376,376],"centroid_aligned_top_penetration_p95_mm":0.199}
+        ]
+      }
+    },
+    {
+      "name": "paired-l-shapes",
+      "width_mm": 80,
+      "before": {
+        "stats": {
+          "stitches": 943,
+          "trims": 11,
+          "colors": 1,
+          "color_changes": 0,
+          "structural_coverage": 1.0,
+          "largest_gap_mm2": 0.0,
+          "uncovered_max_mm": 0.083,
+          "short_stitches": 0,
+          "max_stitch_mm": 3.7,
+          "spill_mm2": 18.66
+        },
+        "paired_regions": 1,
+        "method_mismatches": 0,
+        "fill_angle_mismatches": 1,
+        "median_pair_top_penetration_p95_mm": 0.721,
+        "all_pairs_share_group_and_policy": false,
+        "pairs": [
+          {"color":"#c8102e","source_components":[1,2],"methods":["fill","fill"],"angles":[90.0,0.0],"top_stitch_counts":[325,364],"centroid_aligned_top_penetration_p95_mm":0.721}
+        ]
+      },
+      "after": {
+        "stats": {
+          "stitches": 1038,
+          "trims": 14,
+          "colors": 1,
+          "color_changes": 0,
+          "structural_coverage": 1.0,
+          "largest_gap_mm2": 0.0,
+          "uncovered_max_mm": 0.118,
+          "short_stitches": 0,
+          "max_stitch_mm": 3.89,
+          "spill_mm2": 21.53
+        },
+        "paired_regions": 1,
+        "method_mismatches": 0,
+        "fill_angle_mismatches": 0,
+        "median_pair_top_penetration_p95_mm": 0.0,
+        "all_pairs_share_group_and_policy": true,
+        "pairs": [
+          {"color":"#c8102e","source_components":[1,2],"methods":["fill","fill"],"angles":[60.0,60.0],"top_stitch_counts":[382,382],"centroid_aligned_top_penetration_p95_mm":0.0}
+        ]
+      }
+    }
+  ],
+  "repeatability": [
+    {
+      "case": "flag-80-repeat",
+      "commands_equal_reference": true,
+      "decisions_equal_reference": true,
+      "commands_sha256": "efe658f2d121a95d0508ff5e8e0a07561fc41fb1066da388369358cfc416e9d5"
+    },
+    {
+      "case": "png960-80",
+      "commands_equal_reference": true,
+      "decisions_equal_reference": true,
+      "commands_sha256": "efe658f2d121a95d0508ff5e8e0a07561fc41fb1066da388369358cfc416e9d5"
+    }
+  ],
+  "limitations": [
+    "No physical sew-out was performed. Geometric coverage and symmetry measurements do not prove cloth behavior.",
+    "Matching shares policy and local coordinate phase, not copied outlines. Raster edges and machine rounding can produce unequal point counts.",
+    "Satin can switch to coherent fill as physical scale changes when quantized crowding or coverage checks fail."
+  ]
+}

@@ -8,30 +8,13 @@ import numpy as np
 import pyembroidery as pe
 
 from ..colors import separate_colors
-from ..image_processor import compute_medial_axis, rasterize_rgba
-from ..rung_generator import generate_rungs
+from ..image_processor import rasterize_rgba
 from ..svg_manager import UNITS_PER_MM, SVGDocument
+from .consistency import select_consistent_regions
 from .params import StitchParams
-from .planner import StitchPlan, build_stitch_plan
+from .planner import StitchPlan, UnstitchableRegion, build_stitch_plan
 from .quality import measure_plan, satin_crowding
-from .selection import select_stitch_types
-
-
-def _physical_elements(elements, transform):
-    inverse = ~transform
-    matrix = np.array([[inverse.a, inverse.b], [inverse.c, inverse.d]]) / UNITS_PER_MM
-    offset = np.array([inverse.e, inverse.f]) / UNITS_PER_MM
-    return [
-        {
-            "type": e["type"],
-            **{
-                k: np.asarray(e[k]) @ matrix + offset
-                for k in ("points", "rail_a", "rail_b")
-                if k in e
-            },
-        }
-        for e in elements
-    ]
+from .regions import design_symmetries
 
 
 def _combine(plans, colors, params, origin):
@@ -143,18 +126,25 @@ def digitize(svg: SVGDocument, params: StitchParams) -> tuple[StitchPlan, list[d
         center @ np.array([[inverse.a, inverse.b], [inverse.c, inverse.d]]) + [inverse.e, inverse.f]
     ) / UNITS_PER_MM
     plans, diagnostics, command_count = [], [], 0
+    symmetries = design_symmetries(labels)
+    sewn_colors, skipped_decisions, skipped_warnings = [], [], []
     for index, color in enumerate(colors, 1):
         mask = labels == index
-        skeleton, distance = compute_medial_axis(mask)
-        _, _, elements = generate_rungs(
-            skeleton, distance, 3 * scale, mask, min_satin_width_px=0.5 * scale, pixels_per_mm=scale
-        )
-        physical = _physical_elements(elements, transform)
-        selected, decisions = select_stitch_types(
-            physical, mask, transform, params, origin_mm=origin
-        )
+        selected, decisions = select_consistent_regions(mask, transform, params, origin, symmetries)
         if not selected:
-            raise ValueError(f"Colour {color} has no stitchable regions; enlarge the design.")
+            skipped_decisions.extend(
+                {**d, "color": color, "color_index": None, "source_component": d["component"]}
+                for d in decisions
+            )
+            skipped_warnings.append(
+                f"Colour {color} has no stitchable regions and was omitted; enlarge its details."
+            )
+            empty = StitchPlan([], [], tuple(origin), {})
+            metrics, _ = measure_plan(empty, mask, scale, [transform.e, transform.f])
+            diagnostics.append(
+                {"color": color, "area_pixels": int(mask.sum()), "omitted": True, **metrics}
+            )
+            continue
         plan = build_stitch_plan(selected, params, origin_mm=origin)
         command_count += len(plan.commands)
         if command_count > params.max_stitches:
@@ -182,7 +172,16 @@ def digitize(svg: SVGDocument, params: StitchParams) -> tuple[StitchPlan, list[d
             decision["coverage_basis"] = "quantized_top_layer"
         diagnostics.append({"color": color, "area_pixels": int(mask.sum()), **metrics})
         plans.append(plan)
-    result = _combine(plans, colors, params, origin)
+        sewn_colors.append(color)
+    if not plans:
+        raise UnstitchableRegion("No colour has stitchable regions; enlarge the design.")
+    result = _combine(plans, sewn_colors, params, origin)
+    decision_offset = len(result.decisions)
+    result.decisions.extend(
+        {**d, "component": decision_offset + i + 1} for i, d in enumerate(skipped_decisions)
+    )
+    result.stats["omitted_regions"] += len(skipped_decisions)
+    result.warnings.extend(skipped_warnings)
     enlarged = sum(d.get("minimum_detail_enlarged", False) for d in result.decisions)
     result.stats["minimum_detail_enlargements"] = enlarged
     result.stats["crowded_satin_penetrations"] = sum(
@@ -202,6 +201,9 @@ def digitize(svg: SVGDocument, params: StitchParams) -> tuple[StitchPlan, list[d
     for key in ("largest_gap_mm2", "uncovered_max_mm", "uncovered_p95_mm"):
         result.stats[key] = max(d[key] for d in diagnostics)
     result.stats["audit_pixels_per_mm"] = round(float(scale), 3)
+    result.stats["symmetry_operations"] = len(symmetries)
+    result.stats["equivalent_regions"] = sum(d["equivalent_regions"] > 1 for d in result.decisions)
+    result.stats["omitted_colors"] = len(colors) - len(sewn_colors)
     if reduced:
         result.warnings.append(
             f"Artwork gradients/colours were quantized to {len(colors)} thread colours; inspect the interpreted palette."

@@ -91,12 +91,18 @@ uv run embroidery-rungs --help
 The automatic direct engine uses **one top stitch strategy per connected color
 region**: regular satin for suitable columns, running stitches for fine details,
 or whole-region clipped tatami for broad, branched or incompletely covered shapes.
-Satin candidates must pass coverage and crowding checks in both sewing directions.
+Satin candidates must pass coverage and crowding checks in the actual sewing direction,
+including the final shared machine grid. Internal stitch phase is preserved during routing.
 It never patches a deficient satin region with a different top stitch type.
 Small compact details can receive a bounded minimum-length adjustment, reported
 in warnings. Decisions and candidate diagnostics are recorded in JSON.
+Equivalent regions share stitch type, density, local fill angle, compensation and
+underlay policy. Rotated/reflected counterparts retain their original outlines;
+automatic fill direction follows filled-area geometry rather than sample position.
 Details that cannot form a sewn segment after machine rounding are explicitly
-marked `omitted`; an entirely unsewable design fails with an enlargement message.
+marked `omitted`, including an entirely unsewable color. Missing colors remain in
+the coverage audit; an entirely unsewable design fails with an enlargement message.
+See the [consistency validation](docs/QUALITY_REPORT.md), including the Union Jack.
 
 | Setting | Default | CLI |
 |---|---:|---|

@@ -125,6 +125,46 @@ def test_palette_is_bounded_deterministic_and_antialias_does_not_add_threads():
     assert len(colors) == 2
 
 
+@pytest.mark.parametrize("orientation", ["flip_x", "flip_y", "rotate", "transpose"])
+def test_thin_periodic_flat_colors_survive_every_raster_orientation(orientation):
+    rgba = np.empty((600, 600, 4), dtype=np.uint8)
+    rgba[..., :3] = np.array([[230, 20, 20], [20, 220, 20], [20, 20, 230]])[np.arange(600) % 3]
+    rgba[..., 3] = 255
+    orient = {
+        "flip_x": lambda array: array[:, ::-1],
+        "flip_y": lambda array: array[::-1],
+        "rotate": lambda array: np.rot90(array),
+        "transpose": lambda array: np.swapaxes(array, 0, 1),
+    }[orientation]
+    labels, colors, reduced = separate_colors(rgba, max_colors=6)
+    changed, palette, changed_reduced = separate_colors(orient(rgba), max_colors=6)
+    assert set(colors) == {"#e61414", "#14dc14", "#1414e6"}
+    assert palette == colors
+    assert not reduced and not changed_reduced
+    assert np.array_equal(changed, orient(labels))
+
+
+@pytest.mark.parametrize("orientation", ["flip_x", "rotate", "transpose"])
+def test_quantized_gradient_palette_is_invariant_to_pixel_enumeration(orientation):
+    rgba = np.empty((512, 512, 4), dtype=np.uint8)
+    x = np.linspace(20, 230, 512).astype(np.int16)
+    rgb = np.stack(np.broadcast_arrays(x[None, :], x[:, None], 255 - x[None, :]), axis=2)
+    noise = np.random.default_rng(42).integers(-12, 13, size=rgb.shape)
+    rgba[..., :3] = np.clip(rgb + noise, 0, 255)
+    rgba[..., 3] = 255
+    orient = {
+        "flip_x": lambda array: array[:, ::-1],
+        "rotate": lambda array: np.rot90(array),
+        "transpose": lambda array: np.swapaxes(array, 0, 1),
+    }[orientation]
+    labels, colors, reduced = separate_colors(rgba, max_colors=6)
+    changed, palette, changed_reduced = separate_colors(orient(rgba), max_colors=6)
+    assert 1 < len(colors) <= 6
+    assert reduced and changed_reduced
+    assert palette == colors
+    assert np.array_equal(changed, orient(labels))
+
+
 def test_top_layer_audit_excludes_underlay_and_unsewn_jump():
     target = np.ones((100, 100), dtype=bool)
     blocks = [StitchBlock("underlay", np.array([[0, 5], [10, 5]]), 0)]
@@ -150,6 +190,22 @@ def test_similar_solid_paints_and_small_accents_remain_distinct():
     rgba[20:24, 20:24, :3] = [0, 230, 0]
     _, colors, _ = separate_colors(rgba)
     assert set(colors) == {"#fd0000", "#ff0000", "#00e600"}
+
+
+@pytest.mark.parametrize("accent", [[255, 0, 0], [0, 128, 127]])
+def test_isolated_single_pixel_accents_remain_in_a_flat_paint_palette(accent):
+    rgba = np.zeros((60, 100, 4), dtype=np.uint8)
+    rgba[10:25, 10:90] = [0, 0, 255, 255]
+    rgba[35:50, 10:90] = [0, 255, 0, 255]
+    rgba[2, 2] = [*accent, 255]
+    labels, colors, reduced = separate_colors(rgba)
+    expected = "#" + "".join(f"{channel:02x}" for channel in accent)
+    assert set(colors) == {"#0000ff", "#00ff00", expected}
+    assert colors[labels[2, 2] - 1] == expected
+    assert not reduced
+    changed, palette, _ = separate_colors(np.rot90(rgba))
+    assert palette == colors
+    assert np.array_equal(changed, np.rot90(labels))
 
 
 def test_monochrome_override_is_explicit_and_uses_chosen_thread(tmp_path):

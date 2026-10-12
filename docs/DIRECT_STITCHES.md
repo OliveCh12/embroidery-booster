@@ -10,7 +10,9 @@ Python 3.10 is the packaging minimum required by the native SVG renderer.
 `colors.py` assigns disjoint visible pixels to ordered thread colors. Flat interior
 paints retain exact RGB values, including similar colors and small accents.
 Antialiased edges are assigned in Lab space. Photos/gradients use bounded
-median-cut quantization. Palette discovery and nearest-color assignment are
+median-cut quantization from weighted quantiles of the complete RGB histogram.
+Palette discovery is invariant under pixel order, flips and quarter turns;
+thin isolated accents are retained without turning blended edges into threads. Palette discovery and nearest-color assignment are
 bounded/chunked; the default maximum is 12, configurable from 1 to 32.
 
 Automatic bitmap preparation preserves alpha, removes a uniform opaque perimeter
@@ -22,7 +24,9 @@ again as a full hidden layer. Large visible regions sew first, small accents las
 
 `digitizer.py` renders the prepared SVG at approximately 305 DPI, bounded by
 4 MP/4096 pixels. Each color has its own deterministic MAT and source mask.
-Rails and connected components remain in a **shared physical frame and row grid**.
+Regions are planned in canonical local frames, then mapped back to the **shared
+physical machine frame** for a single quantization. Local row/stagger origins
+follow the region, so moving it does not change its sewing pattern.
 The original Ink/Stitch rails are still generated separately with their historical
 settings. Color-aware MAT work is necessary; it is not reused from a merged mask.
 
@@ -38,13 +42,18 @@ settings. Color-aware MAT work is necessary; it is not reused from a merged mask
   percentile cannot conceal a broad cap. Manual split satin remains available.
 - The quantized candidate must cover at least 99.9% structurally, leave no gap
   larger than 0.05 mm², contain no unsafe connectors or detected crowded satin
-  penetrations, and pass the same checks in **both sewing directions**.
+  penetrations, in the actual sewing direction. Routing preserves that accepted local phase;
+  the final source-frame candidate is checked again after machine rounding.
 - Fine running candidates are also checked for complete source coverage.
 - Failed or unsuitable candidates become **whole-source tatami**, preserving
   boundaries and holes. There are no residual fill patches mixed into satin.
 
-Tatami uses an absolute row grid, staggered needle positions, source-clipped rows,
-automatically selected direction and contour finishing. Compensation is bounded
+Tatami uses a region-local row grid, staggered needle positions, source-clipped
+rows and contour finishing. Its automatic angle comes from analytical moments
+of the filled area, subtracting holes, rounded to 15° bands. Near-isotropic
+regions (principal moment ratio ≤1.2) retain the configured default. This replaces
+a travel-cost search sensitive to row phase and design size. Manual angles remain
+in the original design frame. Compensation is bounded
 by region area/perimeter to avoid bloating thin branched shapes. It sweeps the
 boundary along the chosen stitch direction, without adding perpendicular rows.
 A 0.12 mm inset
@@ -57,13 +66,44 @@ necessary, its ends extend by at most 0.08 mm each to retain the minimum machine
 stitch length. This bounded fidelity adjustment is recorded and warned about;
 unrepresentable detail is not claimed to be perfectly reconstructed.
 Unsewable connected components are explicitly omitted and warned about, with an
-`omitted_regions` count and an `omitted` decision. If an entire color has no sewn
-segment, generation fails. Isolated needle penetrations cannot become successful
-exports.
+`omitted_regions` count and an `omitted` decision. A color with no sewn segment
+is omitted with an explicit warning and zero coverage; it is retained in the
+area-weighted quality audit. Generation fails only when no color remains sewable.
+Isolated needle penetrations cannot become successful exports.
 
 Manual `auto_select=False` retains the original rail-based split/fill controls
 and optional broad residual fill. It reports its coverage without automatic
 repair. `fill_gaps` controls that manual path only.
+
+## Equivalent regions and symmetry
+
+`regions.py` isolates four-connected components: corner contacts alone do not
+join two sewing regions. Each component is normalized under translation,
+quarter turns and reflections before contour simplification, MAT and stitch
+placement. Identical raster silhouettes receive identical local computation.
+
+Near matches must retain hole topology, stay within two pixels in bounding
+size/boundary distance, differ by at most 3% in area and 6% in their aligned
+masks. A ±1 pixel alignment search resolves odd/even raster bounds. Detected
+colored design symmetries (≤2% label disagreement) disambiguate intrinsic
+orientation ties; the Union Jack uses its half-turn, without inventing mirror
+symmetry. Quarter-turn matches are the supported discrete symmetry group;
+arbitrary-angle rotational motifs are not yet explicitly grouped.
+
+`consistency.py` assigns one policy to a cohort of equivalent regions: method,
+local fill angle, spacing, bounded compensation, underlay profile and contour
+finish. Every original outline is retained and audited separately in the shared
+machine frame. If one counterpart fails the strict satin gate, the whole cohort
+uses fill. It does not hide a faulty satin with patches or relax crowding limits.
+Foundations use the conservative common profile; tiny regions avoid added bulk.
+The final decision records `equivalence_group`, `equivalent_regions`,
+`underlay_strategy` and `actual_top_metrics` alongside individual diagnostics.
+
+Whole regions are ordered for travel, preserving their internal sewing direction
+and foundation/top-layer order. Point coordinates/counts need not be exact clones
+when the rasterized outlines differ or the machine grid has a different phase.
+Resizing can legitimately change stitch type at physical safety/width limits;
+matching counterparts still share a method at each size.
 
 ## Satin, routing and machine invariants
 
@@ -134,7 +174,7 @@ fabrics without underlay trigger advice before sewing.
 ## Evidence and limits
 
 See [quality report](QUALITY_REPORT.md), [architecture](ARCHITECTURE.md) and
-[before/after measurements](benchmarks/sewing-quality.json). Tests cover colored
+[before/after measurements](benchmarks/consistent-digitizing.json). Tests cover colored
 SVG/PNG, transparency, overlaps, intentional holes, pale/similar paints, bounded
 gradients, coherent strategies, curved/narrow tapered satin, quantized density,
 machine limits, budget errors, API/CLI compatibility and PES/DST round trips.

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.ndimage import distance_transform_edt, find_objects, label
-from shapely import covers, intersection, linestrings, prepare
+from shapely import intersection, linestrings
 from shapely.geometry import GeometryCollection, LineString, Polygon
 from shapely.ops import unary_union
 from skimage.measure import find_contours
@@ -13,7 +13,6 @@ from svgelements import Matrix
 from ..routing import route_columns
 from ..rung_generator import _valid_rail_pieces
 from ..svg_manager import UNITS_PER_MM
-from .paths import _ordered_fill_paths
 from .planner import UnstitchableRegion, build_stitch_plan
 from .quality import measure_plan, satin_crowding
 
@@ -21,28 +20,50 @@ from .quality import measure_plan, satin_crowding
 def _fill_angle(polygon, params):
     if not params.auto_fill_angle:
         return params.fill_angle_deg
-    candidates = sorted({0.0, 30.0, 60.0, 90.0, float(params.fill_angle_deg) % 180})
-    area = polygon.buffer(0.08)
-    prepare(area)
-    best, best_cost = candidates[0], float("inf")
-    for angle in candidates:
-        paths = _ordered_fill_paths(
-            polygon,
-            angle,
-            max(1.0, params.fill_spacing_mm),
-            4.0,
-            params.trim_distance_mm,
-            minimum=params.min_stitch_mm,
-        )
-        if len(paths) < 2:
-            continue
-        connectors = np.array([[a[-1], b[0]] for a, b in zip(paths[:-1], paths[1:], strict=True)])
-        distances = np.linalg.norm(connectors[:, 1] - connectors[:, 0], axis=1)
-        safe = covers(area, linestrings(connectors)) & (distances <= params.trim_distance_mm)
-        cost = np.count_nonzero(~safe) * 25 + distances.sum()
-        if cost < best_cost:
-            best, best_cost = angle, cost
-    return best
+    # Filled-area moments describe the whole region, including its holes. Unlike
+    # sampling travel at a fixed row pitch, they do not change with its size,
+    # position, contour start vertex or the machine's stitch grid.
+    center = np.asarray(polygon.centroid.coords)[0]
+    moment = np.zeros((2, 2))
+    pieces = [polygon] if polygon.geom_type == "Polygon" else polygon.geoms
+    for piece in pieces:
+        for index, ring in enumerate((piece.exterior, *piece.interiors)):
+            points = np.asarray(ring.coords) - center
+            x, y = points[:-1].T
+            nx, ny = points[1:].T
+            cross = x * ny - nx * y
+            # SVG/Shapely rings need not share winding; interiors always subtract.
+            cross *= np.sign(cross.sum()) * (1 if index == 0 else -1)
+            xx = np.sum(cross * (x * x + x * nx + nx * nx)) / 12
+            yy = np.sum(cross * (y * y + y * ny + ny * ny)) / 12
+            xy = np.sum(cross * (2 * x * y + x * ny + nx * y + 2 * nx * ny)) / 24
+            moment += [[xx, xy], [xy, yy]]
+    values, vectors = np.linalg.eigh(moment / polygon.area)
+    if values[1] <= 1.2 * values[0]:
+        # Near-round regions have no meaningful preferred direction. Keeping the
+        # configured angle avoids arbitrary changes from tiny boundary noise.
+        return float(params.fill_angle_deg) % 180
+    direction = vectors[:, 1]
+    angle = np.degrees(np.arctan2(direction[1], direction[0])) % 180
+    # Regular 15° bands stabilize antialiased boundaries. The bands are closed
+    # under the quarter turns/reflections used by corresponding region frames.
+    return float(np.rint(angle / 15) * 15 % 180)
+
+
+def fill_elements(polygons, angle, params, *, finish_inset=0.12):
+    return [
+        {
+            "type": "fill",
+            "polygon": polygon,
+            "compensation": min(
+                params.pull_compensation_mm,
+                0.15 * polygon.area / max(polygon.length, 0.001),
+            ),
+            "fill_angle_deg": angle,
+            "finish_inset": finish_inset,
+        }
+        for polygon in polygons
+    ]
 
 
 def mask_polygons(mask, transform, minimum_area=0.1):
@@ -78,7 +99,10 @@ def _compact_detail(source, params):
         return None
     points = np.asarray(line.coords)[[0, -1]]
     direction = (points[1] - points[0]) / line.length
-    extension = max(0, (params.min_stitch_mm + 0.05 - line.length) / 2)
+    # Two rounded endpoints can lose up to sqrt(2) * 0.1 mm along their chord.
+    # Reserve that headroom, still bounded to 0.08 mm per end; the candidate is
+    # then checked on the real grid rather than exporting a lone penetration.
+    extension = min(0.08, max(0, (params.min_stitch_mm + np.sqrt(2) * 0.1 - line.length) / 2))
     points += np.array([-direction, direction]) * extension
     if not source.buffer(0.08).covers(LineString(points)):
         return None
@@ -227,7 +251,8 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
             if detail is not None:
                 running = [detail]
             try:
-                candidate = build_stitch_plan(route_columns(running), params, origin_mm=origin_mm)
+                running = route_columns(running)
+                candidate = build_stitch_plan(running, params, origin_mm=origin_mm)
                 metrics, _ = measure_plan(
                     candidate,
                     np.pad(component, 3),
@@ -258,32 +283,13 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
                 metrics["crowded_satin_penetrations"] = satin_crowding(
                     candidate, params.min_stitch_mm
                 )
-                reverse = [
-                    {**e, "rail_a": e["rail_a"][::-1], "rail_b": e["rail_b"][::-1]}
-                    for e in ordered[::-1]
-                ]
-                reversed_plan = build_stitch_plan(reverse, params, origin_mm=origin_mm)
-                reverse_metrics, _ = measure_plan(
-                    reversed_plan,
-                    np.pad(component, 3),
-                    scale,
-                    np.array([local_transform.e, local_transform.f]) + 3,
-                )
-                reverse_metrics["crowded_satin_penetrations"] = satin_crowding(
-                    reversed_plan, params.min_stitch_mm
-                )
-                metrics["reverse"] = reverse_metrics
                 if (
                     metrics["structural_coverage"] >= 0.999
                     and metrics["largest_gap_mm2"] <= 0.05
                     and candidate.stats["unsafe_connections"] == 0
                     and metrics["crowded_satin_penetrations"] == 0
-                    and reverse_metrics["crowded_satin_penetrations"] == 0
-                    and reverse_metrics["structural_coverage"] >= 0.999
-                    and reverse_metrics["largest_gap_mm2"] <= 0.05
-                    and reversed_plan.stats["unsafe_connections"] == 0
                 ):
-                    option, method, reason = satin, "satin", "complete_regular_column"
+                    option, method, reason = ordered, "satin", "complete_regular_column"
                 else:
                     reason = "satin_top_layer_incomplete"
             except ValueError as exc:
@@ -291,18 +297,7 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
                 reason = "satin_geometry_rejected"
         if option is None:
             angle = _fill_angle(source, params)
-            option = [
-                {
-                    "type": "fill",
-                    "polygon": polygon,
-                    "compensation": min(
-                        params.pull_compensation_mm,
-                        0.15 * polygon.area / max(polygon.length, 0.001),
-                    ),
-                    "fill_angle_deg": angle,
-                }
-                for polygon in polygons
-            ]
+            option = fill_elements(polygons, angle, params)
             try:
                 candidate = build_stitch_plan(route_columns(option), params, origin_mm=origin_mm)
                 metrics, _ = measure_plan(
@@ -313,6 +308,15 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
                 )
                 if metrics["structural_coverage"] < 0.9999 or metrics["largest_gap_mm2"] > 0.01:
                     option = [{**e, "finish_inset": 0.0} for e in option]
+                    candidate = build_stitch_plan(
+                        route_columns(option), params, origin_mm=origin_mm
+                    )
+                    metrics, _ = measure_plan(
+                        candidate,
+                        np.pad(component, 3),
+                        scale,
+                        np.array([local_transform.e, local_transform.f]) + 3,
+                    )
                 candidates["fill"] = metrics
             except UnstitchableRegion as exc:
                 candidates["fill"] = {"error": str(exc)}
@@ -334,4 +338,4 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
                 ),
             }
         )
-    return route_columns(chosen), decisions
+    return chosen, decisions

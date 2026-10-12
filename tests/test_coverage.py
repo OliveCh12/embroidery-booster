@@ -78,7 +78,7 @@ def partial_rails(*args, **kwargs):
 def test_incomplete_mat_rails_trigger_whole_region_fill_without_patches(
     tmp_path, monkeypatch, gap_fill
 ):
-    monkeypatch.setattr("embroidery_rungs.stitching.digitizer.generate_rungs", partial_rails)
+    monkeypatch.setattr("embroidery_rungs.stitching.consistency.generate_rungs", partial_rails)
     result = generate(
         EXAMPLES / "quality/holes.svg",
         tmp_path,

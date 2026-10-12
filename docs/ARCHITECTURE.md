@@ -22,8 +22,10 @@ src/embroidery_rungs/
     paths.py               Échantillonnage satin, running et tatami
     underlay.py            Fondations en retrait, adaptées au tissu et à la largeur
     planner.py             Connexions, coupes, locks, quantification et invariants
-    selection.py           Choix automatique sur les régions source complètes
-    digitizer.py           MAT par couleur, fusion des plans et changements de fil
+    regions.py             Repères locaux, équivalences rigides et ordre des régions
+    selection.py           Candidats satin/running/fill, angle par moments surfaciques
+    consistency.py         Politique commune aux homologues et audit machine final
+    digitizer.py           Couleurs, fusion des plans et changements de fil
     quality.py             Audit des vrais points supérieurs, empreinte et crowding
     export.py              PES/DST, JSON versionné et aperçus aux couleurs du fil
   web/
@@ -81,3 +83,12 @@ Les JSON de mesure publiés dans `docs/` sont des instantanés explicites,
 reproductibles avec `scripts/compare_quality.py`, `scripts/benchmark_direct.py`
 et `scripts/benchmark.py`. Les anciens audits restent datés ; ils ne décrivent
 pas le moteur actuel. L'ancien module de réparation par patches a été supprimé.
+
+Les régions directes sont normalisées par translations, rotations de 90° et
+réflexions avant MAT et placement. Les correspondances approximatives tolèrent
+seulement le bruit des contours raster, sans transformer les formes source.
+`consistency.py` harmonise les décisions puis contrôle chaque membre dans le
+repère machine commun. Le routage déplace des régions complètes ; il ne renverse
+plus un satin après validation et conserve fondations puis points supérieurs.
+La préparation des couleurs utilise un histogramme complet, avec un échantillon
+pondéré borné pour les photos, indépendant de l’ordre des pixels.

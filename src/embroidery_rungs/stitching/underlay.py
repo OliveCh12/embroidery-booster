@@ -7,7 +7,7 @@ import numpy as np
 from .paths import _ordered_fill_paths, resample_running, satin_points
 
 
-def fill_underlay(polygon, angle, params):
+def fill_underlay(polygon, angle, params, *, edge_walk=None):
     # Tiny details already have many penetrations per unit area. Another complete
     # foundation there adds bulk rather than support.
     if polygon.area < 4:
@@ -26,7 +26,10 @@ def fill_underlay(polygon, angle, params):
             continue
         # Edge support secures the boundary before the dense rows pull the cloth.
         # Holes get the same inset support; no underlay bridges their interiors.
-        if piece.area >= (4 if params.fabric in ("stretch", "textured") else 10):
+        edge = piece.area >= (4 if params.fabric in ("stretch", "textured") else 10)
+        if edge_walk is not None:
+            edge = edge_walk
+        if edge:
             paths.extend(
                 resample_running(
                     np.asarray(ring.coords), min(2.0, params.max_stitch_mm), tolerance=0.04
@@ -46,16 +49,21 @@ def fill_underlay(polygon, angle, params):
     return paths
 
 
-def satin_underlay(a, b, params):
+def satin_underlay(a, b, params, *, edge_walk=None, zigzag=None):
     centers = (a + b) / 2
     paths = [resample_running(centers, min(2.0, params.max_stitch_mm), tolerance=0.05)]
     vectors = b - a
     widths = np.linalg.norm(vectors, axis=1)
-    if params.fabric in ("stretch", "textured") and np.percentile(widths, 25) >= 2.5:
+    edge = params.fabric in ("stretch", "textured") and np.percentile(widths, 25) >= 2.5
+    if edge_walk is not None:
+        edge = edge_walk
+    if edge:
         direction = vectors / np.maximum(widths[:, None], 1e-8)
         inset = np.minimum(0.6, widths * 0.25)[:, None]
         edge = np.vstack([(a + direction * inset)[::-1], b - direction * inset])
         paths.append(resample_running(edge, min(2.0, params.max_stitch_mm), tolerance=0.05))
-    if widths.max() >= 3:
+    if zigzag is None:
+        zigzag = widths.max() >= 3
+    if zigzag:
         paths.append(satin_points(a[::-1], b[::-1], params, underlay=True))
     return paths
