@@ -143,7 +143,11 @@ def native_plan(satin_path, directory, executable, params, safe=False):
     commands = np.asarray(pattern.stitches)
     first_stitch = commands[(commands[:, 2].astype(int) & pe.COMMAND_MASK) == pe.STITCH][0, :2]
     origin = np.array([first.x, first.y]) / UNITS_PER_MM - first_stitch / 10
-    data = {"commands": commands.tolist(), "origin_mm": origin.tolist()}
+    data = {
+        "commands": commands.tolist(),
+        "origin_mm": origin.tolist(),
+        "threads": [thread.hex_color() for thread in pattern.threadlist],
+    }
     (directory / f"{prefix}.json").write_text(json.dumps(data))
     return data, time.perf_counter() - started
 
@@ -252,7 +256,17 @@ def main():
                     "footprint": footprint_path.relative_to(args.output).as_posix(),
                     "stats": data.get("stats", {}),
                     "decisions": data.get("decisions", []),
+                    "threads": data.get("threads", []),
                 }
+                if "top_layer_runs" in data and data.get("coverage_basis") == "quantized_top_layer":
+                    top = []
+                    for run in data["top_layer_runs"]:
+                        points = data["commands"][run["start"] : run["end"]]
+                        top.append([*points[0][:2], pe.JUMP])
+                        top.extend(points)
+                    top_metrics, _ = footprint(top, data["origin_mm"], target, transform)
+                    row["methods"][mode]["top_metrics"] = top_metrics
+                    row["methods"][mode]["color_layers"] = data.get("layers", [])
                 print(
                     f"{name:30} {mode:13} {metrics['coverage']:6.1%} IoU {metrics['iou']:6.1%} "
                     f"{metrics['trims']:4} trims {seconds:6.2f}s",

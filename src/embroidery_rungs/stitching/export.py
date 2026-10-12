@@ -15,10 +15,11 @@ from scipy.ndimage import distance_transform_edt, label, maximum
 
 from ..image_processor import rasterize_svg, render_preview
 from ..svg_manager import UNITS_PER_MM
-from .coverage import audit_coverage
+from .digitizer import _physical_elements, digitize
 from .params import StitchParams
 from .planner import StitchPlan, build_stitch_plan
-from .selection import mask_polygons, select_stitch_types
+from .quality import measure_stitches
+from .selection import mask_polygons
 
 
 @dataclass
@@ -32,25 +33,7 @@ class DirectGenerationResult:
     params: StitchParams
     warnings: list[str]
     decisions: list[dict] = field(default_factory=list)
-
-
-def _physical_elements(elements, transform):
-    inverse = ~transform
-
-    def physical(points):
-        xy = np.asarray(points, dtype=float)
-        return (
-            xy @ np.array([[inverse.a, inverse.b], [inverse.c, inverse.d]]) + [inverse.e, inverse.f]
-        ) / UNITS_PER_MM
-
-    converted = []
-    for element in elements:
-        item = {"type": element["type"]}
-        for key in ("points", "rail_a", "rail_b"):
-            if key in element:
-                item[key] = physical(element[key])
-        converted.append(item)
-    return converted
+    threads: list[str] = field(default_factory=list)
 
 
 def _gap_fills(residual, transform):
@@ -90,14 +73,6 @@ def _preview_svg(plan: StitchPlan, viewport_mm, path):
         height=str(height),
         fill="white",
     )
-    colors = {
-        "underlay": "#a3acbc",
-        "running": "#17789d",
-        "satin": "#17789d",
-        "fill": "#ac6932",
-        "travel": "#728486",
-        "lock": "#17789d",
-    }
     for block in plan.blocks:
         points = block.points
         if len(points) < 2:
@@ -108,8 +83,12 @@ def _preview_svg(plan: StitchPlan, viewport_mm, path):
             "path",
             d=d,
             fill="none",
-            stroke=colors[block.kind],
-            **{"stroke-width": "0.14", "stroke-linecap": "round", "stroke-linejoin": "round"},
+            stroke="#a3acbc"
+            if block.kind == "underlay"
+            else "#728486"
+            if block.kind == "travel"
+            else plan.threads[block.color_index],
+            **{"stroke-width": "0.3", "stroke-linecap": "round", "stroke-linejoin": "round"},
         )
     # Export previews include every penetration/lock, and distinguish jumps.
     coordinates = np.asarray(plan.commands)
@@ -133,30 +112,51 @@ def export_direct(
     elements, transform, svg, stage: Path, stem: str, params: StitchParams, residual=None, mask=None
 ):
     started = time.perf_counter()
-    physical = _physical_elements(elements, transform)
-    decisions = []
-    if params.auto_select and mask is not None:
-        physical, decisions, filled_mask = select_stitch_types(physical, mask, transform, params)
-        if residual is not None:
-            residual = residual & ~filled_mask
-    gap_fills = _gap_fills(residual, transform) if params.fill_gaps and residual is not None else []
-    # Put residual fills before the satin so satin edges finish on top.
-    selected_gaps = [element for element in physical if element.get("gap_fill")]
-    top = [element for element in physical if not element.get("gap_fill")]
-    stitched_elements = gap_fills + selected_gaps + top
-    plan = build_stitch_plan(stitched_elements, params)
-    if mask is not None:
-        audit_mask, audit_transform = mask, transform
-        scale = UNITS_PER_MM * math.sqrt(abs(transform.a * transform.d - transform.b * transform.c))
-        if scale < 12:
+    layers = []
+    if params.auto_select:
+        plan, layers = digitize(svg, params)
+    else:
+        physical = _physical_elements(elements, transform)
+        gap_fills = (
+            _gap_fills(residual, transform) if params.fill_gaps and residual is not None else []
+        )
+        stitched_elements = gap_fills + physical
+        plan = build_stitch_plan(stitched_elements, params)
+        if mask is not None:
             audit_mask, audit_transform = rasterize_svg(svg, dpi=305)
-        plan = audit_coverage(plan, stitched_elements, audit_mask, audit_transform, params)
-    plan.decisions = decisions
-    plan.stats["gap_fill_regions"] = (
-        len(gap_fills) + len(selected_gaps) + plan.stats.get("coverage_repairs", 0)
-    )
+            scale = UNITS_PER_MM * audit_transform.a
+            metrics, _ = measure_stitches(
+                plan.commands,
+                plan.origin_mm,
+                audit_mask,
+                scale,
+                [audit_transform.e, audit_transform.f],
+            )
+            plan.stats.update(
+                {
+                    key: value
+                    for key, value in metrics.items()
+                    if key
+                    not in (
+                        "stitches",
+                        "trims",
+                        "jumps",
+                        "jump_length_mm",
+                        "max_stitch_mm",
+                        "short_stitches",
+                    )
+                }
+            )
+            if metrics["structural_coverage"] < 0.999 or metrics["largest_gap_mm2"] > 0.05:
+                plan.warnings.append(
+                    "Manual stitch coverage leaves gaps in the artwork; enable automatic region selection or inspect the preview."
+                )
+        plan.stats["gap_fill_regions"] = len(gap_fills)
+        plan.stats["coverage_repairs"] = 0
+        plan.threads = [params.thread_color]
     pattern = pe.EmbPattern()
-    pattern.add_thread(params.thread_color)
+    for color in plan.threads:
+        pattern.add_thread(color)
     pattern.extras["name"] = stem[:16]
     pattern.extras["comments"] = "Embroidery Booster direct MAT stitch plan"
     for x, y, command in plan.commands:
@@ -176,7 +176,7 @@ def export_direct(
     (stage / names[4]).write_text(
         json.dumps(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "units": "0.1mm",
                 "origin_mm": plan.origin_mm,
                 "commands": plan.commands,
@@ -185,11 +185,30 @@ def export_direct(
                     "JUMP": pe.JUMP,
                     "TRIM": pe.TRIM,
                     "END": pe.END,
+                    "COLOR_CHANGE": pe.COLOR_CHANGE,
                 },
                 "stats": plan.stats,
                 "params": asdict(params),
                 "warnings": plan.warnings,
                 "decisions": plan.decisions,
+                "threads": plan.threads,
+                "layers": layers,
+                "top_layer_runs": [
+                    {
+                        "start": b.command_range[0],
+                        "end": b.command_range[1],
+                        "color_index": b.color_index,
+                        "kind": b.kind,
+                        "region": b.region,
+                    }
+                    for b in plan.blocks
+                    if b.command_range is not None and b.kind in ("satin", "fill", "running")
+                ],
+                "coverage_tolerance_mm": 0.25,
+                "thread_model_mm": 0.3,
+                "coverage_basis": "quantized_top_layer"
+                if params.auto_select
+                else "all_sewn_stitches",
             },
             indent=2,
         ),

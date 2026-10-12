@@ -229,3 +229,33 @@ def test_old_outputs_unchanged_and_direct_failure_preserves_them(tmp_path, monke
     assert [p.read_bytes() for p in paths] == originals
     assert Path(both.direct.pes_path).read_bytes() == old_pes
     assert not list(tmp_path.glob(".rungs-*"))
+
+
+def test_satin_outer_pitch_and_inner_penetrations_remain_regular_after_quantization():
+    from scipy.spatial import cKDTree
+
+    angle = np.linspace(0, np.pi / 2, 101)
+    unit = np.column_stack([np.cos(angle), np.sin(angle)])
+    params = StitchParams(underlay=False, pull_compensation_mm=0)
+    points = np.rint(satin_points(unit * 2, unit * 7, params) * 10) / 10
+    # Ignore the terminal cross-section: each side advances one physical row pitch.
+    inner, outer = points[:-1:2], points[1:-1:2]
+    outer_pitch = np.linalg.norm(np.diff(outer, axis=0), axis=1)
+    assert outer_pitch.max() <= params.satin_spacing_mm + 0.12
+    assert outer_pitch.min() >= params.satin_spacing_mm - 0.12
+    assert cKDTree(inner).query(inner, k=2)[0][:, 1].min() >= 0.25
+    plan = build_stitch_plan([{"type": "satin", "rail_a": unit * 2, "rail_b": unit * 7}], params)
+    assert plan.stats["unsafe_connections"] == 0
+    assert plan.stats["short_stitches"] == 0
+
+
+def test_narrow_taper_keeps_regular_satin_and_bounded_cap_stitches(tmp_path):
+    source = tmp_path / "narrow-taper.svg"
+    source.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="50mm" height="15mm" viewBox="0 0 50 15"><path d="M5 7.5L45 5.5L45 9.5Z"/></svg>'
+    )
+    result = generate(source, tmp_path / "out", method="direct")
+    assert {d["method"] for d in result.direct.decisions} == {"satin"}
+    assert result.direct.stats["structural_coverage"] >= 0.999
+    assert result.direct.stats["short_stitches"] == 0
+    assert result.direct.stats["max_stitch_mm"] < 4.5

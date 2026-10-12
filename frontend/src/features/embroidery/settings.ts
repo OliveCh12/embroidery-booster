@@ -8,6 +8,8 @@ export const DEFAULT_SETTINGS: GenerationSettings = {
   auto_select: true, auto_fill_angle: true, fill_angle: 45, fill_gaps: true,
   wide_mode: "fill", export: false, auto_optimize: true, spacing: 3,
   density: 1, dpi: 150, debug: false, raster_threshold: null, raster_invert: false,
+  max_colors: 12,
+  preserve_colors: true,
 };
 
 export function applyMaterialPreset(settings: GenerationSettings, fabric: Fabric, weight: ThreadWeight, capabilities?: Capabilities): GenerationSettings {

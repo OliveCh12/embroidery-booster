@@ -123,6 +123,10 @@ def create_app(config=None):
             stitch_params.hoop_width_mm = float(request.form.get("hoop_width", 100))
             stitch_params.hoop_height_mm = float(request.form.get("hoop_height", 100))
             if method != "inkstitch":
+                stitch_params.max_colors = int(request.form.get("max_colors", 12))
+                stitch_params.preserve_colors = (
+                    request.form.get("preserve_colors", "true") == "true"
+                )
                 for field, name in (
                     ("stitch_spacing", "satin_spacing_mm"),
                     ("running_length", "running_length_mm"),
@@ -227,6 +231,10 @@ def create_app(config=None):
                     "preview": url(result.direct.preview_path),
                     "stats": result.direct.stats,
                     "decisions": result.direct.decisions,
+                    "threads": result.direct.threads,
+                    "coverage_basis": "quantized_top_layer"
+                    if result.direct.params.auto_select
+                    else "all_sewn_stitches",
                     "params": {
                         "spacing_mm": result.direct.params.satin_spacing_mm,
                         "underlay": result.direct.params.underlay,

@@ -151,7 +151,15 @@ def generate(
         stitch_params.validate()
     input_source = Path(input_path).resolve()
     with tempfile.TemporaryDirectory(prefix="embroidery-input-") as temporary:
-        source, input_warnings = prepare_artwork(input_source, temporary, params, stitch_params)
+        source, input_warnings = prepare_artwork(
+            input_source,
+            temporary,
+            params,
+            stitch_params,
+            preserve_colors=method != "inkstitch"
+            and stitch_params.auto_select
+            and stitch_params.preserve_colors,
+        )
         return _generate_svg(
             source, input_source, output_dir, params, method, stitch_params, started, input_warnings
         )
@@ -231,7 +239,7 @@ def _generate_svg(
                 source.stem,
                 stitch_params,
                 residual=mask & ~coverage_mask(mask, elements, pixels_per_mm)
-                if stitch_params.fill_gaps
+                if stitch_params.fill_gaps and not stitch_params.auto_select
                 else None,
                 mask=mask,
             )
@@ -241,6 +249,7 @@ def _generate_svg(
                 params=stitch_params,
                 warnings=plan.warnings,
                 decisions=plan.decisions,
+                threads=plan.threads,
             )
         if params.debug:
             from .debug_utils import save_debug_images, save_rung_coverage_debug

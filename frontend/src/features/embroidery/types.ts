@@ -46,6 +46,8 @@ export interface GenerationSettings {
   debug: boolean;
   raster_threshold: number | null;
   raster_invert: boolean;
+  max_colors: number;
+  preserve_colors: boolean;
 }
 
 export interface StitchStats {
@@ -93,6 +95,8 @@ export interface GenerationResult {
     preview: string;
     stats: StitchStats;
     decisions: Decision[];
+    threads: string[];
+    coverage_basis: "quantized_top_layer" | "all_sewn_stitches";
     params: { spacing_mm: number; fill_spacing_mm: number; thread_weight: number; fabric: Fabric; stabilizer: Stabilizer };
   } | null;
 }

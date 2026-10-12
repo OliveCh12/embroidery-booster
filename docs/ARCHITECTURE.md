@@ -1,11 +1,13 @@
 # Organisation du projet
 
-`generate()` reste le point d'entrée commun. Préparation des fichiers et géométrie
-ne sont calculées qu'une fois ; les exports Ink/Stitch et directs partagent ces résultats.
+`generate()` reste le point d'entrée commun. La préparation et la taille physique
+sont partagées. Le workflow SVG conserve sa géométrie historique ; le direct
+automatique calcule ensuite une géométrie indépendante pour chaque couleur visible.
 
 ```text
 src/embroidery_rungs/
   inputs.py                Conversion bitmap et taille physique
+  colors.py                Palette visible, séparation Lab et fond des bitmaps
   external.py              Découverte / appels bornés des outils optionnels
   pipeline.py              Orchestration, résultats et publication des fichiers
   svg_manager.py           Lecture, transformations, rendu et SVG Ink/Stitch
@@ -20,9 +22,9 @@ src/embroidery_rungs/
     paths.py               Échantillonnage satin, running, tatami et sous-couches
     planner.py             Connexions, coupes, locks, quantification et invariants
     selection.py           Choix automatique sur les régions source complètes
-    quality.py             Empreinte réelle des segments cousus et métriques
-    coverage.py            Audit des points exportés et réparation des zones oubliées
-    export.py              Plan physique, PES/DST et aperçus
+    digitizer.py           MAT par couleur, fusion des plans et changements de fil
+    quality.py             Audit des vrais points supérieurs, empreinte et crowding
+    export.py              PES/DST, JSON versionné et aperçus aux couleurs du fil
   web/
     app.py                 API Flask, validation des requêtes et fichiers
     services.py            Adaptation web / exports natifs optionnels
@@ -45,7 +47,8 @@ output/                    Fichiers générés et jobs web ; ignorés par Git
 notebooks/                 Exemple exploratoire utilisant l'API publique
 ```
 
-Le moteur direct vit uniquement dans `stitching/`, l'API Flask dans le package
+Le moteur direct vit dans `stitching/`, la séparation des couleurs partagée dans
+`colors.py`, l'API Flask dans le package
 `web/` et l'interface dans `frontend/`. Les anciens lanceurs, réexports Python
 et fichiers `requirements.txt` ont été retirés. `generate()` et les deux commandes
 `embroidery-rungs` / `embroidery-rungs-web` constituent les entrées publiques.
@@ -74,4 +77,6 @@ commencent par leur contenu utile.
 
 Les artefacts volumineux, rendus, exports de test et jobs restent dans `output/`.
 Les JSON de mesure publiés dans `docs/` sont des instantanés explicites,
-reproductibles avec `scripts/compare_quality.py` et `scripts/benchmark.py`.
+reproductibles avec `scripts/compare_quality.py`, `scripts/benchmark_direct.py`
+et `scripts/benchmark.py`. Les anciens audits restent datés ; ils ne décrivent
+pas le moteur actuel. L'ancien module de réparation par patches a été supprimé.

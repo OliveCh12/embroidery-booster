@@ -8,6 +8,36 @@ from PIL import Image, ImageDraw
 from scipy.ndimage import distance_transform_edt, label
 
 
+def satin_crowding(plan, minimum_mm):
+    """Count nearby repeated top penetrations in the local satin fan, excluding locks."""
+    count = 0
+    for block in plan.blocks:
+        if block.kind != "satin":
+            continue
+        points = block.points[2:-2]
+        crowded = np.zeros(len(points), dtype=bool)
+        for lag in (2, 4, 6, 8):
+            crowded[lag:] |= (
+                np.linalg.norm(points[lag:] - points[:-lag], axis=1) < minimum_mm - 0.050001
+            )
+        count += int(crowded.sum())
+    return count
+
+
+def measure_plan(plan, target, pixels_per_mm, offset_px, thread_mm=0.3):
+    """Audit only the quantized top layer, excluding underlay, locks and travel."""
+    commands = []
+    for block in plan.blocks:
+        if block.kind not in ("satin", "fill", "running") or len(block.points) < 2:
+            continue
+        points = np.rint(block.points * 10).astype(int)
+        commands.append([int(points[0, 0]), int(points[0, 1]), pe.JUMP])
+        commands.extend([[int(x), int(y), pe.STITCH] for x, y in points])
+    if not commands:
+        commands = [[0, 0, pe.JUMP], [0, 0, pe.END]]
+    return measure_stitches(commands, plan.origin_mm, target, pixels_per_mm, offset_px, thread_mm)
+
+
 def measure_stitches(commands, origin_mm, target, pixels_per_mm, offset_px, thread_mm=0.3):
     array = np.asarray(commands)
     codes = array[:, 2].astype(int) & pe.COMMAND_MASK
@@ -21,7 +51,11 @@ def measure_stitches(commands, origin_mm, target, pixels_per_mm, offset_px, thre
     covered = np.asarray(image, dtype=bool)
     intersection = np.count_nonzero(covered & target)
     union = np.count_nonzero(covered | target)
-    distances = distance_transform_edt(~covered)[target] / pixels_per_mm
+    distances = (
+        distance_transform_edt(~covered)[target] / pixels_per_mm
+        if covered.any()
+        else np.full(np.count_nonzero(target), np.hypot(*target.shape) / pixels_per_mm)
+    )
     gaps = np.zeros_like(target)
     gaps[target] = distances > 0.25
     gap_labels, _ = label(gaps)

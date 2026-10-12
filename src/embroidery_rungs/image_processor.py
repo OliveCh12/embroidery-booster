@@ -30,8 +30,8 @@ def render_preview(svg_path, width, height, max_dimension=1200):
     )
 
 
-def rasterize_svg(svg: SVGDocument, dpi: int = 150):
-    """Render once in CSS pixels (96/inch), cap memory, then crop margins."""
+def rasterize_rgba(svg: SVGDocument, dpi: int = 150):
+    """Render visible paint, including clipping/occlusion, in a bounded common frame."""
     scale = max(dpi / 96.0, 256.0 / max(svg.width, svg.height))
     scale = min(
         scale,
@@ -40,17 +40,24 @@ def rasterize_svg(svg: SVGDocument, dpi: int = 150):
     )
     png = resvg_py.svg_to_bytes(svg_string=svg.xml, zoom=scale, dpi=96, skip_system_fonts=True)
     with Image.open(io.BytesIO(png)) as image:
-        mask = np.asarray(image.getchannel("A")) >= 128
+        rgba = np.asarray(image.convert("RGBA"))
+        mask = rgba[..., 3] >= 128
     rows, cols = np.nonzero(mask)
     if not len(rows):
         raise ValueError("SVG has no visible shape at this resolution.")
     x0, x1 = int(cols.min()), int(cols.max()) + 1
     y0, y1 = int(rows.min()), int(rows.max()) + 1
-    mask = np.pad(mask[y0:y1, x0:x1], 3)
+    rgba = np.pad(rgba[y0:y1, x0:x1], ((3, 3), (3, 3), (0, 0)))
     transform = Matrix.scale(scale)
     transform *= Matrix.translate(3 - x0, 3 - y0)
-    logger.info("Raster %dx%d; effective DPI %.1f", mask.shape[1], mask.shape[0], scale * 96)
-    return mask, transform
+    logger.info("Raster %dx%d; effective DPI %.1f", rgba.shape[1], rgba.shape[0], scale * 96)
+    return rgba, transform
+
+
+def rasterize_svg(svg: SVGDocument, dpi: int = 150):
+    """Preserve the original silhouette rasterization API."""
+    rgba, transform = rasterize_rgba(svg, dpi)
+    return rgba[..., 3] >= 128, transform
 
 
 def compute_medial_axis(binary_image: np.ndarray):

@@ -1,6 +1,6 @@
 # Embroidery Booster
 
-Automatically turn an SVG or bitmap silhouette into **PES / DST stitches**, or
+Automatically turn an SVG or bitmap into **PES / DST stitches**, or
 editable **Ink/Stitch satin columns**. Both paths share a deterministic Medial
 Axis Transform and the same `generate()` entry point.
 
@@ -45,15 +45,17 @@ SVGs retain their physical size unless resizing is requested. Transforms,
 shifted viewBoxes, separate components and holes are preserved. Convert text to
 paths and remove unwanted backgrounds first.
 
-PNG, JPEG, WebP, TIFF, GIF and BMP use shared, local silhouette tracing in the
-library, CLI and web UI. Transparency is used where present; otherwise automatic
-luminance thresholding detects the foreground. Blank margins are cropped, holes
-are preserved and the default longest side is **80 mm**. Manual threshold and
-inversion controls help with difficult inputs. PDF/EPS/PS/AI require Inkscape.
+PNG, JPEG, WebP, TIFF, GIF and BMP use local tracing in the library, CLI and web
+UI. Direct automatic generation separates visible colors, preserves alpha and
+removes a uniform opaque perimeter background. Flat logo colors retain their RGB
+values; photos and gradients use a bounded thread palette (12 colors by default).
+Blank margins are cropped, intentional holes are preserved and the default
+longest side is **80 mm**. Inspect the interpreted artwork before sewing.
 
-A photo currently produces **one monochrome silhouette**. It does not reconstruct
-color regions, shading or the subject's meaning. The interpreted-artwork preview
-shows exactly what will be digitized.
+The original Ink/Stitch and manual paths retain monochrome silhouette tracing.
+Explicit threshold/inversion or `--single-color` also selects monochrome tracing.
+PDF/EPS/PS/AI require Inkscape. Photo quantization does not reconstruct the subject
+or guarantee stitchable photographic detail.
 
 `design_width_mm` / `--design-width` sets the prepared document width in mm.
 `fit_to_hoop` / `--fit-to-hoop` permits proportional shrinking to the selected
@@ -66,8 +68,14 @@ resize implicitly. Actual compensated stitch bounds are checked separately.
 # Automatic machine stitches from an image
 uv run embroidery-rungs logo.png --method direct --design-width 70 --fit-to-hoop --fabric stretch --thread-weight 40 --stabilizer cutaway --auto-optimize
 
-# Both export paths from one common geometry calculation
+# Both export paths from the same prepared artwork
 uv run embroidery-rungs examples/direct-quality.svg --method both --auto-optimize -o output/comparison
+
+# Preserve logo colors, export Brother PES and DST
+uv run embroidery-rungs examples/quality/multicolor.svg --method direct --max-colors 8 -o output/color-logo
+
+# Explicit monochrome override
+uv run embroidery-rungs logo.png --method direct --single-color --thread-color '#176d9c'
 
 # Existing editable Ink/Stitch workflow
 uv run embroidery-rungs examples/satin-demo.svg --auto-optimize -o output/rails
@@ -77,11 +85,13 @@ uv run embroidery-rungs logo.svg --method direct --json
 uv run embroidery-rungs --help
 ```
 
-The direct engine chooses running stitches for narrow strokes, satin for useful
-paired rails and clipped tatami fill for appropriate broad regions. Ambiguous
-regions compare complete satin/fill candidates, including underlay, broad residual
-gaps and travel. Fill angle selection reduces disconnected transitions.
-Decisions and candidate diagnostics are recorded in the JSON output.
+The automatic direct engine uses **one top stitch strategy per connected color
+region**: regular satin for suitable columns, running stitches for fine details,
+or whole-region clipped tatami for broad, branched or incompletely covered shapes.
+Satin candidates must pass coverage and crowding checks in both sewing directions.
+It never patches a deficient satin region with a different top stitch type.
+Small compact details can receive a bounded minimum-length adjustment, reported
+in warnings. Decisions and candidate diagnostics are recorded in JSON.
 
 | Setting | Default | CLI |
 |---|---:|---|
@@ -94,6 +104,8 @@ Decisions and candidate diagnostics are recorded in the JSON output.
 | Hoop | 100 × 100 mm | `--hoop-width`, `--hoop-height` |
 | Automatic stitch-type selection | enabled | `--no-auto-select` |
 | Automatic fill angle | enabled | explicit `--fill-angle` overrides it |
+| Maximum thread colors | 12 | `--max-colors` |
+| Preserve visible colors | enabled in auto | `--single-color` disables it |
 | Bitmap threshold | automatic | `--raster-threshold`, `--invert-image` |
 
 `--wide-mode split|fill` explicitly switches to manual per-rail selection.
@@ -119,7 +131,11 @@ result = generate(
 print(result.direct.pes_path, result.direct.dst_path)
 print(result.artwork_size_mm, result.direct.stats)
 print(result.direct.decisions, result.warnings)
+print(result.direct.threads)  # ordered RGB palette; PES contains color changes
 ```
+
+Set `preserve_colors=False, thread_color="#176d9c"` on `StitchParams` for a
+monochrome direct plan. `max_colors` bounds the palette from 1 to 32.
 
 Presets `custom`, `stable`, `stretch` and `textured`, plus thread weights 30/40/60,
 propose editable density, compensation and underlay. The server owns these values;
@@ -136,17 +152,19 @@ Generation validates and stages outputs before publication.
 
 Every method retains the existing SVG outputs:
 
-- `design.svg`: original SVG copy, or the prepared silhouette. If an input already
+- `design.svg`: original SVG copy, or the prepared bitmap regions. If an input already
   occupies this output path and is resized, `design_prepared.svg` preserves it.
 - `design_rungs.svg`: direction guides.
 - `design_ready.svg`: artwork with editable guides.
 - `design_satin.svg`: ordered paired-node satin columns and running paths.
 
 Direct generation adds `design_direct.pes`, `.dst`, `.json`, `.svg` and `.png`.
-JSON stores exact integer positions in **0.1 mm**, commands, effective parameters,
-region decisions, warnings and metrics. PES v6 and DST are encoded with
-[pyembroidery](https://github.com/EmbroidePy/pyembroidery). Preview colors distinguish
-fill, satin/running and underlay; dotted lines indicate needle-up travel.
+JSON schema 2 stores exact integer positions in **0.1 mm**, commands, ordered
+threads, per-color diagnostics, effective parameters, region decisions and warnings.
+`top_layer_runs` identifies the exported top stitches independently of underlay
+and travel. PES v6 and extended DST are encoded with
+[pyembroidery](https://github.com/EmbroidePy/pyembroidery). The preview uses the
+source thread colors with gray underlay; dotted lines indicate needle-up travel.
 Sewn coordinates round-trip exactly through both machine formats in tests.
 
 The application calculates its own points with NumPy and geometric checks.
@@ -200,20 +218,17 @@ URL or CORS configuration is needed. The API root returns service metadata.
 
 ## Quality evidence and development
 
-The reproducible corpus contains **28 SVGs**: curves, corners, tapering, rings,
-holes, junctions, thin strokes, small counters/islands and complex logos. Four methods give 112 successful
-plans, including 28 exports from actual Ink/Stitch 3.3.0. Current mean structural
-coverage is **99.97% direct auto / 92.43% native**, with direct stitches below the
-configured 8 mm limit. This is geometric evidence for our generated columns,
-not a comparison with expert manual digitization.
+The reproducible corpus contains **29 SVGs**: curves, corners, tapers, rings,
+holes, junctions, tiny islands, multicolor artwork and complex logos. At a common
+document width of 80 mm, the new direct engine improves mean top-layer structural
+coverage from **99.966% to 99.999%**, with the largest missing component falling
+from **0.20 to 0.01 mm²**. Underlay, locks and travel cannot hide missing top stitches.
 
-Direct auto retains fine satin rails and audits the actual exported stitch footprint.
-Source-clipped repairs cover significant missed areas while preserving intentional
-holes. Remaining blanks produce warnings and appear in the UI metrics. Manual
-stitch selection or disabling gap fills also disables these automatic repairs.
-The same 24 original cases improved from 98.70% to 99.97% structural coverage,
-and from 83.37% to 86.76% raw IoU. A second comparison at 80 mm documents the effect
-of physical size; the flower still needs inspection at that scale.
+Structural coverage uses a 0.3 mm reference thread and **0.25 mm tolerance**;
+it does not mean pixel-perfect coverage or a validated physical sew-out. Coherent
+tatami selection lowers raw IoU in some cases and increases cuts. The report
+includes those tradeoffs, per-color audits and a separate native Ink/Stitch
+comparison on our generated rails. Significant remaining issues produce warnings.
 
 See the [quality report](docs/QUALITY_REPORT.md), [raw measurements](docs/quality-comparison.json),
 [architecture](docs/ARCHITECTURE.md) and [initial engineering audit](docs/AUDIT.md).
@@ -228,6 +243,7 @@ pnpm build
 uv run python scripts/compare_quality.py --inkstitch /path/to/inkstitch
 uv run python scripts/compare_quality.py --reuse
 uv run python scripts/compare_quality.py --output output/quality-80mm --design-width-mm 80 --modes direct-auto
+uv run python scripts/benchmark_direct.py --baseline-ref 6b6c756 --design-width-mm 80
 uv build
 ```
 

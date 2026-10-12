@@ -21,6 +21,17 @@ describe("Python generation contract", () => {
     expect(form.get("design_width")).toBe("65");
   });
 
+  it("preserves color separation and the bounded palette in the request", () => {
+    const form = generationForm(file, { ...DEFAULT_SETTINGS, max_colors: 8 });
+    expect(form.get("preserve_colors")).toBe("true");
+    expect(form.get("max_colors")).toBe("8");
+  });
+
+  it("sends an explicit monochrome override", () => {
+    const form = generationForm(file, { ...DEFAULT_SETTINGS, preserve_colors: false });
+    expect(form.get("preserve_colors")).toBe("false");
+  });
+
   it("only requests native export when using the editable path", () => {
     expect(generationForm(file, { ...DEFAULT_SETTINGS, export: true }).get("export")).toBe("false");
     expect(generationForm(file, { ...DEFAULT_SETTINGS, method: "both", export: true }).get("export")).toBe("true");

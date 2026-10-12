@@ -30,6 +30,8 @@ class StitchParams:
     fabric: str = "custom"
     thread_weight: int = 40
     stabilizer: str = "unspecified"
+    max_colors: int = 12
+    preserve_colors: bool = True
 
     @classmethod
     def for_fabric(
@@ -72,6 +74,12 @@ class StitchParams:
         )
 
     def validate(self) -> None:
+        if (
+            isinstance(self.max_colors, bool)
+            or not isinstance(self.max_colors, int)
+            or not 1 <= self.max_colors <= 32
+        ):
+            raise ValueError("max_colors must be an integer between 1 and 32.")
         bounds = {
             "satin_spacing_mm": (0.2, 1.2),
             "running_length_mm": (0.5, 5.0),
@@ -104,7 +112,13 @@ class StitchParams:
             raise ValueError("wide_mode must be 'fill' or 'split'.")
         if not all(
             isinstance(v, bool)
-            for v in (self.underlay, self.fill_gaps, self.auto_select, self.auto_fill_angle)
+            for v in (
+                self.underlay,
+                self.fill_gaps,
+                self.auto_select,
+                self.auto_fill_angle,
+                self.preserve_colors,
+            )
         ):
             raise ValueError("underlay, fill_gaps and auto_select must be booleans.")
         if self.fabric not in ("custom", "stable", "stretch", "textured"):

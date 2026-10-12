@@ -10,6 +10,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from skimage.filters import threshold_otsu
 from skimage.measure import approximate_polygon, find_contours
 
+from .colors import bitmap_foreground, separate_colors
 from .external import _run, _tool
 from .svg_manager import MAX_INPUT_BYTES, UNITS_PER_MM, load_svg_paths
 
@@ -25,6 +26,8 @@ def raster_to_svg(
     width_mm: float | None = None,
     threshold: int | None = None,
     invert: bool = False,
+    preserve_colors: bool = False,
+    max_colors: int = 12,
 ) -> str:
     """Trace a monochrome silhouette; crop blank margins and preserve holes."""
     try:
@@ -32,6 +35,8 @@ def raster_to_svg(
             if original.width * original.height > MAX_RASTER_PIXELS:
                 raise ValueError("Raster image exceeds 16 megapixels.")
             image = ImageOps.exif_transpose(original).convert("RGBA")
+            if preserve_colors and threshold is None and not invert:
+                return _color_bitmap_svg(image, svg_path, width_mm, max_colors)
             alpha = np.asarray(image.getchannel("A"))
             if alpha.min() < 255 and threshold is None:
                 mask = alpha >= 128
@@ -76,6 +81,38 @@ def raster_to_svg(
     return str(svg_path)
 
 
+def _color_bitmap_svg(image, svg_path, width_mm, max_colors):
+    # Preserve physical detail (~0.08 mm) without tracing camera-sized noise.
+    longest_mm = max(80.0, width_mm or 80.0)
+    image.thumbnail((min(2048, round(longest_mm * 12)),) * 2, Image.Resampling.LANCZOS)
+    rgba = bitmap_foreground(np.asarray(image))
+    labels, colors, _ = separate_colors(rgba, max_colors)
+    ys, xs = np.nonzero(labels)
+    labels = np.pad(labels[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1], 1)
+    height, width = labels.shape
+    physical_width = width_mm if width_mm is not None else 80 * width / max(width, height)
+    root = ET.Element(
+        "svg",
+        xmlns="http://www.w3.org/2000/svg",
+        width=f"{physical_width:g}mm",
+        height=f"{physical_width * height / width:g}mm",
+        viewBox=f"0 0 {width} {height}",
+    )
+    tolerance = min(0.5, 0.03 * width / physical_width)
+    for index, color in enumerate(colors, 1):
+        parts = []
+        for contour in find_contours(labels == index, 0.5):
+            contour = approximate_polygon(contour, tolerance=tolerance)
+            if len(contour) >= 4:
+                parts.append("M " + " L ".join(f"{x:.3f},{y:.3f}" for y, x in contour) + " Z")
+        if parts:
+            ET.SubElement(
+                root, "path", fill=color, attrib={"fill-rule": "evenodd", "d": " ".join(parts)}
+            )
+    ET.ElementTree(root).write(svg_path, encoding="utf-8", xml_declaration=True)
+    return str(svg_path)
+
+
 def convert_to_svg(input_path, work_dir):
     file = Path(input_path)
     ext = file.suffix.lower()
@@ -103,7 +140,7 @@ def convert_to_svg(input_path, work_dir):
     raise ValueError(f"Unsupported file type: {ext or 'unknown'}")
 
 
-def prepare_artwork(source, directory, params, stitch_params):
+def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors=False):
     """Keep SVG bytes by default; sizing/conversion is opt-in except bitmap scale."""
     source, directory = Path(source), Path(directory)
     if source.stat().st_size > MAX_INPUT_BYTES:
@@ -117,6 +154,8 @@ def prepare_artwork(source, directory, params, stitch_params):
                 width_mm=params.design_width_mm,
                 threshold=params.raster_threshold,
                 invert=params.raster_invert,
+                preserve_colors=preserve_colors,
+                max_colors=stitch_params.max_colors,
             )
         )
     elif source.suffix.lower() in VECTOR_EXT:
@@ -128,7 +167,9 @@ def prepare_artwork(source, directory, params, stitch_params):
     warnings = []
     if converted:
         warnings.append(
-            "Bitmap traced as a single-colour silhouette. Check the interpreted artwork before sewing."
+            "Bitmap traced with a bounded colour palette and automatic background removal. Check the interpreted artwork before sewing."
+            if preserve_colors and params.raster_threshold is None and not params.raster_invert
+            else "Bitmap traced as a single-colour silhouette. Check the interpreted artwork before sewing."
         )
     if params.design_width_mm is None and not params.fit_to_hoop:
         return prepared, warnings

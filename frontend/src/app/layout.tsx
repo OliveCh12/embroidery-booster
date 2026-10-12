@@ -16,10 +16,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="fr" suppressHydrationWarning>
       <body className="bg-background text-foreground antialiased">
         <Providers>
-          <div className="flex min-h-dvh flex-col gap-4">
-            <a href="#workspace" className="sr-only focus:not-sr-only focus:p-3">Aller au contenu</a>
+          <div className="flex min-h-dvh flex-col gap-4 md:h-dvh md:overflow-hidden">
+            <a href="#workspace" className="sr-only z-50 rounded-lg bg-surface focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:p-4">Aller au contenu</a>
             <AppHeader />
-            <main id="workspace" className="mx-auto w-full max-w-[1440px] flex-1 px-4">
+            <main id="workspace" tabIndex={-1} className="flex min-h-0 w-full flex-1 flex-col px-4 outline-none md:overflow-hidden">
               {children}
             </main>
             <AppFooter />

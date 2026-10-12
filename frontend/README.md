@@ -53,6 +53,12 @@ Les densités par matériau proviennent de `/api/capabilities` ; elles ne sont p
 recopiées en JavaScript. Les résultats sont invalidés au changement de fichier.
 Les aperçus utilisent un fond blanc pour distinguer le dessin de l'interface.
 
+À partir de 768 px, l'atelier occupe la hauteur disponible entre le header et le
+footer. Les réglages défilent séparément et le bouton de génération reste visible.
+Les aperçus s'adaptent à l'espace restant ; les mesures et diagnostics sont
+repliables. Sur mobile, les réglages sont repliés au départ et les panneaux
+s'empilent. Les grands blocs partagent un espacement de 16 px.
+
 La galerie `/quality` lit `output/quality-comparison/comparison.json` et les images
 du même dossier. Si le corpus est absent, elle donne la commande pour le générer.
 Les tests Vitest couvrent validation des fichiers, sérialisation des réglages,

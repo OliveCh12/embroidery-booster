@@ -1,5 +1,4 @@
 import json
-from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -7,12 +6,9 @@ import pyembroidery as pe
 import pytest
 from shapely import intersects, linestrings
 from shapely.geometry import box
-from svgelements import Matrix
 
 from embroidery_rungs import GenerationParams, StitchParams, generate
 from embroidery_rungs.image_processor import rasterize_svg
-from embroidery_rungs.stitching.coverage import audit_coverage
-from embroidery_rungs.stitching.planner import build_stitch_plan
 from embroidery_rungs.stitching.quality import measure_stitches
 from embroidery_rungs.svg_manager import UNITS_PER_MM, load_svg_paths
 
@@ -69,53 +65,49 @@ def test_logo_coverage_at_practical_machine_size(tmp_path, name):
     assert metrics["largest_gap_mm2"] <= 0.1
 
 
-def incomplete_plan():
-    target = np.zeros((500, 720), dtype=bool)
-    target[120:480, 120:600] = True
-    target[240:300, 180:240] = False
-    params = StitchParams()
-    elements = [
-        {"type": "fill", "polygon": box(10, 10, 30, 40).difference(box(15, 20, 20, 25))},
-        {"type": "fill", "polygon": box(31.3, 10, 50, 40)},
-    ]
-    return (
-        build_stitch_plan(elements, params),
-        elements,
-        target,
-        Matrix.scale(12 / UNITS_PER_MM),
-        params,
+def partial_rails(*args, **kwargs):
+    element = {
+        "type": "satin",
+        "rail_a": [[10, 10], [20, 10], [30, 10]],
+        "rail_b": [[10, 30], [20, 30], [30, 30]],
+    }
+    return [], [], [element]
+
+
+@pytest.mark.parametrize("gap_fill", [False, True])
+def test_incomplete_mat_rails_trigger_whole_region_fill_without_patches(
+    tmp_path, monkeypatch, gap_fill
+):
+    monkeypatch.setattr("embroidery_rungs.stitching.digitizer.generate_rungs", partial_rails)
+    result = generate(
+        EXAMPLES / "quality/holes.svg",
+        tmp_path,
+        method="direct",
+        stitch_params=StitchParams(fill_gaps=gap_fill),
     )
+    assert {d["method"] for d in result.direct.decisions} == {"fill"}
+    assert result.direct.stats["structural_coverage"] >= 0.999
+    assert result.direct.stats["largest_gap_mm2"] == 0
+    assert result.direct.stats["gap_fill_regions"] == 0
+    assert result.direct.stats["satin_regions"] == 0
+    data = json.loads(Path(result.direct.plan_path).read_text())
+    commands = np.asarray(data["commands"])
+    sewn = (commands[:-1, 2] == pe.STITCH) & (commands[1:, 2] == pe.STITCH)
+    segments = (
+        np.stack([commands[:-1, :2], commands[1:, :2]], axis=1)[sewn] / 10 + data["origin_mm"]
+    )
+    assert not intersects(linestrings(segments), box(21, 21, 34, 39)).any()
 
 
-def test_actual_stitch_audit_repairs_submillimetre_seam_without_filling_source_hole():
-    plan, elements, mask, transform, params = incomplete_plan()
-    before, _ = measure_stitches(plan.commands, plan.origin_mm, mask, 12, (0, 0))
-    repaired = audit_coverage(plan, elements, mask, transform, params)
-    after, _ = measure_stitches(repaired.commands, repaired.origin_mm, mask, 12, (0, 0))
-    assert before["largest_gap_mm2"] > 5
-    assert after["structural_coverage"] >= 0.999
-    assert after["largest_gap_mm2"] < 0.05
-    assert repaired.stats["coverage_repairs"] > 0
-    assert not intersects(linestrings(sewn_segments(repaired)), box(15.3, 20.3, 19.7, 24.7)).any()
-
-
-@pytest.mark.parametrize("settings", [{"auto_select": False}, {"fill_gaps": False}])
-def test_manual_settings_disable_coverage_repairs(settings):
-    plan, elements, mask, transform, params = incomplete_plan()
-    repaired = audit_coverage(plan, elements, mask, transform, replace(params, **settings))
-    assert repaired.commands == plan.commands
-    assert repaired.stats["coverage_repairs"] == 0
-    assert repaired.stats["largest_gap_mm2"] > 5
-    assert any("coverage leaves" in warning for warning in repaired.warnings)
-
-
-def test_optional_repair_failure_preserves_valid_plan_and_reports_reason(monkeypatch):
-    plan, elements, mask, transform, params = incomplete_plan()
-
-    def budget_error(*args):
-        raise ValueError("Stitch budget exceeded")
-
-    monkeypatch.setattr("embroidery_rungs.stitching.coverage.build_stitch_plan", budget_error)
-    repaired = audit_coverage(plan, elements, mask, transform, params)
-    assert repaired.commands == plan.commands
-    assert any("budget exceeded" in warning for warning in repaired.warnings)
+def test_manual_incomplete_rails_report_missing_source_without_repair(tmp_path, monkeypatch):
+    monkeypatch.setattr("embroidery_rungs.pipeline.generate_rungs", partial_rails)
+    result = generate(
+        EXAMPLES / "quality/straight.svg",
+        tmp_path,
+        method="direct",
+        stitch_params=StitchParams(auto_select=False, fill_gaps=False),
+    )
+    assert result.direct.decisions == []
+    assert result.direct.stats["coverage_repairs"] == 0
+    assert result.direct.stats["structural_coverage"] < 0.5
+    assert any("coverage leaves gaps" in warning for warning in result.direct.warnings)

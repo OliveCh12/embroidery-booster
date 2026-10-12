@@ -10,17 +10,17 @@ export function FileUpload({ file, onSelect, onClear, disabled }: {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   return (
-    <Card className="gap-4">
+    <Card className="shrink-0 gap-4">
       <Card.Header><Card.Title>Dessin</Card.Title></Card.Header>
       <Card.Content className="gap-4">
         <input ref={input} type="file" className="hidden" aria-label="Fichier à broder" disabled={disabled}
           accept=".svg,.png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff,.pdf,.eps,.ps,.ai"
           onChange={event => { const selected = event.target.files?.[0]; if (selected) onSelect(selected); event.target.value = ""; }} />
-        <div className={`flex min-h-40 flex-col items-center justify-center gap-4 rounded-xl border border-dashed p-4 text-center ${dragging ? "border-accent bg-accent-soft" : "border-border"}`}
+        <div className={`flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed p-4 text-center ${dragging ? "border-accent bg-accent-soft" : "border-border"}`}
           onDragOver={event => { event.preventDefault(); if (!disabled) setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={event => { event.preventDefault(); setDragging(false); const selected = event.dataTransfer.files[0]; if (selected && !disabled) onSelect(selected); }}>
-          <FileImage size={27} className="text-muted" />
+          {!file && <FileImage size={27} className="text-muted" />}
           {file ? <div className="max-w-full"><p className="truncate text-sm font-medium">{file.name}</p><p className="mt-1 text-xs text-muted">{Math.ceil(file.size / 1024)} Ko</p></div>
             : <p className="text-sm text-muted">Glissez votre dessin ici</p>}
           <div className="flex items-center gap-4">
@@ -30,7 +30,7 @@ export function FileUpload({ file, onSelect, onClear, disabled }: {
             {file && <Button size="sm" variant="ghost" isIconOnly aria-label="Retirer le fichier" isDisabled={disabled} onPress={onClear}><X size={15} /></Button>}
           </div>
         </div>
-        <p className="text-xs leading-relaxed text-muted">SVG ou image · 10 Mio maximum.<br />Les photos sont converties en silhouette monochrome.</p>
+        <p className="text-xs leading-relaxed text-muted">SVG ou image · 10 Mio maximum.<br />Le moteur automatique sépare les couleurs en régions à broder.</p>
       </Card.Content>
     </Card>
   );

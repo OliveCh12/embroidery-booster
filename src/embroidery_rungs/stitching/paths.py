@@ -62,22 +62,21 @@ def satin_points(a, b, params: StitchParams, *, underlay=False) -> np.ndarray:
     else:
         compensation = np.minimum(params.pull_compensation_mm, widths * 0.1)
         a, b = a - directions * compensation[:, None], b + directions * compensation[:, None]
-    points, previous = [], [[], []]
+    points = []
     for i in range(len(a)):
         side = i % 2
         edge, other = (a[i], b[i]) if side == 0 else (b[i], a[i])
         candidate = edge
-        if not underlay and previous[side]:
-            recent = np.asarray(previous[side][-4:])
-            if np.linalg.norm(recent - candidate, axis=1).min() < params.min_stitch_mm:
-                choices = edge + (other - edge) * np.array([0.12, 0.24, 0.36, 0.45])[:, None]
-                distances = np.linalg.norm(choices[:, None, :] - recent[None, :, :], axis=2).min(
-                    axis=1
-                )
-                valid = np.flatnonzero(distances >= params.min_stitch_mm)
-                candidate = choices[valid[0] if len(valid) else np.argmax(distances)]
+        if not underlay and i >= 2:
+            rail = a if side == 0 else b
+            advance = np.linalg.norm(rail[i] - rail[i - 2])
+            if advance < params.min_stitch_mm:
+                # Short-stitch fan: keep regular outer pitch while spreading
+                # compressed inner penetrations over deterministic inset bands.
+                bands = min(4, math.ceil(params.min_stitch_mm / max(advance, 0.01)))
+                depth = min((i // 2 % bands) * (params.min_stitch_mm + 0.08), widths[i] * 0.3)
+                candidate = edge + (other - edge) * depth / max(np.linalg.norm(other - edge), 1e-8)
         points.append(candidate)
-        previous[side].append(candidate)
     # Finish the terminal cross-section rather than leaving a half-covered cap.
     terminal = b[-1] if (len(a) - 1) % 2 == 0 else a[-1]
     if np.linalg.norm(points[-1] - terminal) >= params.min_stitch_mm:

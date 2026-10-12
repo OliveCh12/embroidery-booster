@@ -23,7 +23,7 @@ export function QualityGallery() {
   if (capabilities.data && !capabilities.data.quality_report) return <Alert><Alert.Indicator /><Alert.Content><Alert.Title>Aucun rapport disponible</Alert.Title><Alert.Description>Les essais comparatifs apparaîtront ici une fois le corpus calculé.</Alert.Description></Alert.Content></Alert>;
   if (!current) return <div className="flex min-h-96 items-center justify-center gap-4 text-muted" role="status"><Spinner />Chargement des essais…</div>;
 
-  return <div className="flex flex-col gap-4">
+  return <div className="flex min-h-0 flex-col gap-4 md:overflow-y-auto md:overscroll-contain">
     <Card className="gap-4">
       <Card.Content className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="w-full sm:max-w-sm"><ChoiceSetting label="Dessin à comparer" value={current.file} onChange={setSelected} options={report.data!.results.map(row => ({ value: row.file, label: row.file.replace("quality/", "") }))} /></div>
@@ -36,6 +36,7 @@ export function QualityGallery() {
         <div className="flex flex-col gap-4 text-xs leading-relaxed text-muted">
           <p>Mêmes dimensions, densité, compensation et sous-couche pour chaque méthode.</p>
           <p>La couverture structurelle tolère {report.data!.measurement.structural_tolerance_mm} mm autour du fil. L’IoU mesure la fidélité de l’empreinte brute.</p>
+          <p>L’empreinte commune inclut les sous-couches. Le direct automatique fournit aussi une mesure séparée de sa couche supérieure.</p>
           <p>Ces métriques ne simulent pas le comportement du tissu ni le rendu d’une broderie cousue.</p>
         </div>
       </aside>
@@ -53,6 +54,7 @@ export function QualityGallery() {
                 </dl>
                 <p className="text-xs text-muted">Plus grand manque : {formatNumber(metrics.largest_gap_mm2)} mm² · distance maximale au fil : {formatNumber(metrics.uncovered_max_mm)} mm</p>
                 <p className="text-xs text-muted">{formatNumber(metrics.stitches)} points · point maximal {formatNumber(metrics.max_stitch_mm)} mm · {formatNumber(method.seconds ?? 0)} s</p>
+                {method.top_metrics && <p className="text-xs text-muted">Couche supérieure : {formatNumber(method.top_metrics.structural_coverage * 100)} % · {method.threads?.length ?? 1} fils</p>}
               </> : <p className="text-sm text-danger">{method.error ?? "Aucun plan disponible."}</p>}
             </Card.Content></Card>;
           })}

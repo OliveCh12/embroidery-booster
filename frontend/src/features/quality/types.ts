@@ -6,6 +6,8 @@ export interface QualityMetrics {
 
 export interface QualityMethod {
   metrics?: QualityMetrics;
+  top_metrics?: QualityMetrics;
+  threads?: string[];
   error?: string;
   seconds?: number;
   preview?: string;

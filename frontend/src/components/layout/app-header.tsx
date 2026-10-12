@@ -11,8 +11,8 @@ export function AppHeader() {
   const path = usePathname();
   const capabilities = useCapabilities();
   return (
-    <header className="border-b border-border bg-surface">
-      <div className="mx-auto flex min-h-16 max-w-[1440px] items-center gap-4 px-4">
+    <header className="shrink-0 border-b border-border bg-surface">
+      <div className="flex min-h-16 items-center gap-4 px-4">
         <Link href="/" className="mr-auto flex shrink-0 items-center gap-4 font-semibold tracking-tight" aria-label="Embroidery Booster · Atelier">
           <Spline size={22} className="text-accent" /><span className="hidden sm:inline">Embroidery Booster</span>
         </Link>

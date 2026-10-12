@@ -62,11 +62,19 @@ def parse_arguments(argv=None):
         choices=("fill", "split"),
         help="Manual wide-region policy; disables automatic type selection",
     )
-    parser.add_argument("--no-gap-fill", action="store_true", help="Disable fill of broad MAT gaps")
+    parser.add_argument(
+        "--no-gap-fill", action="store_true", help="Disable broad MAT gap fills in manual mode"
+    )
     parser.add_argument("--fill-angle", type=float, help="Manual direct tatami angle in degrees")
     parser.add_argument("--hoop-width", type=float, default=100.0, help="Hoop width in mm")
     parser.add_argument("--hoop-height", type=float, default=100.0, help="Hoop height in mm")
-    parser.add_argument("--thread-color", default="#176d9c", help="Direct thread hex color")
+    parser.add_argument("--thread-color", help="Override source colours with one hex thread colour")
+    parser.add_argument(
+        "--single-color", action="store_true", help="Trace/digitize a monochrome silhouette"
+    )
+    parser.add_argument(
+        "--max-colors", type=int, default=12, help="Maximum automatic thread palette (1–32)"
+    )
     parser.add_argument(
         "--fabric", choices=("custom", "stable", "stretch", "textured"), default="custom"
     )
@@ -129,7 +137,9 @@ def main(argv=None):
                 auto_fill_angle=args.fill_angle is None,
                 hoop_width_mm=args.hoop_width,
                 hoop_height_mm=args.hoop_height,
-                thread_color=args.thread_color,
+                thread_color=args.thread_color or "#176d9c",
+                preserve_colors=not args.single_color and args.thread_color is None,
+                max_colors=args.max_colors,
             ),
         )
     except (OSError, ValueError) as exc:

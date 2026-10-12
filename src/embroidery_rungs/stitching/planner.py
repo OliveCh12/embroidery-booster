@@ -15,11 +15,20 @@ from .params import StitchParams
 from .paths import _ordered_fill_paths, _safe_pieces, _subdivide, resample_running, satin_points
 
 
+def _compensated_fill(polygon, compensation):
+    expanded = polygon.buffer(compensation)
+    if polygon.interiors:
+        expanded = expanded.difference(unary_union([Polygon(ring) for ring in polygon.interiors]))
+    return expanded
+
+
 @dataclass
 class StitchBlock:
     kind: str
     points: np.ndarray
     region: int
+    color_index: int = 0
+    command_range: tuple[int, int] | None = None
 
 
 @dataclass
@@ -31,6 +40,7 @@ class StitchPlan:
     stats: dict[str, float | int]
     warnings: list[str] = field(default_factory=list)
     decisions: list[dict] = field(default_factory=list)
+    threads: list[str] = field(default_factory=list)
 
 
 def _make_blocks(elements, params):
@@ -62,11 +72,11 @@ def _make_blocks(elements, params):
             compensation = element.get(
                 "compensation", 0.0 if is_gap else params.pull_compensation_mm
             )
-            area = polygon.buffer(compensation + 0.08)
+            area = element.get("allowed_area", polygon.buffer(compensation + 0.08))
             if is_gap or (
                 wide and params.wide_mode == "fill" and element.get("stitch_type") != "satin"
             ):
-                fill_area = polygon.buffer(compensation)
+                fill_area = _compensated_fill(polygon, compensation)
                 if element.get("underlay", params.underlay):
                     paths.extend(
                         ("underlay", p)
@@ -88,6 +98,26 @@ def _make_blocks(elements, params):
                         params.trim_distance_mm,
                     )
                 )
+                # A finish pass on every contour covers pointed tips and narrow
+                # branches between scan rows, without adding another fill type.
+                finish_area = polygon.buffer(-element.get("finish_inset", 0.12))
+                if finish_area.is_empty:
+                    finish_area = polygon
+                pieces = (
+                    [finish_area] if finish_area.geom_type == "Polygon" else list(finish_area.geoms)
+                )
+                for piece in pieces:
+                    for ring in (piece.exterior, *piece.interiors):
+                        paths.append(
+                            (
+                                "fill",
+                                resample_running(
+                                    np.asarray(ring.coords),
+                                    min(1.5, params.max_stitch_mm),
+                                    tolerance=0.01,
+                                ),
+                            )
+                        )
             else:
                 if params.underlay:
                     centers = (a + b) / 2
@@ -111,7 +141,9 @@ def _make_blocks(elements, params):
     return blocks, areas, rejected
 
 
-def build_stitch_plan(elements, params: StitchParams | None = None) -> StitchPlan:
+def build_stitch_plan(
+    elements, params: StitchParams | None = None, *, origin_mm=None
+) -> StitchPlan:
     """Plan a monochrome design with safe travel, locks, trims and bounded stitches."""
     params = params or StitchParams()
     params.validate()
@@ -143,7 +175,7 @@ def build_stitch_plan(elements, params: StitchParams | None = None) -> StitchPla
         raise ValueError(
             f"Design is {size[0]:.1f} × {size[1]:.1f} mm; it exceeds the {params.hoop_width_mm:g} × {params.hoop_height_mm:g} mm hoop. Resize the SVG or choose a larger hoop."
         )
-    origin = (low + high) / 2
+    origin = (low + high) / 2 if origin_mm is None else np.asarray(origin_mm, dtype=float)
     commands, rendered = [], []
     allowed = unary_union(areas)
     prepare(allowed)
@@ -188,7 +220,8 @@ def build_stitch_plan(elements, params: StitchParams | None = None) -> StitchPla
         points = block.points
         first = points[0]
         distance = float(np.linalg.norm(first - current)) if current is not None else math.inf
-        if current is None or distance > 0.1:
+        new_region = current_block is not None and current_block.region != block.region
+        if current is None or distance > 0.1 or new_region:
             travel_limit = params.trim_distance_mm
             if (
                 current_block is not None
@@ -205,6 +238,7 @@ def build_stitch_plan(elements, params: StitchParams | None = None) -> StitchPla
             )
             connected = (
                 current is not None
+                and (not new_region or distance >= params.min_stitch_mm)
                 and distance <= travel_limit
                 and travel_area.covers(LineString([current, first]))
             )
@@ -243,6 +277,7 @@ def build_stitch_plan(elements, params: StitchParams | None = None) -> StitchPla
                     block.kind,
                     np.asarray([c[:2] for c in commands[max(0, begin - 1) :]], dtype=float) / 10,
                     block.region,
+                    command_range=(max(0, begin - 1), len(commands)),
                 )
             )
         current, current_block = quantized_position / 10 + origin, block
