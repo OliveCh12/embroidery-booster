@@ -1,570 +1,141 @@
-import logging
+"""Array-based skeleton topology; never connect across background."""
+
+from __future__ import annotations
+
 import numpy as np
-import networkx as nx
+from scipy.ndimage import label
 
-logger = logging.getLogger(__name__)
+_OFFSETS = np.array([(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)])
 
-def collapse_cycles(G, max_len=200):
-    """Collapse small cycles in the graph into single nodes to fix 'knots'."""
-    try:
-        cycles = nx.cycle_basis(G)
-    except nx.NetworkXNoCycle:
-        return G
-        
-    # Filter small cycles
-    # We use a larger threshold because high-res images have more nodes
-    small_cycles = [c for c in cycles if len(c) <= max_len]
-    
-    if not small_cycles:
-        return G
-        
-    logger.info(f"Found {len(cycles)} cycles. Collapsing {len(small_cycles)} small cycles (<= {max_len} nodes) to fix topology...")
-    
-    for i, cycle in enumerate(small_cycles):
-        # Check if nodes still exist (might have been merged already)
-        valid_nodes = [n for n in cycle if n in G]
-        if len(valid_nodes) < 3: continue
-            
-        # Calculate centroid
-        positions = np.array([G.nodes[n]['pos'] for n in valid_nodes])
-        centroid = tuple(np.mean(positions, axis=0))
-        
-        # Merge into the first node
-        target = valid_nodes[0]
-        G.nodes[target]['pos'] = centroid
-        
-        for other in valid_nodes[1:]:
-            if other not in G: continue
-            
-            neighbors = list(G.neighbors(other))
-            for nbr in neighbors:
-                if nbr != target:
-                    # Add edge to target
-                    w = G[other][nbr].get('weight', 1.0)
-                    if not G.has_edge(target, nbr):
-                        G.add_edge(target, nbr, weight=w)
-            
-            G.remove_node(other)
-            
-    logger.info("Cycle collapse complete.")
-            
-    return G
 
-def skeleton_to_graph(skeleton):
-    """Convert skeleton image to a NetworkX graph."""
-    rows, cols = np.where(skeleton)
-    points = list(zip(rows, cols))
-    point_to_idx = {pt: i for i, pt in enumerate(points)}
-    
-    G = nx.Graph()
-    
-    for r, c in points:
-        idx = point_to_idx[(r, c)]
-        G.add_node(idx, pos=(r, c))
-        
-        # Check 8-neighbors
-        for dr in [-1, 0, 1]:
-            for dc in [-1, 0, 1]:
-                if dr == 0 and dc == 0: continue
-                nr, nc = r + dr, c + dc
-                if (nr, nc) in point_to_idx:
-                    n_idx = point_to_idx[(nr, nc)]
-                    # Add edge with weight = distance (1 or sqrt(2))
-                    dist = np.sqrt(dr**2 + dc**2)
-                    G.add_edge(idx, n_idx, weight=dist)
-    return G
+def get_skeleton_paths(skeleton, min_len_px=2.0, distance=None):
+    """Trace each edge once, including disconnected loops; prune radius-sized spurs.
 
-def prune_skeleton_graph(G, min_spur_length_px):
-    """Remove short branches (spurs) from the graph."""
-    logger.info(f"Pruning skeleton spurs shorter than {min_spur_length_px}px...")
-    total_pruned = 0
-    
-    while True:
-        changed = False
-        # Find all degree-1 nodes (endpoints)
-        endpoints = [n for n, d in G.degree() if d == 1]
-        
-        for n in endpoints:
-            if n not in G: continue # Already removed in this pass
-            
-            # Walk from endpoint until we hit a junction (degree > 2) or another endpoint
-            path = [n]
-            curr = n
-            prev = None
-            length = 0
-            is_spur = True
-            
-            while True:
-                if G.degree(curr) > 2:
-                    # Reached a junction - this is a spur connected to a main body
-                    break
-                
-                neighbors = list(G.neighbors(curr))
-                # Filter out previous node
-                valid_neighbors = [nbr for nbr in neighbors if nbr != prev]
-                
-                if not valid_neighbors:
-                    # Reached another endpoint (isolated line)
-                    # If we are here, it means the whole component is just a line.
-                    # We check if the total length is small.
-                    if length > min_spur_length_px:
-                        is_spur = False
-                    break
-                
-                next_node = valid_neighbors[0]
-                
-                # Add distance
-                p1 = np.array(G.nodes[curr]['pos'])
-                p2 = np.array(G.nodes[next_node]['pos'])
-                dist = np.linalg.norm(p1 - p2)
-                length += dist
-                
-                if length > min_spur_length_px:
-                    is_spur = False
-                    break
-                
-                prev = curr
-                curr = next_node
-                path.append(curr)
-            
-            if is_spur:
-                # Remove the path nodes (excluding the junction if we hit one)
-                # If we hit a junction, 'curr' is the junction. We remove path[:-1] if path includes curr?
-                # Wait, 'path' includes 'curr' at the end of the loop.
-                # If we broke because degree > 2, 'curr' is the junction.
-                # We want to keep the junction.
-                
-                nodes_to_remove = []
-                if G.degree(curr) > 2:
-                    nodes_to_remove = path[:-1] # Don't remove junction
-                else:
-                    # Isolated short line
-                    nodes_to_remove = path # Remove everything
-                
-                if nodes_to_remove:
-                    G.remove_nodes_from(nodes_to_remove)
-                    total_pruned += 1
-                    changed = True
-        
-        if not changed:
-            break
-            
-    logger.info(f"Pruned {total_pruned} spur branches.")
-    return G
-
-def connect_close_endpoints(G, max_connect_dist_px):
-    """Connect endpoints that are close to each other to close open loops."""
-    logger.info(f"Connecting close endpoints within {max_connect_dist_px}px...")
-    endpoints = [n for n, d in G.degree() if d == 1]
-    
-    connected = 0
-    for i in range(len(endpoints)):
-        for j in range(i+1, len(endpoints)):
-            n1 = endpoints[i]
-            n2 = endpoints[j]
-            if n1 not in G or n2 not in G: continue
-            
-            p1 = np.array(G.nodes[n1]['pos'])
-            p2 = np.array(G.nodes[n2]['pos'])
-            dist = np.linalg.norm(p1 - p2)
-            
-            if dist <= max_connect_dist_px:
-                # Check if connecting them would create a cycle or something bad
-                # For now, just connect if not already connected
-                if not G.has_edge(n1, n2):
-                    G.add_edge(n1, n2, weight=dist)
-                    connected += 1
-                    logger.debug(f"Connected endpoints {n1} and {n2} at distance {dist:.1f}px")
-    
-    logger.info(f"Connected {connected} close endpoints.")
-    return G
-
-def get_skeleton_paths_from_graph(G):
+    Diagonal shortcuts around orthogonal connections create false triangular
+    junctions. Omit them and give adjacent junction pixels a shared vertex.
+    """
+    rc = np.argwhere(skeleton)
+    if not len(rc):
+        return []
+    grid = np.full(skeleton.shape, -1, dtype=np.int32)
+    grid[tuple(rc.T)] = np.arange(len(rc))
+    neighbors = np.full((len(rc), 8), -1, dtype=np.int32)
+    h, w = skeleton.shape
+    for k, (dr, dc) in enumerate(_OFFSETS):
+        r, c = rc[:, 0] + dr, rc[:, 1] + dc
+        valid = (r >= 0) & (r < h) & (c >= 0) & (c < w)
+        if dr and dc:
+            valid &= grid[np.clip(r, 0, h - 1), rc[:, 1]] < 0
+            valid &= grid[rc[:, 0], np.clip(c, 0, w - 1)] < 0
+        neighbors[valid, k] = grid[r[valid], c[valid]]
+    degree = (neighbors >= 0).sum(axis=1)
+    junction_img = np.zeros_like(skeleton, dtype=bool)
+    junction_img[tuple(rc[degree > 2].T)] = True
+    groups, count = label(junction_img, structure=np.ones((3, 3)))
+    vertex = np.arange(len(rc), dtype=np.int32) + count
+    is_junction = degree > 2
+    vertex[is_junction] = groups[tuple(rc[is_junction].T)] - 1
+    positions = {int(vertex[i]): rc[i].astype(float) for i in np.flatnonzero(degree != 2)}
+    if count:
+        counts = np.bincount(vertex[is_junction], minlength=count)
+        rows = np.bincount(vertex[is_junction], weights=rc[is_junction, 0], minlength=count)
+        cols = np.bincount(vertex[is_junction], weights=rc[is_junction, 1], minlength=count)
+        for g in range(count):
+            positions[g] = np.array([rows[g], cols[g]]) / counts[g]
+    visited = np.zeros_like(neighbors, dtype=bool)
     paths = []
-    visited_edges = set()
-    
-    # Nodes with degree != 2 are junctions or endpoints
-    nodes_of_interest = [n for n, d in G.degree() if d != 2]
-    
-    # If the skeleton is a perfect loop (all degree 2), pick one arbitrary node
-    if not nodes_of_interest and G.number_of_nodes() > 0:
-        nodes_of_interest = [list(G.nodes())[0]]
-        
-    for start_node in nodes_of_interest:
-        if start_node not in G: continue
-        
-        for neighbor in G.neighbors(start_node):
-            edge = tuple(sorted((start_node, neighbor)))
-            if edge in visited_edges:
-                continue
-                
-            # Traverse this path
-            current_path = [start_node, neighbor]
-            visited_edges.add(edge)
-            
-            curr = neighbor
-            prev = start_node
-            
-            while True:
-                # If current node is a junction or endpoint (degree != 2), stop
-                if G.degree(curr) != 2:
-                    break
-                    
-                # Get neighbors of current node excluding previous
-                nbrs = [n for n in G.neighbors(curr) if n != prev]
-                
-                if not nbrs: # Should not happen if degree == 2
-                    break
-                    
-                next_node = nbrs[0]
-                edge = tuple(sorted((curr, next_node)))
-                visited_edges.add(edge)
-                
-                current_path.append(next_node)
-                prev = curr
-                curr = next_node
-                
-                if curr == start_node: # Loop closed
-                    break
-            
-            # Convert to coordinates
-            path_points = [G.nodes[i]['pos'] for i in current_path]
-            # Store path with start/end node info for intersection handling
-            # (points, start_node_idx, end_node_idx)
-            paths.append({
-                'points': np.array(path_points),
-                'start_node': start_node,
-                'end_node': curr
-            })
-                
-    return paths, G
 
-def extend_skeleton_endpoints(G, binary_img, max_dist_px=50):
-    """Extend skeleton endpoints to the shape boundary."""
-    logger.info(f"Extending skeleton endpoints to boundary (max {max_dist_px}px)...")
-    endpoints = [n for n, d in G.degree() if d == 1]
-    extended_count = 0
-    
-    # Get next available node ID
-    next_id = max(G.nodes()) + 1 if G.number_of_nodes() > 0 else 0
-    
-    for n in endpoints:
-        if n not in G: continue
-        
-        neighbors = list(G.neighbors(n))
-        if not neighbors: continue
-        nbr = neighbors[0]
-        
-        p_end = np.array(G.nodes[n]['pos'])
-        p_nbr = np.array(G.nodes[nbr]['pos'])
-        
-        # Vector from neighbor to endpoint
-        v = p_end - p_nbr
-        norm = np.linalg.norm(v)
-        if norm == 0: continue
-        v = v / norm
-        
-        # Cast ray
-        # Use get_ray_intersection logic inline or call it if available
-        # We need integer coordinates for image check
-        start_x, start_y = p_end[1], p_end[0] # pos is (row, col) -> (y, x)
-        dx, dy = v[1], v[0]
-        
-        # Find boundary
-        end_x, end_y = get_ray_intersection(binary_img, start_x, start_y, dx, dy, max_dist_px)
-        
-        # Distance to boundary
-        dist = np.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
-        
-        if dist > 0.5 and dist <= max_dist_px:
-            # Add new node at boundary
-            # We might want to add intermediate nodes if dist is large, but for straight line one is enough
-            # However, to keep graph density consistent, maybe add nodes every few pixels?
-            # For now, just add the endpoint.
-            
-            new_node_pos = (end_y, end_x)
-            G.add_node(next_id, pos=new_node_pos)
-            G.add_edge(n, next_id, weight=dist)
-            next_id += 1
-            extended_count += 1
-            
-    logger.info(f"Extended {extended_count} endpoints.")
-    return G
-
-def get_ray_intersection(binary_img, start_x, start_y, dx, dy, max_dist):
-    """Cast a ray and find where it hits the background (0)."""
-    h, w = binary_img.shape
-
-    # Walk along the ray
-    steps = int(max_dist)
-    if steps <= 0:
-        return start_x, start_y
-
-    for i in range(1, steps + 1):
-        cx = int(start_x + dx * i)
-        cy = int(start_y + dy * i)
-
-        if cx < 0 or cx >= w or cy < 0 or cy >= h:
-            return cx - dx, cy - dy # Return last valid
-
-        if binary_img[cy, cx] == 0:
-            # Found edge
-            return cx, cy
-
-    return start_x + dx * max_dist, start_y + dy * max_dist
-
-def get_skeleton_paths(skeleton, binary_img=None, min_len_px=15):
-    """Decompose skeleton into simple paths between junctions/endpoints."""
-    G = skeleton_to_graph(skeleton)
-    logger.info(f"Initial graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
-    
-    if G.number_of_nodes() == 0:
-        return [], G
-    
-    # Fix topology: Collapse small cycles (knots)
-    # Use a larger threshold to catch all knots in high-res images
-    G = collapse_cycles(G, max_len=200)
-    
-    # Prune spurs
-    G = prune_skeleton_graph(G, min_len_px)
-    logger.info(f"Pruned graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
-    
-    # Extend endpoints if binary image is provided
-    if binary_img is not None:
-        G = extend_skeleton_endpoints(G, binary_img, max_dist_px=50)
-    
-    # Connect close endpoints to close open loops
-    G = connect_close_endpoints(G, max_connect_dist_px=100)
-    
-    paths, G = get_skeleton_paths_from_graph(G)
-
-    return paths, G
-
-def merge_aligned_paths(paths, G, spacing_px):
-    """Merge paths that are aligned at junctions to form continuous flows."""
-    # Build adjacency map: Node -> [PathIndices]
-    node_to_paths = {}
-    for i, p in enumerate(paths):
-        s, e = p['start_node'], p['end_node']
-        if s not in node_to_paths: node_to_paths[s] = []
-        if e not in node_to_paths: node_to_paths[e] = []
-        node_to_paths[s].append(i)
-        node_to_paths[e].append(i)
-        
-    # Identify junctions
-    junctions = [n for n, d in G.degree() if d > 2]
-    
-    # Sort junctions by degree? Or just process.
-    
-    # We will mark paths as "merged" to avoid double usage.
-    merged_indices = set()
-    new_paths = []
-    
-    # Helper to get vector at end of path
-    def get_end_vector(path_idx, node):
-        pts = paths[path_idx]['points']
-        # Is node start or end?
-        if paths[path_idx]['start_node'] == node:
-            # Vector pointing AWAY from node (into path)
-            # Use first few points
-            p0 = pts[0]
-            p1 = pts[min(5, len(pts)-1)]
-            return p1 - p0
-        else:
-            # Vector pointing AWAY from node (into path)
-            p0 = pts[-1]
-            p1 = pts[max(0, len(pts)-6)]
-            return p1 - p0
-
-    # Process junctions to find "Main Flows"
-    # We want to link paths.
-    # Link map: PathIdx -> [ (ConnectedPathIdx, JunctionNode) ]
-    links = []
-    
-    for j in junctions:
-        connected_indices = [i for i in node_to_paths.get(j, []) if i not in merged_indices]
-        if len(connected_indices) < 2: continue
-        
-        # Find best pair
-        best_pair = None
-        max_score = -1
-        
-        vectors = {}
-        for idx in connected_indices:
-            v = get_end_vector(idx, j)
-            norm = np.linalg.norm(v)
-            if norm > 0: v = v / norm
-            vectors[idx] = v
-            
-        for i in range(len(connected_indices)):
-            for k in range(i+1, len(connected_indices)):
-                idx1 = connected_indices[i]
-                idx2 = connected_indices[k]
-                v1 = vectors[idx1]
-                v2 = vectors[idx2]
-                
-                # Dot product. 
-                # v1 points into path 1. v2 points into path 2.
-                # If they form a straight line, angle is 180, dot is -1.
-                dot = np.dot(v1, v2)
-                
-                # We want dot close to -1
-                if dot < -0.5: # Angle > 120 degrees
-                    score = -dot
-                    if score > max_score:
-                        max_score = score
-                        best_pair = (idx1, idx2)
-        
-        if best_pair:
-            p1, p2 = best_pair
-            links.append((p1, p2, j))
-            
-    # Now execute merges based on links
-    # Use a Union-Find or Graph to merge connected components of paths
-    path_graph = nx.Graph()
-    path_graph.add_nodes_from(range(len(paths)))
-    for p1, p2, j in links:
-        path_graph.add_edge(p1, p2, junction=j)
-        
-    # Extract components
-    for component in nx.connected_components(path_graph):
-        # component is a set of path indices
-        # We need to order them.
-        # A simple component is a line of paths: P1 - P2 - P3
-        # If it's a star (unlikely with our pair selection), we have an issue.
-        # Our pair selection is greedy per junction, but a path has 2 ends.
-        # So we can have P1-J1-P2-J2-P3. This is fine.
-        
-        # Linearize the component
-        comp_list = list(component)
-        if len(comp_list) == 1:
-            new_paths.append(paths[comp_list[0]])
-            continue
-            
-        # Find endpoints of the chain (degree 1 in path_graph)
-        subg = path_graph.subgraph(comp_list)
-        endpoints = [n for n, d in subg.degree() if d == 1]
-        
-        if not endpoints:
-            # Cycle? Break it anywhere.
-            start_node = comp_list[0]
-        else:
-            start_node = endpoints[0]
-            
-        # Traverse
-        ordered_indices = []
-        curr = start_node
-        visited = {curr}
-        ordered_indices.append(curr)
-        
+    def trace(start, slot):
+        nodes = [start]
+        prev, curr = start, int(neighbors[start, slot])
+        visited[start, slot] = True
         while True:
-            nbrs = [n for n in subg.neighbors(curr) if n not in visited]
-            if not nbrs: break
-            curr = nbrs[0]
-            visited.add(curr)
-            ordered_indices.append(curr)
-            
-        # Merge points
-        merged_points = []
-        # We need to orient paths correctly
-        # P1 ends at J1. P2 starts at J1.
-        
-        # Start with first path
-        curr_idx = ordered_indices[0]
-        curr_path = paths[curr_idx]
-        
-        # Determine orientation
-        # Look at next path to see which end connects
-        if len(ordered_indices) > 1:
-            next_idx = ordered_indices[1]
-            j_node = subg[curr_idx][next_idx]['junction']
-            
-            if curr_path['end_node'] == j_node:
-                # Correct orientation
-                pts = curr_path['points']
-            else:
-                # Flip
-                pts = curr_path['points'][::-1]
-        else:
-            pts = curr_path['points']
-            
-        merged_points.append(pts)
+            visited[curr, np.flatnonzero(neighbors[curr] == prev)] = True
+            nodes.append(curr)
+            if degree[curr] != 2 or curr == start:
+                break
+            forward = np.flatnonzero((neighbors[curr] >= 0) & (neighbors[curr] != prev))[0]
+            if visited[curr, forward]:
+                break
+            visited[curr, forward] = True
+            prev, curr = curr, int(neighbors[curr, forward])
+        a, b = int(vertex[start]), int(vertex[curr])
+        if a == b and start != curr:
+            return
+        points = rc[nodes].astype(float)
+        points[0], points[-1] = positions.get(a, points[0]), positions.get(b, points[-1])
+        length = float(np.linalg.norm(np.diff(points, axis=0), axis=1).sum())
+        if len(points) < 2 or length < min_len_px:
+            return
+        if distance is not None and (degree[start] == 1) != (degree[curr] == 1):
+            j = curr if degree[start] == 1 else start
+            if length <= max(min_len_px, 1.6 * distance[tuple(rc[j])]):
+                return
+        paths.append({"points": points, "start_node": a, "end_node": b})
 
-        for k in range(1, len(ordered_indices)):
-            prev_idx = ordered_indices[k-1]
-            curr_idx = ordered_indices[k]
-            j_node = subg[prev_idx][curr_idx]['junction']
-            
-            curr_path = paths[curr_idx]
-            
-            # Orient current path so it STARTS at j_node
-            if curr_path['start_node'] == j_node:
-                pts = curr_path['points']
-            else:
-                pts = curr_path['points'][::-1]
-                
-            # Append (skip first point as it duplicates junction)
-            merged_points.append(pts[1:])
-            
-        # Concatenate
-        full_points = np.vstack(merged_points)
-        
-        # Determine actual start/end nodes in G
-        first_path_idx = ordered_indices[0]
-        last_path_idx = ordered_indices[-1]
-        
-        real_start_node = -1
-        real_end_node = -1
-        
-        if len(ordered_indices) > 1:
-            # First path
-            second_path_idx = ordered_indices[1]
-            if subg.has_edge(first_path_idx, second_path_idx):
-                j_node = subg[first_path_idx][second_path_idx]['junction']
-                p_start = paths[first_path_idx]
-                real_start_node = p_start['start_node'] if p_start['end_node'] == j_node else p_start['end_node']
-            
-            # Last path
-            second_last_idx = ordered_indices[-2]
-            if subg.has_edge(last_path_idx, second_last_idx):
-                j_node_end = subg[last_path_idx][second_last_idx]['junction']
-                p_end = paths[last_path_idx]
-                real_end_node = p_end['start_node'] if p_end['end_node'] == j_node_end else p_end['end_node']
-        
-        # Create new path object
-        new_p = {
-            'points': full_points,
-            'start_node': real_start_node,
-            'end_node': real_end_node,
-            'original_indices': ordered_indices,
-            'is_merged': True
-        }
-        new_paths.append(new_p)
-        
-    return new_paths
+    for node in np.flatnonzero(degree != 2):
+        for slot in np.flatnonzero(neighbors[node] >= 0):
+            if not visited[node, slot]:
+                trace(int(node), int(slot))
+    for node, slot in np.argwhere((neighbors >= 0) & ~visited):
+        if not visited[node, slot]:
+            trace(int(node), int(slot))
+    return merge_aligned_paths(paths)
+
+
+def merge_aligned_paths(paths):
+    """Join the most aligned pair at each vertex without losing cycles."""
+    adjacency = {}
+    for i, path in enumerate(paths):
+        for side, key in enumerate(("start_node", "end_node")):
+            adjacency.setdefault(path[key], []).append((i, side))
+    links = {}
+    for ends in adjacency.values():
+        candidates = []
+        for i, (a, sa) in enumerate(ends):
+            pa = paths[a]["points"][:: 1 if sa == 0 else -1]
+            va = pa[min(8, len(pa) - 1)] - pa[0]
+            va /= max(np.linalg.norm(va), 1e-9)
+            for b, sb in ends[i + 1 :]:
+                if a == b:
+                    continue
+                pb = paths[b]["points"][:: 1 if sb == 0 else -1]
+                vb = pb[min(8, len(pb) - 1)] - pb[0]
+                vb /= max(np.linalg.norm(vb), 1e-9)
+                score = float(va @ vb)
+                if score < -0.5 or len(ends) == 2:
+                    candidates.append((score, a, sa, b, sb))
+        for _, a, sa, b, sb in sorted(candidates):
+            if (a, sa) not in links and (b, sb) not in links:
+                links[a, sa], links[b, sb] = (b, sb), (a, sa)
+    merged, used = [], set()
+    starts = [(i, s) for i in range(len(paths)) for s in (0, 1) if (i, s) not in links]
+    starts += [(i, 0) for i in range(len(paths))]
+    for first, side in starts:
+        if first in used:
+            continue
+        i, enter, parts = first, side, []
+        start_node = paths[i]["start_node" if enter == 0 else "end_node"]
+        while i not in used:
+            used.add(i)
+            pts = paths[i]["points"][:: 1 if enter == 0 else -1]
+            parts.append(pts if not parts else pts[1:])
+            end_node = paths[i]["end_node" if enter == 0 else "start_node"]
+            next_end = links.get((i, 1 - enter))
+            if next_end is None:
+                break
+            i, enter = next_end
+        merged.append({"points": np.vstack(parts), "start_node": start_node, "end_node": end_node})
+    return merged
+
 
 def segments_intersect(p1, p2, p3, p4):
-    """
-    Check if line segment (p1, p2) intersects with line segment (p3, p4).
-    p1, p2, p3, p4 are (x, y) tuples or arrays.
-    Returns True if they intersect strictly (not just touching at endpoints).
-    """
-    x1, y1 = p1
-    x2, y2 = p2
-    x3, y3 = p3
-    x4, y4 = p4
-    
-    # Denominator
-    denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)
-    
-    if denom == 0:
-        return False  # Parallel lines
-        
-    ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom
-    ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom
-    
-    # Check if intersection is strictly within the segments
-    if 0.001 < ua < 0.999 and 0.001 < ub < 0.999:
-        return True
-        
-    return False
+    """Strict interior crossing; endpoint touches and collinearity are allowed."""
+    a, b, c, d = (np.asarray(p, dtype=float) for p in (p1, p2, p3, p4))
+    u, v, offset = b - a, d - c, c - a
+    denom = u[0] * v[1] - u[1] * v[0]
+    if abs(denom) < 1e-10:
+        return False
+    t = (offset[0] * v[1] - offset[1] * v[0]) / denom
+    s = (offset[0] * u[1] - offset[1] * u[0]) / denom
+    return bool(1e-6 < t < 1 - 1e-6 and 1e-6 < s < 1 - 1e-6)

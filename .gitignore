@@ -20,3 +20,10 @@ uploads/
 
 # Local agent tooling
 .claude/
+
+# Frontend
+node_modules/
+.next/
+*.tsbuildinfo
+frontend/.env*.local
+frontend/next-env.d.ts

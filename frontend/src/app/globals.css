@@ -1,0 +1,8 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+body { min-width: 320px; }
+button, a, input { -webkit-tap-highlight-color: transparent; }
+::selection { background: var(--accent-soft); }

@@ -1,0 +1,13 @@
+{
+  "name": "embroidery-booster",
+  "private": true,
+  "packageManager": "pnpm@12.4.2",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:frontend": "pnpm --dir frontend dev",
+    "build": "pnpm --dir frontend build",
+    "start": "pnpm --dir frontend start",
+    "check": "pnpm --dir frontend check",
+    "test:frontend": "pnpm --dir frontend test"
+  }
+}

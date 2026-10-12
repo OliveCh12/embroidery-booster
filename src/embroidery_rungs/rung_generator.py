@@ -1,416 +1,317 @@
-"""Rung placement along the medial axis.
+"""Compute boundary rails once, then select geometry-aware rung checkpoints."""
 
-Pipeline per centerline path:
-
-1. resample the skeleton polyline at uniform arc length,
-2. lightly smooth it (kills pixel jaggies without distorting the shape),
-3. compute tangents/normals by finite differences,
-4. cast a sub-pixel ray each way to the shape boundary to form a rung,
-5. space rungs adaptively (denser in curves) and drop any that would cross a
-   neighbour, so rungs stay perpendicular and never fan out.
-
-Bridges connect the nearest rungs of paths meeting at a junction (MST) so
-Ink/Stitch reads the satin as continuous.
-"""
+from __future__ import annotations
 
 import logging
+from collections import defaultdict
 
 import numpy as np
-import networkx as nx
-from scipy.ndimage import uniform_filter1d
+from scipy.ndimage import find_objects, gaussian_filter1d, label, map_coordinates
+from shapely.geometry import Polygon
+from skimage.segmentation import watershed
 
-from .geometry_utils import get_skeleton_paths, merge_aligned_paths, segments_intersect
-from .debug_utils import save_debug_graph, save_rung_coverage_debug
+from .geometry_utils import get_skeleton_paths, segments_intersect
+from .optimizer import checkpoint_indices
 
 logger = logging.getLogger(__name__)
 
-_MIN_RUNG_LEN = 2.0      # px; ignore degenerate rungs
-_MIN_PATH_LEN = 6.0      # px; ignore noise paths
 
-# Rung checkpoints are geometry-driven (Ink/Stitch guidance: dense in curves,
-# sparse in straights, a rung at each width change). The rails themselves keep
-# all their sampled nodes so curves stay smooth.
-_CHECKPOINT_ANGLE = np.radians(30.0)  # a checkpoint about every 30 deg of turn
-_WIDTH_CHANGE = 0.30                   # ... or when the half-width changes 30%
-
-
-def _angle_diff(a, b):
-    """Signed smallest difference between two angles (radians)."""
-    d = a - b
-    return np.arctan2(np.sin(d), np.cos(d))
-
-
-def _checkpoint_indices(centers, widths, max_gap):
-    """Pick a sparse set of rung-checkpoint indices along a column.
-
-    Always the two ends, plus a checkpoint whenever the centerline has turned by
-    _CHECKPOINT_ANGLE, the width has changed by _WIDTH_CHANGE, or the arc gap
-    reaches ``max_gap``. Dense in curves, sparse in straights.
-    """
-    n = len(centers)
-    if n <= 3:
-        return list(range(n))
-    arc = np.concatenate([[0.0], np.cumsum(np.hypot(*np.diff(centers, axis=0).T))])
-    idx = [0]
-    accum = 0.0
-    for i in range(1, n - 1):
-        v1, v2 = centers[i] - centers[i - 1], centers[i + 1] - centers[i]
-        if np.hypot(*v1) > 1e-6 and np.hypot(*v2) > 1e-6:
-            accum += abs(_angle_diff(np.arctan2(v2[1], v2[0]),
-                                     np.arctan2(v1[1], v1[0])))
-        wref = max(float(widths[idx[-1]]), 1e-6)
-        dwidth = abs(float(widths[i]) - wref) / wref
-        gap = arc[i] - arc[idx[-1]]
-        if accum >= _CHECKPOINT_ANGLE or dwidth >= _WIDTH_CHANGE or gap >= max_gap:
-            idx.append(i)
-            accum = 0.0
-    idx.append(n - 1)
-    return idx
+def _valid_rail_pieces(a, b, centers):
+    """Trim folded caps and subdivide invalid sweeps before SVG export."""
+    pending = [(a, b, centers)]
+    while pending:
+        a, b, c = pending.pop()
+        while len(a) > 2 and not Polygon([a[0], a[1], b[1], b[0]]).is_valid:
+            a, b, c = a[1:], b[1:], c[1:]
+        while len(a) > 2 and not Polygon([a[-2], a[-1], b[-1], b[-2]]).is_valid:
+            a, b, c = a[:-1], b[:-1], c[:-1]
+        polygon = Polygon(np.vstack([a, b[::-1]]))
+        if polygon.is_valid and polygon.area > 0:
+            yield a, b, c
+        elif len(a) >= 4:
+            mid = len(a) // 2
+            pending.append((a[mid:], b[mid:], c[mid:]))
+            pending.append((a[: mid + 1], b[: mid + 1], c[: mid + 1]))
+        else:
+            # A short folded region cannot define a satin. Preserve its flow
+            # as a running stitch instead of exporting an invalid column.
+            yield None, None, c
 
 
-def _resample(points, step):
-    """Resample an (N, 2) polyline at a uniform arc-length ``step``.
-
-    Returns ``(resampled, arc_lengths, total_length)``.
-    """
-    deltas = np.diff(points, axis=0)
-    seg = np.hypot(deltas[:, 0], deltas[:, 1])
-    arc = np.concatenate([[0.0], np.cumsum(seg)])
-    total = float(arc[-1])
-    if total < 1e-6:
-        return points[:1].astype(float), np.array([0.0]), 0.0
-    n = max(2, int(total / step) + 1)
-    targets = np.linspace(0.0, total, n)
-    xs = np.interp(targets, arc, points[:, 0])
-    ys = np.interp(targets, arc, points[:, 1])
-    return np.column_stack([xs, ys]), targets, total
-
-
-def _smooth(points, window):
-    """Light moving-average smoothing that keeps the endpoints fixed."""
-    if len(points) < 3 or window < 2:
+def _resample(points: np.ndarray, step: float) -> np.ndarray:
+    keep = np.r_[True, np.linalg.norm(np.diff(points, axis=0), axis=1) > 1e-8]
+    points = points[keep]
+    arc = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(points, axis=0), axis=1))]
+    if arc[-1] < 1e-8:
         return points
-    out = np.empty_like(points)
-    out[:, 0] = uniform_filter1d(points[:, 0], size=window, mode="nearest")
-    out[:, 1] = uniform_filter1d(points[:, 1], size=window, mode="nearest")
-    out[0], out[-1] = points[0], points[-1]
-    return out
+    targets = np.linspace(0, arc[-1], max(3, int(np.ceil(arc[-1] / step)) + 1))
+    return np.column_stack([np.interp(targets, arc, points[:, i]) for i in (0, 1)])
 
 
-_MIN_SPLIT_RUNGS = 10   # only split columns that are actually long
-_MIN_SEGMENT_RUNGS = 4  # never create tiny fragments
-
-
-def _split_at_sharp_curves(items, max_turn_deg=45.0, max_accum_deg=70.0):
-    """Split a long column's rungs where the centerline bends too much.
-
-    A satin column following a tight bend stitches unevenly (the inner rail gets
-    denser). Splitting at sharp local turns — or once the curve has accumulated
-    enough total turn — yields gentler sub-columns that stitch cleanly. Short
-    columns and smooth/gentle shapes are left intact, and splits that would
-    create tiny fragments are skipped (those degrade thin shapes). Sub-columns
-    overlap by one rung so the satins meet without a gap.
-    """
-    n = len(items)
-    if n < _MIN_SPLIT_RUNGS:
-        return [items]
-    centers = np.array([it["center"] for it in items], dtype=float)
-
-    splits = []
-    accum = 0.0
-    last = 0
-    for i in range(1, n - 1):
-        v1 = centers[i] - centers[i - 1]
-        v2 = centers[i + 1] - centers[i]
-        n1, n2 = np.hypot(*v1), np.hypot(*v2)
-        if n1 < 1e-6 or n2 < 1e-6:
-            continue
-        turn = np.degrees(np.arccos(np.clip(np.dot(v1, v2) / (n1 * n2), -1.0, 1.0)))
-        accum += turn
-        # Only split when both the piece left behind and what remains are big
-        # enough to be real columns.
-        if (turn >= max_turn_deg or accum >= max_accum_deg) \
-                and i - last >= _MIN_SEGMENT_RUNGS and n - i >= _MIN_SEGMENT_RUNGS:
-            splits.append(i)
-            accum = 0.0
-            last = i
-
-    if not splits:
-        return [items]
-    segments, start = [], 0
-    for s in splits:
-        segments.append(items[start:s + 1])  # overlap by the split rung
-        start = s
-    segments.append(items[start:])
-    return segments
-
-
-def _smooth_rail(points):
-    """Light smoothing of a rail polyline (kills ray-cast jaggedness)."""
-    arr = np.asarray(points, dtype=float)
-    if len(arr) < 5:
-        return arr
-    out = arr.copy()
-    out[:, 0] = uniform_filter1d(arr[:, 0], size=5, mode="nearest")
-    out[:, 1] = uniform_filter1d(arr[:, 1], size=5, mode="nearest")
-    out[0], out[-1] = arr[0], arr[-1]   # keep the caps anchored
-    return out
-
-
-def _cast_to_boundary(mask, cx, cy, dx, dy, max_dist, step=0.5):
-    """March from (cx, cy) along (dx, dy) until leaving the shape.
-
-    Vectorized sub-pixel ray cast. Returns ``(x, y, distance)`` of the last
-    point still inside; ``distance == max_dist`` means no boundary was hit.
-    """
+def cast_to_boundary(mask, centers, directions, limits, owners=None, owner=0):
+    """Batched first-exit rays, including holes; bounded temporary memory."""
+    result = centers.copy()
+    hit_boundary = np.zeros(len(centers), dtype=bool)
     h, w = mask.shape
-    n = int(max_dist / step)
-    if n < 1:
-        return cx, cy, 0.0
-    d = np.arange(1, n + 1) * step
-    xs = cx + dx * d
-    ys = cy + dy * d
-    ix = np.round(xs).astype(int)
-    iy = np.round(ys).astype(int)
-    oob = (ix < 0) | (ix >= w) | (iy < 0) | (iy >= h)
-    ix = np.clip(ix, 0, w - 1)
-    iy = np.clip(iy, 0, h - 1)
-    outside = oob | (mask[iy, ix] == 0)
-    hit = np.argmax(outside)
-    if not outside[hit]:
-        return cx + dx * max_dist, cy + dy * max_dist, max_dist
-    dist = d[hit] - step  # last point still inside
-    return cx + dx * dist, cy + dy * dist, dist
-
-
-def _make_rung(mask, cx, cy, nx, ny, max_search):
-    """Build a rung centred at (cx, cy) along normal (nx, ny), or None."""
-    p1x, p1y, d1 = _cast_to_boundary(mask, cx, cy, nx, ny, max_search)
-    p2x, p2y, d2 = _cast_to_boundary(mask, cx, cy, -nx, -ny, max_search)
-    # Both rays maxed out -> we are not inside a band, reject.
-    if d1 >= max_search and d2 >= max_search:
-        return None
-    if np.hypot(p1x - p2x, p1y - p2y) < _MIN_RUNG_LEN:
-        return None
-    return (float(p1x), float(p1y)), (float(p2x), float(p2y))
-
-
-def _crosses_recent(rung, recent):
-    p1, p2 = rung
-    for prev in recent:
-        if segments_intersect(prev[0], prev[1], p1, p2):
-            return True
-    return False
-
-
-def _remove_crossings(items):
-    """Drop any rung that strictly crosses an already-accepted one.
-
-    Guarantees no two rungs in the result cross — including across different
-    paths, which is where junction/spiral X-artifacts come from. Cheap thanks to
-    a bounding-box pre-check before the exact segment test.
-    """
-    accepted = []
-    boxes = []  # (xmin, ymin, xmax, ymax) per accepted rung
-    for it in items:
-        (ax, ay), (bx, by) = it["rung"]
-        box = (min(ax, bx), min(ay, by), max(ax, bx), max(ay, by))
-        crosses = False
-        for (cx0, cy0, cx1, cy1), other in zip(boxes, accepted):
-            if box[2] < cx0 or box[0] > cx1 or box[3] < cy0 or box[1] > cy1:
-                continue  # disjoint bounding boxes
-            if segments_intersect(other["rung"][0], other["rung"][1],
-                                  it["rung"][0], it["rung"][1]):
-                crosses = True
-                break
-        if not crosses:
-            accepted.append(it)
-            boxes.append(box)
-    return accepted
-
-
-def _rungs_for_path(points_rc, distance_map, binary_img, spacing_px):
-    """Generate ordered rungs (and their centres) for one centerline path."""
-    # points_rc is (row, col) = (y, x); work in (x, y).
-    pts = np.column_stack([points_rc[:, 1], points_rc[:, 0]]).astype(float)
-
-    step = max(2.0, spacing_px / 10.0)
-    rs, arc, total = _resample(pts, step)
-    if total < _MIN_PATH_LEN:
-        return []
-
-    window = max(2, int(round(spacing_px / step / 2)))
-    sm = _smooth(rs, window)
-
-    # Tangents and normals by central differences on the smoothed centerline.
-    tang = np.gradient(sm, axis=0)
-    tn = np.hypot(tang[:, 0], tang[:, 1])
-    tn[tn < 1e-9] = 1.0
-    tang /= tn[:, None]
-    normals = np.column_stack([-tang[:, 1], tang[:, 0]])
-
-    h, w = binary_img.shape
-    fx = np.clip(sm[:, 0].astype(int), 0, w - 1)
-    fy = np.clip(sm[:, 1].astype(int), 0, h - 1)
-    widths = distance_map[fy, fx]
-
-    # Sample the rails finely (a node every ~third of the spacing) so curves stay
-    # smooth; the actual rung checkpoints are chosen sparsely later. Never sample
-    # closer than the local width (that is what makes rungs cross / fan out).
-    sample_gap = max(spacing_px / 3.0, 3.0)
-    placed, recent = [], []
-    s = 0.0
-    forced_end = False
-    while True:
-        i = min(int(np.searchsorted(arc, s)), len(sm) - 1)
-        local_w = float(widths[i])
-        rung = _make_rung(binary_img, sm[i, 0], sm[i, 1],
-                          normals[i, 0], normals[i, 1], max(local_w * 2.2, 12.0))
-        if rung is not None and not _crosses_recent(rung, recent[-2:]):
-            placed.append({"rung": rung, "center": (float(sm[i, 0]), float(sm[i, 1])),
-                           "half_width": local_w})
-            recent.append(rung)
-        s += max(sample_gap, local_w * 0.9)
-        if s >= total:
-            if forced_end:
-                break
-            s = total
-            forced_end = True
-
-    return placed
-
-
-def _build_bridges(merged_paths, skeleton_paths, path_rungs_map, G, spacing_px):
-    """Connect nearest rungs of paths meeting at each junction via an MST."""
-    junctions = [n for n, deg in G.degree() if deg > 2]
-    if not junctions:
-        return []
-
-    j_map = {j: set() for j in junctions}
-    for p_idx, p in enumerate(merged_paths):
-        for node in (p.get("start_node"), p.get("end_node")):
-            if node in j_map:
-                j_map[node].add(p_idx)
-        for orig_idx in p.get("original_indices", []):
-            op = skeleton_paths[orig_idx]
-            for node in (op["start_node"], op["end_node"]):
-                if node in j_map:
-                    j_map[node].add(p_idx)
-
-    bridges = []
-    for j, connected in j_map.items():
-        if len(connected) < 2:
+    for start in range(0, len(centers), 64):
+        end = min(start + 64, len(centers))
+        d = np.arange(0.5, float(np.max(limits[start:end])) + 0.5, 0.5)
+        if not len(d):
             continue
-        jy, jx = G.nodes[j]["pos"]  # (row, col)
-        # Closest rung of each path to the junction.
-        endpoints = []
-        for p_idx in connected:
-            rungs = path_rungs_map.get(p_idx)
-            if not rungs:
+        xy = centers[start:end, None, :] + directions[start:end, None, :] * d[None, :, None]
+        ix, iy = np.floor(xy[..., 0] + 0.5).astype(int), np.floor(xy[..., 1] + 0.5).astype(int)
+        outside = (ix < 0) | (ix >= w) | (iy < 0) | (iy >= h)
+        outside |= ~mask[np.clip(iy, 0, h - 1), np.clip(ix, 0, w - 1)]
+        if owners is not None:
+            outside |= owners[np.clip(iy, 0, h - 1), np.clip(ix, 0, w - 1)] != owner
+        outside &= d[None, :] <= limits[start:end, None]
+        hit = outside.any(axis=1)
+        lengths = np.maximum(0, d[outside.argmax(axis=1)] - 0.5)
+        result[start:end] += directions[start:end] * lengths[:, None]
+        hit_boundary[start:end] = hit
+    return result, hit_boundary
+
+
+def _fallback_axes(mask, paths, distance):
+    """A disk's MAT is a point: choose its principal diameter for digitizing."""
+    components, n = label(mask, structure=np.ones((3, 3)))
+    bounds = find_objects(components, max_label=n)
+    represented = defaultdict(list)
+    for path in paths:
+        r, c = np.rint(path["points"][len(path["points"]) // 2]).astype(int)
+        represented[int(components[r, c])].append(path)
+    for component in range(1, n + 1):
+        existing = represented[component]
+        if existing:
+            length = sum(
+                np.linalg.norm(np.diff(p["points"], axis=0), axis=1).sum() for p in existing
+            )
+            radius = max(
+                float(distance[tuple(np.rint(p["points"]).astype(int).T)].max()) for p in existing
+            )
+            if length >= 4 * radius:
                 continue
-            best = min(rungs, key=lambda r: (r["center"][0] - jx) ** 2 + (r["center"][1] - jy) ** 2)
-            endpoints.append(best["center"])
-        if len(endpoints) < 2:
+            # Round blobs have unstable radial MAT branches. A diameter gives
+            # coherent parallel stitches instead of a fan around the center.
+            paths = [p for p in paths if all(p is not item for item in existing)]
+        region = bounds[component - 1]
+        rc = np.argwhere(components[region] == component)
+        rc += (region[0].start, region[1].start)
+        if len(rc) < 2:
             continue
-
-        gb = nx.Graph()
-        for i in range(len(endpoints)):
-            for k in range(i + 1, len(endpoints)):
-                d = float(np.hypot(endpoints[i][0] - endpoints[k][0],
-                                   endpoints[i][1] - endpoints[k][1]))
-                if d < spacing_px * 10:
-                    gb.add_edge(i, k, weight=d)
-        if gb.number_of_edges():
-            for u, v in nx.minimum_spanning_tree(gb).edges():
-                bridges.append((endpoints[u], endpoints[v]))
-
-    # Deduplicate.
-    seen, unique = set(), []
-    for p1, p2 in bridges:
-        key = tuple(sorted(((round(p1[0], 1), round(p1[1], 1)),
-                            (round(p2[0], 1), round(p2[1], 1)))))
-        if key not in seen:
-            seen.add(key)
-            unique.append((p1, p2))
-    return unique
+        center = rc.mean(axis=0)
+        centered = rc - center
+        _, vectors = np.linalg.eigh(centered.T @ centered)
+        direction = vectors[:, -1]
+        # Snap to an interior pixel, even for a crescent whose centroid is outside.
+        center = rc[np.argmin(np.sum((rc - center) ** 2, axis=1))].astype(float)
+        paths.append(
+            {
+                "points": np.array([center - direction * 0.5, center + direction * 0.5]),
+                "start_node": -2 * component,
+                "end_node": -2 * component - 1,
+            }
+        )
+    return paths
 
 
-def generate_rungs(skeleton, distance_map, spacing_px, binary_img,
-                   min_satin_width_px=0.0, debug_dir=None):
-    """Generate embroidery elements (satin columns + running stitches).
+def _crossing_filter(rails):
+    """Spatial hash instead of comparing every rung to all previous rungs."""
+    all_widths = [np.linalg.norm(b - a, axis=1) for a, b, _ in rails]
+    cell = max(4.0, float(np.median(np.concatenate(all_widths)))) if all_widths else 4.0
+    cells, accepted = defaultdict(list), []
+    output = []
+    for a, b, centers in rails:
+        valid = []
+        for i, (p, q) in enumerate(zip(a, b, strict=True)):
+            low, high = np.minimum(p, q), np.maximum(p, q)
+            lo, hi = np.floor(low / cell).astype(int), np.floor(high / cell).astype(int)
+            keys = [(x, y) for x in range(lo[0], hi[0] + 1) for y in range(lo[1], hi[1] + 1)]
+            nearby = {j for key in keys for j in cells[key]}
+            crosses = False
+            for j in nearby:
+                u, v = accepted[j]
+                if not segments_intersect(p, q, u, v):
+                    continue
+                matrix = np.column_stack([q - p, u - v])
+                hit = p + (q - p) * np.linalg.solve(matrix, u - p)[0]
+                ends = [p, q]
+                previous = [u, v]
+                current_end = min(ends, key=lambda x: np.linalg.norm(x - hit))
+                previous_end = min(previous, key=lambda x: np.linalg.norm(x - hit))
+                if (
+                    max(np.linalg.norm(current_end - hit), np.linalg.norm(previous_end - hit))
+                    <= 1.0
+                ):
+                    # Raster quantization at an inner corner: share a rail node
+                    # instead of deleting a whole fan of otherwise valid rungs.
+                    current_end[:] = hit
+                    previous_end[:] = hit
+                else:
+                    crosses = True
+                    break
+            if crosses:
+                continue
+            valid.append(i)
+            j = len(accepted)
+            accepted.append((p, q))
+            for key in keys:
+                cells[key].append(j)
+        output.append((a, b, centers, np.array(valid, dtype=int)))
+    return output
 
-    Each centerline path becomes one or more elements. A piece wide enough for a
-    satin (median width >= ``min_satin_width_px``) is emitted as a satin column;
-    a thinner piece is emitted as a running stitch down its centerline. This
-    adapts the stitch type to the local shape so fine strokes stay crisp.
+
+def generate_rungs(
+    skeleton,
+    distance_map,
+    spacing_px,
+    binary_img,
+    min_satin_width_px=0.0,
+    *,
+    pixels_per_mm=6.0,
+    auto_optimize=False,
+):
+    """Return guide rungs, bridges and ordered satin/running elements.
+
+    Branches remain separate columns at junctions. No artificial bridges are
+    stitched across empty space. Rail sampling is independent of rung spacing.
     """
-    logger.info(f"Generating rungs (spacing {spacing_px:.1f}px)...")
-
-    skeleton_paths, G = get_skeleton_paths(skeleton, binary_img=binary_img, min_len_px=10)
-    if debug_dir:
-        save_debug_graph(debug_dir, G, binary_img.shape)
-    if not skeleton_paths:
-        logger.warning("No valid skeleton paths found.")
-        return [], [], []
-
-    merged_paths = merge_aligned_paths(skeleton_paths, G, spacing_px)
-    logger.info(f"Merged {len(skeleton_paths)} segments into {len(merged_paths)} continuous paths.")
-
-    all_items = []
-    for p_idx, path in enumerate(merged_paths):
-        for item in _rungs_for_path(path["points"], distance_map, binary_img, spacing_px):
-            item["p_idx"] = p_idx
-            all_items.append(item)
-
-    accepted = _remove_crossings(all_items)
-    rungs = [item["rung"] for item in accepted]
-
-    path_rungs_map = {}
-    for item in accepted:
-        path_rungs_map.setdefault(item["p_idx"], []).append(item)
-
-    # Build embroidery elements. Each path (after splitting tight curves) becomes
-    # a satin column where it is wide enough, or a running stitch where it is too
-    # thin for a clean satin.
-    elements = []
-    for items in path_rungs_map.values():
-        if len(items) < 2:
+    paths = get_skeleton_paths(skeleton, distance=distance_map)
+    paths = _fallback_axes(binary_img, paths, distance_map)
+    owners = None
+    if len(paths) > 1:
+        seeds = np.zeros(binary_img.shape, dtype=np.int32)
+        for owner, path in enumerate(paths, 1):
+            rc = np.rint(path["points"]).astype(int)
+            empty = seeds[tuple(rc.T)] == 0
+            seeds[tuple(rc[empty].T)] = owner
+        owners = watershed(-distance_map, seeds, mask=binary_img)
+    endpoints = defaultdict(int)
+    for path in paths:
+        endpoints[path["start_node"]] += 1
+        endpoints[path["end_node"]] += 1
+    rails = []
+    step = max(1.0, min(4.0, pixels_per_mm * 0.25))
+    for owner, path in enumerate(paths, 1):
+        centers = _resample(path["points"][:, ::-1], step)
+        if len(centers) < 3:
             continue
-        for sub in _split_at_sharp_curves(items):
-            width = 2.0 * float(np.median([it["half_width"] for it in sub]))
-            centers = _smooth_rail([it["center"] for it in sub])
-            length = float(np.hypot(*np.diff(centers, axis=0).T).sum())
-            # Running stitch when too thin for a clean satin, or too stubby to be
-            # a real column (a satin must be clearly longer than it is wide).
-            if width < min_satin_width_px or length < 1.5 * width:
-                elements.append({
-                    "type": "running",
-                    "points": [(float(x), float(y)) for x, y in centers],
-                })
-            else:
-                rail_a = _smooth_rail([it["rung"][0] for it in sub])
-                rail_b = _smooth_rail([it["rung"][1] for it in sub])
-                a = [(float(x), float(y)) for x, y in rail_a]
-                b = [(float(x), float(y)) for x, y in rail_b]
-                # Rails keep every node (smooth); rungs are a sparse, geometry-
-                # driven subset of checkpoints.
-                ck = _checkpoint_indices(centers,
-                                         [it["half_width"] for it in sub],
-                                         max_gap=spacing_px)
-                elements.append({
-                    "type": "satin",
-                    "rail_a": a,
-                    "rail_b": b,
-                    "rungs": [(a[k], b[k]) for k in ck],
-                })
-
-    bridges = _build_bridges(merged_paths, skeleton_paths, path_rungs_map, G, spacing_px)
-
-    n_satin = sum(1 for e in elements if e["type"] == "satin")
-    n_run = len(elements) - n_satin
-    logger.info(f"Generated {len(rungs)} rungs -> {n_satin} satin columns, "
-                f"{n_run} running stitches, {len(bridges)} bridges.")
-    if debug_dir:
-        save_rung_coverage_debug(debug_dir, binary_img, rungs, skeleton_paths)
-
-    return rungs, bridges, elements
+        closed = np.linalg.norm(centers[0] - centers[-1]) < 0.5
+        original = centers.copy()
+        centers = gaussian_filter1d(
+            centers[:-1] if closed else centers,
+            sigma=max(0.9, pixels_per_mm * 0.45 / step),
+            axis=0,
+            mode="wrap" if closed else "nearest",
+        )
+        if closed:
+            centers = np.vstack([centers, centers[0]])
+        if not closed:
+            centers[0], centers[-1] = original[0], original[-1]
+        inside = map_coordinates(binary_img.astype(np.uint8), centers[:, ::-1].T, order=0) > 0
+        if owners is not None:
+            inside &= map_coordinates(owners, centers[:, ::-1].T, order=0) == owner
+        centers[~inside] = original[~inside]
+        if not closed:
+            for side, key in ((0, "start_node"), (-1, "end_node")):
+                if endpoints[path[key]] != 1:
+                    continue
+                direction = centers[side] - centers[2 if side == 0 else -3]
+                direction /= max(np.linalg.norm(direction), 1e-9)
+                radius = map_coordinates(distance_map, centers[side, ::-1, None], order=1)[0]
+                target, hit = cast_to_boundary(
+                    binary_img,
+                    centers[side : side + 1] if side == 0 else centers[-1:],
+                    direction[None, :],
+                    np.array([max(4.0, radius * 4)]),
+                    owners,
+                    owner,
+                )
+                if hit[0]:
+                    centers[side] = target[0]
+            centers = _resample(centers, step)
+        if closed:
+            tangent = (np.roll(centers[:-1], -1, axis=0) - np.roll(centers[:-1], 1, axis=0)) / 2
+            tangent = np.vstack([tangent, tangent[0]])
+        else:
+            tangent = np.gradient(centers, axis=0)
+        tangent /= np.maximum(np.linalg.norm(tangent, axis=1, keepdims=True), 1e-9)
+        normal = np.column_stack([-tangent[:, 1], tangent[:, 0]])
+        # A terminal tangent can flip at a cap after extension/resampling.
+        # Keep rail identity continuous instead of creating a bow-tie quad.
+        signs = np.cumprod(np.r_[1, np.where(np.sum(normal[1:] * normal[:-1], axis=1) < 0, -1, 1)])
+        normal *= signs[:, None]
+        radius = map_coordinates(distance_map, centers[:, ::-1].T, order=1)
+        limits = np.full(
+            len(radius), min(np.hypot(*binary_img.shape), max(8.0, float(radius.max()) * 4))
+        )
+        a, ha = cast_to_boundary(binary_img, centers, normal, limits, owners, owner)
+        b, hb = cast_to_boundary(binary_img, centers, -normal, limits, owners, owner)
+        good = ha & hb & (np.linalg.norm(b - a, axis=1) >= 1.0)
+        if owners is not None:
+            good &= map_coordinates(owners, centers[:, ::-1].T, order=0) == owner
+        # Keep invalid gaps visible to segmentation rather than connecting over them.
+        a[~good] = b[~good] = centers[~good]
+        rails.append((a, b, centers))
+    elements, rungs = [], []
+    for a, b, centers, valid in _crossing_filter(rails):
+        widths = np.linalg.norm(b - a, axis=1)
+        satin = widths >= min_satin_width_px
+        # Changes of stitch type and rejected cross-sections are column boundaries.
+        valid = valid[widths[valid] >= 1.0]
+        if len(valid) < 2:
+            continue
+        cuts = (
+            np.flatnonzero(
+                (satin[valid[1:]] != satin[valid[:-1]])
+                | (
+                    np.linalg.norm(np.diff(centers[valid], axis=0), axis=1)
+                    > np.maximum(spacing_px * 2, widths[valid[:-1]])
+                )
+            )
+            + 1
+        )
+        for indices in np.split(valid, cuts):
+            if len(indices) < 2:
+                continue
+            if not satin[indices[0]]:
+                elements.append(
+                    {
+                        "type": "running",
+                        "points": centers[indices].tolist(),
+                        "rail_a": a[indices].tolist(),
+                        "rail_b": b[indices].tolist(),
+                    }
+                )
+                continue
+            # Split tight bends; overlap one cross-section to avoid a visible gap.
+            angles = np.unwrap(np.arctan2(*np.gradient(centers[indices], axis=0)[:, ::-1].T))
+            splits = []
+            low = high = angles[0]
+            for k in range(2, len(indices) - 2):
+                low, high = min(low, angles[k]), max(high, angles[k])
+                if high - low >= np.radians(80):
+                    splits.append(k)
+                    low = high = angles[k]
+            for left, right in zip([0] + splits, splits + [len(indices) - 1], strict=True):
+                ix = indices[left : right + 1]
+                for ra, rb, c in _valid_rail_pieces(a[ix], b[ix], centers[ix]):
+                    if ra is None:
+                        elements.append({"type": "running", "points": c.tolist()})
+                        continue
+                    if len(ra) == 2:
+                        ra, rb, c = [np.vstack([x[0], x.mean(axis=0), x[1]]) for x in (ra, rb, c)]
+                    width = np.linalg.norm(rb - ra, axis=1)
+                    ck = checkpoint_indices(c, width, spacing_px, auto_optimize)
+                    pairs = [(ra[k].tolist(), rb[k].tolist()) for k in ck]
+                    elements.append(
+                        {
+                            "type": "satin",
+                            "rail_a": ra.tolist(),
+                            "rail_b": rb.tolist(),
+                            "rungs": pairs,
+                        }
+                    )
+                    rungs.extend(pairs)
+    logger.info("Generated %d checkpoints in %d elements", len(rungs), len(elements))
+    return rungs, [], elements

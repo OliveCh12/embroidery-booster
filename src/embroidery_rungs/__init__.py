@@ -8,7 +8,8 @@ Public API::
     print(result.rungs_count, result.coverage)
 """
 
-from .pipeline import generate, GenerationParams, GenerationResult
+from .pipeline import GenerationParams, GenerationResult, generate
+from .stitching.params import StitchParams
 
-__all__ = ["generate", "GenerationParams", "GenerationResult"]
-__version__ = "0.1.0"
+__all__ = ["generate", "GenerationParams", "GenerationResult", "StitchParams"]
+__version__ = "0.3.0"

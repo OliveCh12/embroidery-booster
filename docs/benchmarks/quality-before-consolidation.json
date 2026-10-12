@@ -1,0 +1,4841 @@
+{
+  "python": "3.12.13",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "measurement": {
+    "pixels_per_mm": 12,
+    "thread_mm": 0.3,
+    "includes_underlay": true,
+    "structural_tolerance_mm": 0.25,
+    "inkstitch_version": null
+  },
+  "results": [
+    {
+      "file": "quality/capsule.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.9748,
+            "structural_coverage": 1.0,
+            "iou": 0.9269,
+            "spill_mm2": 15.23,
+            "missing_mm2": 7.42,
+            "uncovered_p95_mm": 0.0,
+            "stitches": 426,
+            "trims": 1,
+            "jumps": 3,
+            "jump_length_mm": 20.8,
+            "max_stitch_mm": 5.2,
+            "short_stitches": 0
+          },
+          "seconds": 0.1038,
+          "preview": "quality/capsule/direct-auto/capsule_direct.png",
+          "footprint": "quality/capsule/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 426,
+            "jumps": 3,
+            "trims": 1,
+            "satin_regions": 1,
+            "fill_regions": 0,
+            "running_regions": 0,
+            "underlay_stitches": 113,
+            "thread_length_mm": 1752.6,
+            "jump_length_mm": 20.8,
+            "max_stitch_mm": 5.2,
+            "short_stitches": 0,
+            "width_mm": 59.4,
+            "height_mm": 5.2,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.0625
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 5.08,
+              "area_mm2": 289.59,
+              "mat_coverage": 0.9789,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "quality/capsule/source.png",
+      "rails_coverage": 0.9979
+    },
+    {
+      "file": "quality/holes.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.8343,
+            "structural_coverage": 1.0,
+            "iou": 0.806,
+            "spill_mm2": 84.28,
+            "missing_mm2": 397.78,
+            "uncovered_p95_mm": 0.083,
+            "stitches": 2595,
+            "trims": 18,
+            "jumps": 28,
+            "jump_length_mm": 197.0,
+            "max_stitch_mm": 3.8,
+            "short_stitches": 0
+          },
+          "seconds": 0.576,
+          "preview": "quality/holes/direct-auto/holes_direct.png",
+          "footprint": "quality/holes/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 2595,
+            "jumps": 28,
+            "trims": 18,
+            "satin_regions": 0,
+            "fill_regions": 1,
+            "running_regions": 0,
+            "underlay_stitches": 371,
+            "thread_length_mm": 7141.4,
+            "jump_length_mm": 197.0,
+            "max_stitch_mm": 3.8,
+            "short_stitches": 0,
+            "width_mm": 60.4,
+            "height_mm": 50.2,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.3498
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 20.0,
+              "area_mm2": 2400.05,
+              "mat_coverage": 0.8674,
+              "broad_fraction": 0.8674,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8622,
+                  "structural_coverage": 0.894,
+                  "iou": 0.8364,
+                  "spill_mm2": 73.89,
+                  "missing_mm2": 330.8,
+                  "uncovered_p95_mm": 1.745,
+                  "stitches": 4724,
+                  "trims": 12,
+                  "jumps": 18,
+                  "jump_length_mm": 135.1,
+                  "max_stitch_mm": 7.85,
+                  "short_stitches": 0,
+                  "cost": 1.093448
+                },
+                "fill": {
+                  "coverage": 0.7415,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7157,
+                  "spill_mm2": 86.58,
+                  "missing_mm2": 620.34,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 2595,
+                  "trims": 18,
+                  "jumps": 28,
+                  "jump_length_mm": 197.0,
+                  "max_stitch_mm": 3.8,
+                  "short_stitches": 0,
+                  "cost": 0.04119
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source_preview": "quality/holes/source.png",
+      "rails_coverage": 0.8734
+    },
+    {
+      "file": "quality/junction.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.9641,
+            "structural_coverage": 1.0,
+            "iou": 0.9118,
+            "spill_mm2": 30.15,
+            "missing_mm2": 18.84,
+            "uncovered_p95_mm": 0.0,
+            "stitches": 902,
+            "trims": 2,
+            "jumps": 7,
+            "jump_length_mm": 55.3,
+            "max_stitch_mm": 5.35,
+            "short_stitches": 0
+          },
+          "seconds": 0.1992,
+          "preview": "quality/junction/direct-auto/junction_direct.png",
+          "footprint": "quality/junction/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 902,
+            "jumps": 7,
+            "trims": 2,
+            "satin_regions": 4,
+            "fill_regions": 0,
+            "running_regions": 2,
+            "underlay_stitches": 241,
+            "thread_length_mm": 3555.4,
+            "jump_length_mm": 55.3,
+            "max_stitch_mm": 5.35,
+            "short_stitches": 0,
+            "width_mm": 60.0,
+            "height_mm": 50.0,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.1287
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 7.19,
+              "area_mm2": 524.12,
+              "mat_coverage": 0.9754,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "quality/junction/source.png",
+      "rails_coverage": 0.9944
+    },
+    {
+      "file": "quality/ring.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.9689,
+            "structural_coverage": 1.0,
+            "iou": 0.8966,
+            "spill_mm2": 40.55,
+            "missing_mm2": 15.63,
+            "uncovered_p95_mm": 0.0,
+            "stitches": 1077,
+            "trims": 3,
+            "jumps": 4,
+            "jump_length_mm": 18.0,
+            "max_stitch_mm": 4.44,
+            "short_stitches": 0
+          },
+          "seconds": 0.2282,
+          "preview": "quality/ring/direct-auto/ring_direct.png",
+          "footprint": "quality/ring/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 1077,
+            "jumps": 4,
+            "trims": 3,
+            "satin_regions": 5,
+            "fill_regions": 0,
+            "running_regions": 0,
+            "underlay_stitches": 309,
+            "thread_length_mm": 3567.4,
+            "jump_length_mm": 18.0,
+            "max_stitch_mm": 4.44,
+            "short_stitches": 0,
+            "width_mm": 44.2,
+            "height_mm": 44.2,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.1482
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 4.1,
+              "area_mm2": 501.47,
+              "mat_coverage": 0.9774,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "quality/ring/source.png",
+      "rails_coverage": 0.9947
+    },
+    {
+      "file": "quality/s-curve.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.954,
+            "structural_coverage": 1.0,
+            "iou": 0.8949,
+            "spill_mm2": 44.11,
+            "missing_mm2": 30.74,
+            "uncovered_p95_mm": 0.0,
+            "stitches": 1178,
+            "trims": 2,
+            "jumps": 5,
+            "jump_length_mm": 29.8,
+            "max_stitch_mm": 5.46,
+            "short_stitches": 0
+          },
+          "seconds": 0.2425,
+          "preview": "quality/s-curve/direct-auto/s-curve_direct.png",
+          "footprint": "quality/s-curve/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 1178,
+            "jumps": 5,
+            "trims": 2,
+            "satin_regions": 5,
+            "fill_regions": 0,
+            "running_regions": 0,
+            "underlay_stitches": 335,
+            "thread_length_mm": 4772.6,
+            "jump_length_mm": 29.8,
+            "max_stitch_mm": 5.46,
+            "short_stitches": 0,
+            "width_mm": 65.2,
+            "height_mm": 48.0,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.1571
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 5.16,
+              "area_mm2": 666.98,
+              "mat_coverage": 0.9813,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "quality/s-curve/source.png",
+      "rails_coverage": 0.9941
+    },
+    {
+      "file": "quality/sharp-corner.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.9534,
+            "structural_coverage": 1.0,
+            "iou": 0.8901,
+            "spill_mm2": 32.05,
+            "missing_mm2": 20.95,
+            "uncovered_p95_mm": 0.0,
+            "stitches": 867,
+            "trims": 9,
+            "jumps": 16,
+            "jump_length_mm": 110.7,
+            "max_stitch_mm": 7.71,
+            "short_stitches": 0
+          },
+          "seconds": 0.1614,
+          "preview": "quality/sharp-corner/direct-auto/sharp-corner_direct.png",
+          "footprint": "quality/sharp-corner/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 867,
+            "jumps": 16,
+            "trims": 9,
+            "satin_regions": 2,
+            "fill_regions": 1,
+            "running_regions": 0,
+            "underlay_stitches": 226,
+            "thread_length_mm": 3277.4,
+            "jump_length_mm": 110.7,
+            "max_stitch_mm": 7.71,
+            "short_stitches": 0,
+            "width_mm": 50.0,
+            "height_mm": 45.0,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 1,
+            "seconds": 0.1098
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 6.0,
+              "area_mm2": 449.14,
+              "mat_coverage": 0.9334,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "quality/sharp-corner/source.png",
+      "rails_coverage": 0.9508
+    },
+    {
+      "file": "quality/star.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.9701,
+            "structural_coverage": 0.9972,
+            "iou": 0.9348,
+            "spill_mm2": 22.91,
+            "missing_mm2": 18.2,
+            "uncovered_p95_mm": 0.0,
+            "stitches": 1196,
+            "trims": 4,
+            "jumps": 10,
+            "jump_length_mm": 67.2,
+            "max_stitch_mm": 7.86,
+            "short_stitches": 0
+          },
+          "seconds": 0.3628,
+          "preview": "quality/star/direct-auto/star_direct.png",
+          "footprint": "quality/star/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 1196,
+            "jumps": 10,
+            "trims": 4,
+            "satin_regions": 5,
+            "fill_regions": 0,
+            "running_regions": 7,
+            "underlay_stitches": 328,
+            "thread_length_mm": 4526.0,
+            "jump_length_mm": 67.2,
+            "max_stitch_mm": 7.86,
+            "short_stitches": 0,
+            "width_mm": 43.0,
+            "height_mm": 40.8,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.255
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "satin",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 17.97,
+              "area_mm2": 606.51,
+              "mat_coverage": 0.9666,
+              "broad_fraction": 0.5857,
+              "fill_angle_deg": 60.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9527,
+                  "structural_coverage": 0.9975,
+                  "iou": 0.904,
+                  "spill_mm2": 32.72,
+                  "missing_mm2": 28.67,
+                  "uncovered_p95_mm": 0.0,
+                  "stitches": 1196,
+                  "trims": 4,
+                  "jumps": 10,
+                  "jump_length_mm": 67.2,
+                  "max_stitch_mm": 7.86,
+                  "short_stitches": 0,
+                  "cost": 0.035392
+                },
+                "fill": {
+                  "coverage": 0.8212,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7679,
+                  "spill_mm2": 42.17,
+                  "missing_mm2": 108.42,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 940,
+                  "trims": 30,
+                  "jumps": 39,
+                  "jump_length_mm": 163.5,
+                  "max_stitch_mm": 3.94,
+                  "short_stitches": 0,
+                  "cost": 0.06188
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source_preview": "quality/star/source.png",
+      "rails_coverage": 0.981
+    },
+    {
+      "file": "quality/straight.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.9723,
+            "structural_coverage": 1.0,
+            "iou": 0.9113,
+            "spill_mm2": 16.08,
+            "missing_mm2": 6.64,
+            "uncovered_p95_mm": 0.0,
+            "stitches": 433,
+            "trims": 1,
+            "jumps": 3,
+            "jump_length_mm": 21.0,
+            "max_stitch_mm": 4.2,
+            "short_stitches": 0
+          },
+          "seconds": 0.0855,
+          "preview": "quality/straight/direct-auto/straight_direct.png",
+          "footprint": "quality/straight/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 433,
+            "jumps": 3,
+            "trims": 1,
+            "satin_regions": 1,
+            "fill_regions": 0,
+            "running_regions": 0,
+            "underlay_stitches": 117,
+            "thread_length_mm": 1444.0,
+            "jump_length_mm": 21.0,
+            "max_stitch_mm": 4.2,
+            "short_stitches": 0,
+            "width_mm": 60.0,
+            "height_mm": 4.2,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.0511
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 4.07,
+              "area_mm2": 233.88,
+              "mat_coverage": 0.9759,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "quality/straight/source.png",
+      "rails_coverage": 1.0
+    },
+    {
+      "file": "quality/taper.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.9789,
+            "structural_coverage": 0.9965,
+            "iou": 0.9317,
+            "spill_mm2": 18.24,
+            "missing_mm2": 7.6,
+            "uncovered_p95_mm": 0.0,
+            "stitches": 561,
+            "trims": 2,
+            "jumps": 4,
+            "jump_length_mm": 25.8,
+            "max_stitch_mm": 7.8,
+            "short_stitches": 0
+          },
+          "seconds": 0.1128,
+          "preview": "quality/taper/direct-auto/taper_direct.png",
+          "footprint": "quality/taper/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 561,
+            "jumps": 4,
+            "trims": 2,
+            "satin_regions": 1,
+            "fill_regions": 0,
+            "running_regions": 1,
+            "underlay_stitches": 147,
+            "thread_length_mm": 2238.9,
+            "jump_length_mm": 25.8,
+            "max_stitch_mm": 7.8,
+            "short_stitches": 0,
+            "width_mm": 58.6,
+            "height_mm": 12.0,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.0688
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 10.85,
+              "area_mm2": 359.37,
+              "mat_coverage": 0.9718,
+              "broad_fraction": 0.9662,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "quality/taper/source.png",
+      "rails_coverage": 0.9857
+    },
+    {
+      "file": "quality/thin.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.3949,
+            "structural_coverage": 0.8422,
+            "iou": 0.3932,
+            "spill_mm2": 0.44,
+            "missing_mm2": 60.54,
+            "uncovered_p95_mm": 0.373,
+            "stitches": 73,
+            "trims": 1,
+            "jumps": 4,
+            "jump_length_mm": 25.8,
+            "max_stitch_mm": 2.56,
+            "short_stitches": 0
+          },
+          "seconds": 0.1127,
+          "preview": "quality/thin/direct-auto/thin_direct.png",
+          "footprint": "quality/thin/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 73,
+            "jumps": 4,
+            "trims": 1,
+            "satin_regions": 0,
+            "fill_regions": 0,
+            "running_regions": 1,
+            "underlay_stitches": 0,
+            "thread_length_mm": 126.2,
+            "jump_length_mm": 25.8,
+            "max_stitch_mm": 2.56,
+            "short_stitches": 0,
+            "width_mm": 60.0,
+            "height_mm": 34.8,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.0696
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 1.02,
+              "area_mm2": 100.7,
+              "mat_coverage": 0.3692,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "quality/thin/source.png",
+      "rails_coverage": 0.4144
+    },
+    {
+      "file": "quality/tight-curve.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.9451,
+            "structural_coverage": 0.9875,
+            "iou": 0.8713,
+            "spill_mm2": 5.32,
+            "missing_mm2": 3.45,
+            "uncovered_p95_mm": 0.083,
+            "stitches": 179,
+            "trims": 2,
+            "jumps": 2,
+            "jump_length_mm": 3.5,
+            "max_stitch_mm": 4.58,
+            "short_stitches": 0
+          },
+          "seconds": 0.0753,
+          "preview": "quality/tight-curve/direct-auto/tight-curve_direct.png",
+          "footprint": "quality/tight-curve/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 179,
+            "jumps": 2,
+            "trims": 2,
+            "satin_regions": 2,
+            "fill_regions": 0,
+            "running_regions": 1,
+            "underlay_stitches": 52,
+            "thread_length_mm": 514.7,
+            "jump_length_mm": 3.5,
+            "max_stitch_mm": 4.58,
+            "short_stitches": 0,
+            "width_mm": 7.2,
+            "height_mm": 14.0,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.0461
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 4.1,
+              "area_mm2": 62.24,
+              "mat_coverage": 0.9512,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "quality/tight-curve/source.png",
+      "rails_coverage": 0.9714
+    },
+    {
+      "file": "quality/wide-ring.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.9719,
+            "structural_coverage": 1.0,
+            "iou": 0.9487,
+            "spill_mm2": 33.78,
+            "missing_mm2": 38.85,
+            "uncovered_p95_mm": 0.0,
+            "stitches": 2495,
+            "trims": 13,
+            "jumps": 14,
+            "jump_length_mm": 88.5,
+            "max_stitch_mm": 7.24,
+            "short_stitches": 0
+          },
+          "seconds": 0.558,
+          "preview": "quality/wide-ring/direct-auto/wide-ring_direct.png",
+          "footprint": "quality/wide-ring/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 2495,
+            "jumps": 14,
+            "trims": 13,
+            "satin_regions": 5,
+            "fill_regions": 0,
+            "running_regions": 0,
+            "underlay_stitches": 709,
+            "thread_length_mm": 10339.8,
+            "jump_length_mm": 88.5,
+            "max_stitch_mm": 7.24,
+            "short_stitches": 0,
+            "width_mm": 51.2,
+            "height_mm": 51.2,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.4277
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "satin",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 11.19,
+              "area_mm2": 1375.64,
+              "mat_coverage": 0.9913,
+              "broad_fraction": 0.9913,
+              "fill_angle_deg": 60.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9649,
+                  "structural_coverage": 1.0,
+                  "iou": 0.9259,
+                  "spill_mm2": 57.86,
+                  "missing_mm2": 48.32,
+                  "uncovered_p95_mm": 0.0,
+                  "stitches": 2495,
+                  "trims": 13,
+                  "jumps": 14,
+                  "jump_length_mm": 88.5,
+                  "max_stitch_mm": 7.24,
+                  "short_stitches": 0,
+                  "cost": 0.03099
+                },
+                "fill": {
+                  "coverage": 0.8208,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7851,
+                  "spill_mm2": 62.54,
+                  "missing_mm2": 246.54,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 1757,
+                  "trims": 36,
+                  "jumps": 46,
+                  "jump_length_mm": 238.1,
+                  "max_stitch_mm": 3.94,
+                  "short_stitches": 0,
+                  "cost": 0.075514
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source_preview": "quality/wide-ring/source.png",
+      "rails_coverage": 0.9974
+    },
+    {
+      "file": "adidas.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.8528,
+            "structural_coverage": 0.9999,
+            "iou": 0.8246,
+            "spill_mm2": 317.0,
+            "missing_mm2": 1362.78,
+            "uncovered_p95_mm": 0.083,
+            "stitches": 11660,
+            "trims": 188,
+            "jumps": 279,
+            "jump_length_mm": 1593.8,
+            "max_stitch_mm": 7.88,
+            "short_stitches": 0
+          },
+          "seconds": 2.63,
+          "preview": "adidas/direct-auto/adidas_direct.png",
+          "footprint": "adidas/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 11660,
+            "jumps": 279,
+            "trims": 188,
+            "satin_regions": 6,
+            "fill_regions": 7,
+            "running_regions": 2,
+            "underlay_stitches": 1861,
+            "thread_length_mm": 31695.4,
+            "jump_length_mm": 1593.8,
+            "max_stitch_mm": 7.88,
+            "short_stitches": 0,
+            "width_mm": 189.8,
+            "height_mm": 128.2,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 1.8361
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 32.49,
+              "area_mm2": 2839.89,
+              "mat_coverage": 0.9894,
+              "broad_fraction": 0.9892,
+              "fill_angle_deg": 60.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9748,
+                  "structural_coverage": 0.9962,
+                  "iou": 0.9575,
+                  "spill_mm2": 51.41,
+                  "missing_mm2": 71.53,
+                  "uncovered_p95_mm": 0.0,
+                  "stitches": 5402,
+                  "trims": 3,
+                  "jumps": 10,
+                  "jump_length_mm": 71.9,
+                  "max_stitch_mm": 7.67,
+                  "short_stitches": 0,
+                  "cost": 0.054804
+                },
+                "fill": {
+                  "coverage": 0.8299,
+                  "structural_coverage": 1.0,
+                  "iou": 0.8158,
+                  "spill_mm2": 49.2,
+                  "missing_mm2": 483.02,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 2690,
+                  "trims": 20,
+                  "jumps": 33,
+                  "jump_length_mm": 198.2,
+                  "max_stitch_mm": 3.94,
+                  "short_stitches": 0,
+                  "cost": 0.04538
+                }
+              }
+            },
+            {
+              "component": 2,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 32.37,
+              "area_mm2": 1795.94,
+              "mat_coverage": 0.6948,
+              "broad_fraction": 0.6919,
+              "fill_angle_deg": 60.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.6912,
+                  "structural_coverage": 0.7214,
+                  "iou": 0.6797,
+                  "spill_mm2": 30.28,
+                  "missing_mm2": 554.58,
+                  "uncovered_p95_mm": 7.238,
+                  "stitches": 3017,
+                  "trims": 18,
+                  "jumps": 41,
+                  "jump_length_mm": 312.1,
+                  "max_stitch_mm": 7.88,
+                  "short_stitches": 0,
+                  "cost": 2.828034
+                },
+                "fill": {
+                  "coverage": 0.8248,
+                  "structural_coverage": 1.0,
+                  "iou": 0.806,
+                  "spill_mm2": 42.02,
+                  "missing_mm2": 314.56,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 1859,
+                  "trims": 23,
+                  "jumps": 37,
+                  "jump_length_mm": 223.0,
+                  "max_stitch_mm": 3.89,
+                  "short_stitches": 0,
+                  "cost": 0.049718
+                }
+              }
+            },
+            {
+              "component": 3,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 21.69,
+              "area_mm2": 656.67,
+              "mat_coverage": 0.9117,
+              "broad_fraction": 0.9113,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9186,
+                  "structural_coverage": 0.9298,
+                  "iou": 0.8918,
+                  "spill_mm2": 19.69,
+                  "missing_mm2": 53.47,
+                  "uncovered_p95_mm": 1.29,
+                  "stitches": 1342,
+                  "trims": 3,
+                  "jumps": 5,
+                  "jump_length_mm": 38.1,
+                  "max_stitch_mm": 7.61,
+                  "short_stitches": 0,
+                  "cost": 0.710684
+                },
+                "fill": {
+                  "coverage": 0.7488,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7147,
+                  "spill_mm2": 31.34,
+                  "missing_mm2": 164.93,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 826,
+                  "trims": 12,
+                  "jumps": 16,
+                  "jump_length_mm": 77.2,
+                  "max_stitch_mm": 3.9,
+                  "short_stitches": 0,
+                  "cost": 0.025652
+                }
+              }
+            },
+            {
+              "component": 4,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 11.18,
+              "area_mm2": 818.42,
+              "mat_coverage": 0.9365,
+              "broad_fraction": 0.3733,
+              "fill_angle_deg": 45.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9037,
+                  "structural_coverage": 0.9564,
+                  "iou": 0.8587,
+                  "spill_mm2": 42.85,
+                  "missing_mm2": 78.85,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 1520,
+                  "trims": 11,
+                  "jumps": 17,
+                  "jump_length_mm": 107.2,
+                  "max_stitch_mm": 7.91,
+                  "short_stitches": 0,
+                  "cost": 0.46104
+                },
+                "fill": {
+                  "coverage": 0.8883,
+                  "structural_coverage": 1.0,
+                  "iou": 0.834,
+                  "spill_mm2": 53.27,
+                  "missing_mm2": 91.42,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 1264,
+                  "trims": 38,
+                  "jumps": 46,
+                  "jump_length_mm": 203.5,
+                  "max_stitch_mm": 3.96,
+                  "short_stitches": 0,
+                  "cost": 0.078528
+                }
+              }
+            },
+            {
+              "component": 5,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 11.06,
+              "area_mm2": 813.4,
+              "mat_coverage": 0.936,
+              "broad_fraction": 0.5178,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9155,
+                  "structural_coverage": 0.9649,
+                  "iou": 0.867,
+                  "spill_mm2": 45.5,
+                  "missing_mm2": 68.72,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 2124,
+                  "trims": 10,
+                  "jumps": 13,
+                  "jump_length_mm": 71.9,
+                  "max_stitch_mm": 7.91,
+                  "short_stitches": 0,
+                  "cost": 0.375248
+                },
+                "fill": {
+                  "coverage": 0.7501,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7064,
+                  "spill_mm2": 50.32,
+                  "missing_mm2": 203.31,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 1198,
+                  "trims": 26,
+                  "jumps": 35,
+                  "jump_length_mm": 174.4,
+                  "max_stitch_mm": 3.9,
+                  "short_stitches": 0,
+                  "cost": 0.054396
+                }
+              }
+            },
+            {
+              "component": 6,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 11.11,
+              "area_mm2": 728.64,
+              "mat_coverage": 0.9752,
+              "broad_fraction": 0.3408,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9401,
+                  "structural_coverage": 0.994,
+                  "iou": 0.8923,
+                  "spill_mm2": 39.04,
+                  "missing_mm2": 43.63,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 1461,
+                  "trims": 11,
+                  "jumps": 13,
+                  "jump_length_mm": 64.0,
+                  "max_stitch_mm": 7.92,
+                  "short_stitches": 0,
+                  "cost": 0.084922
+                },
+                "fill": {
+                  "coverage": 0.7566,
+                  "structural_coverage": 1.0,
+                  "iou": 0.716,
+                  "spill_mm2": 41.33,
+                  "missing_mm2": 177.36,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 1025,
+                  "trims": 23,
+                  "jumps": 31,
+                  "jump_length_mm": 179.1,
+                  "max_stitch_mm": 3.9,
+                  "short_stitches": 0,
+                  "cost": 0.04805
+                }
+              }
+            },
+            {
+              "component": 7,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 11.18,
+              "area_mm2": 730.1,
+              "mat_coverage": 0.9454,
+              "broad_fraction": 0.443,
+              "fill_angle_deg": 45.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9251,
+                  "structural_coverage": 0.9752,
+                  "iou": 0.8828,
+                  "spill_mm2": 34.99,
+                  "missing_mm2": 54.71,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 1818,
+                  "trims": 11,
+                  "jumps": 14,
+                  "jump_length_mm": 75.3,
+                  "max_stitch_mm": 7.93,
+                  "short_stitches": 0,
+                  "cost": 0.273636
+                },
+                "fill": {
+                  "coverage": 0.8886,
+                  "structural_coverage": 1.0,
+                  "iou": 0.8355,
+                  "spill_mm2": 46.44,
+                  "missing_mm2": 81.32,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 1122,
+                  "trims": 34,
+                  "jumps": 43,
+                  "jump_length_mm": 200.3,
+                  "max_stitch_mm": 3.89,
+                  "short_stitches": 0,
+                  "cost": 0.070244
+                }
+              }
+            },
+            {
+              "component": 8,
+              "method": "satin",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 9.02,
+              "area_mm2": 607.81,
+              "mat_coverage": 0.981,
+              "broad_fraction": 0.4502,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9796,
+                  "structural_coverage": 0.9989,
+                  "iou": 0.9182,
+                  "spill_mm2": 40.62,
+                  "missing_mm2": 12.4,
+                  "uncovered_p95_mm": 0.0,
+                  "stitches": 1188,
+                  "trims": 8,
+                  "jumps": 9,
+                  "jump_length_mm": 39.7,
+                  "max_stitch_mm": 7.85,
+                  "short_stitches": 0,
+                  "cost": 0.029376
+                },
+                "fill": {
+                  "coverage": 0.7423,
+                  "structural_coverage": 0.9987,
+                  "iou": 0.6931,
+                  "spill_mm2": 43.11,
+                  "missing_mm2": 156.66,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 956,
+                  "trims": 38,
+                  "jumps": 42,
+                  "jump_length_mm": 170.1,
+                  "max_stitch_mm": 3.9,
+                  "short_stitches": 0,
+                  "cost": 0.090912
+                }
+              }
+            },
+            {
+              "component": 9,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 8.13,
+              "area_mm2": 257.66,
+              "mat_coverage": 0.985,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "adidas/source.png",
+      "rails_coverage": 0.9189
+    },
+    {
+      "file": "arabian.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.7279,
+            "structural_coverage": 0.8984,
+            "iou": 0.5492,
+            "spill_mm2": 17.53,
+            "missing_mm2": 14.66,
+            "uncovered_p95_mm": 1.417,
+            "stitches": 280,
+            "trims": 23,
+            "jumps": 23,
+            "jump_length_mm": 90.2,
+            "max_stitch_mm": 3.81,
+            "short_stitches": 0
+          },
+          "seconds": 0.1625,
+          "preview": "arabian/direct-auto/arabian_direct.png",
+          "footprint": "arabian/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 280,
+            "jumps": 23,
+            "trims": 23,
+            "satin_regions": 0,
+            "fill_regions": 2,
+            "running_regions": 6,
+            "underlay_stitches": 19,
+            "thread_length_mm": 236.0,
+            "jump_length_mm": 90.2,
+            "max_stitch_mm": 3.81,
+            "short_stitches": 0,
+            "width_mm": 21.4,
+            "height_mm": 12.4,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.1199
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 1.91,
+              "area_mm2": 23.73,
+              "mat_coverage": 0.4501,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 30.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.5465,
+                  "structural_coverage": 0.8316,
+                  "iou": 0.5085,
+                  "spill_mm2": 1.78,
+                  "missing_mm2": 10.81,
+                  "uncovered_p95_mm": 0.419,
+                  "stitches": 69,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 1.8,
+                  "max_stitch_mm": 2.19,
+                  "short_stitches": 0,
+                  "cost": 1.688138
+                },
+                "fill": {
+                  "coverage": 0.8339,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6146,
+                  "spill_mm2": 8.5,
+                  "missing_mm2": 3.96,
+                  "uncovered_p95_mm": 0.084,
+                  "stitches": 143,
+                  "trims": 10,
+                  "jumps": 10,
+                  "jump_length_mm": 32.3,
+                  "max_stitch_mm": 3.81,
+                  "short_stitches": 0,
+                  "cost": 0.298438
+                }
+              }
+            },
+            {
+              "component": 2,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 0.6,
+              "area_mm2": 1.44,
+              "mat_coverage": 0.5402,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 3,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 0.6,
+              "area_mm2": 1.48,
+              "mat_coverage": 0.5225,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 4,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 1.18,
+              "area_mm2": 2.45,
+              "mat_coverage": 0.0386,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 5,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 1.68,
+              "area_mm2": 19.08,
+              "mat_coverage": 0.393,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.4396,
+                  "structural_coverage": 0.7185,
+                  "iou": 0.4138,
+                  "spill_mm2": 1.19,
+                  "missing_mm2": 10.64,
+                  "uncovered_p95_mm": 0.536,
+                  "stitches": 45,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 0.9,
+                  "max_stitch_mm": 2.4,
+                  "short_stitches": 0,
+                  "cost": 2.81909
+                },
+                "fill": {
+                  "coverage": 0.8611,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6059,
+                  "spill_mm2": 8.0,
+                  "missing_mm2": 2.64,
+                  "uncovered_p95_mm": 0.084,
+                  "stitches": 103,
+                  "trims": 6,
+                  "jumps": 6,
+                  "jump_length_mm": 12.8,
+                  "max_stitch_mm": 3.8,
+                  "short_stitches": 0,
+                  "cost": 0.351508
+                }
+              }
+            },
+            {
+              "component": 6,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 1.07,
+              "area_mm2": 2.38,
+              "mat_coverage": 0.2909,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 7,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 0.6,
+              "area_mm2": 1.44,
+              "mat_coverage": 0.5402,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 8,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 1.07,
+              "area_mm2": 2.39,
+              "mat_coverage": 0.0363,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "arabian/source.png",
+      "rails_coverage": 0.4096
+    },
+    {
+      "file": "direct-quality.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.9144,
+            "structural_coverage": 0.9994,
+            "iou": 0.8663,
+            "spill_mm2": 68.73,
+            "missing_mm2": 106.11,
+            "uncovered_p95_mm": 0.083,
+            "stitches": 2154,
+            "trims": 18,
+            "jumps": 37,
+            "jump_length_mm": 266.3,
+            "max_stitch_mm": 7.64,
+            "short_stitches": 0
+          },
+          "seconds": 0.3818,
+          "preview": "direct-quality/direct-auto/direct-quality_direct.png",
+          "footprint": "direct-quality/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 2154,
+            "jumps": 37,
+            "trims": 18,
+            "satin_regions": 10,
+            "fill_regions": 2,
+            "running_regions": 7,
+            "underlay_stitches": 540,
+            "thread_length_mm": 7074.4,
+            "jump_length_mm": 266.3,
+            "max_stitch_mm": 7.64,
+            "short_stitches": 0,
+            "width_mm": 66.2,
+            "height_mm": 51.2,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 1,
+            "seconds": 0.2406
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 5.08,
+              "area_mm2": 152.3,
+              "mat_coverage": 0.9757,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 2,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 4.1,
+              "area_mm2": 251.88,
+              "mat_coverage": 0.9779,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 3,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 6.58,
+              "area_mm2": 196.77,
+              "mat_coverage": 0.9718,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 4,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 0.68,
+              "area_mm2": 33.08,
+              "mat_coverage": 0.5902,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 5,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 11.22,
+              "area_mm2": 167.09,
+              "mat_coverage": 0.9201,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 6,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 14.24,
+              "area_mm2": 432.58,
+              "mat_coverage": 0.458,
+              "broad_fraction": 0.0109,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.4842,
+                  "structural_coverage": 0.5156,
+                  "iou": 0.4722,
+                  "spill_mm2": 11.0,
+                  "missing_mm2": 223.13,
+                  "uncovered_p95_mm": 7.072,
+                  "stitches": 651,
+                  "trims": 8,
+                  "jumps": 10,
+                  "jump_length_mm": 72.7,
+                  "max_stitch_mm": 7.88,
+                  "short_stitches": 0,
+                  "cost": 4.861302
+                },
+                "fill": {
+                  "coverage": 0.7461,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7056,
+                  "spill_mm2": 24.85,
+                  "missing_mm2": 109.82,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 563,
+                  "trims": 16,
+                  "jumps": 19,
+                  "jump_length_mm": 88.9,
+                  "max_stitch_mm": 3.9,
+                  "short_stitches": 0,
+                  "cost": 0.033126
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source_preview": "direct-quality/source.png",
+      "rails_coverage": 0.7917
+    },
+    {
+      "file": "flower.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.7932,
+            "structural_coverage": 0.9639,
+            "iou": 0.743,
+            "spill_mm2": 296.76,
+            "missing_mm2": 908.41,
+            "uncovered_p95_mm": 0.177,
+            "stitches": 12050,
+            "trims": 315,
+            "jumps": 412,
+            "jump_length_mm": 2265.7,
+            "max_stitch_mm": 7.93,
+            "short_stitches": 0
+          },
+          "seconds": 5.3184,
+          "preview": "flower/direct-auto/flower_direct.png",
+          "footprint": "flower/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 12050,
+            "jumps": 412,
+            "trims": 315,
+            "satin_regions": 94,
+            "fill_regions": 32,
+            "running_regions": 174,
+            "underlay_stitches": 2335,
+            "thread_length_mm": 28234.6,
+            "jump_length_mm": 2265.7,
+            "max_stitch_mm": 7.93,
+            "short_stitches": 0,
+            "width_mm": 146.6,
+            "height_mm": 212.6,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 12,
+            "seconds": 4.4252
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 3.79,
+              "area_mm2": 145.82,
+              "mat_coverage": 0.8893,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8543,
+                  "structural_coverage": 0.9653,
+                  "iou": 0.7427,
+                  "spill_mm2": 21.91,
+                  "missing_mm2": 21.25,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 339,
+                  "trims": 1,
+                  "jumps": 4,
+                  "jump_length_mm": 23.8,
+                  "max_stitch_mm": 4.03,
+                  "short_stitches": 0,
+                  "cost": 0.419935
+                },
+                "fill": {
+                  "coverage": 0.7631,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6361,
+                  "spill_mm2": 29.12,
+                  "missing_mm2": 34.55,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 402,
+                  "trims": 26,
+                  "jumps": 34,
+                  "jump_length_mm": 154.7,
+                  "max_stitch_mm": 3.9,
+                  "short_stitches": 0,
+                  "cost": 0.172506
+                }
+              }
+            },
+            {
+              "component": 2,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 1.69,
+              "area_mm2": 1.97,
+              "mat_coverage": 0.2319,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.3478,
+                  "structural_coverage": 0.6232,
+                  "iou": 0.3333,
+                  "spill_mm2": 0.09,
+                  "missing_mm2": 1.29,
+                  "uncovered_p95_mm": 0.678,
+                  "stitches": 8,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 1.4,
+                  "short_stitches": 0,
+                  "cost": 3.770016
+                },
+                "fill": {
+                  "coverage": 0.8261,
+                  "structural_coverage": 1.0,
+                  "iou": 0.4914,
+                  "spill_mm2": 1.35,
+                  "missing_mm2": 0.34,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 15,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 1.8,
+                  "short_stitches": 0,
+                  "cost": 0.608283
+                }
+              }
+            },
+            {
+              "component": 3,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 1.36,
+              "area_mm2": 1.59,
+              "mat_coverage": 0.2543,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 4,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 1.22,
+              "area_mm2": 1.19,
+              "mat_coverage": 0.2867,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 5,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 4.79,
+              "area_mm2": 76.02,
+              "mat_coverage": 0.8932,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 60.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8814,
+                  "structural_coverage": 0.9856,
+                  "iou": 0.7863,
+                  "spill_mm2": 9.19,
+                  "missing_mm2": 9.02,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 252,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 1.1,
+                  "max_stitch_mm": 4.62,
+                  "short_stitches": 0,
+                  "cost": 0.189397
+                },
+                "fill": {
+                  "coverage": 0.8345,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7281,
+                  "spill_mm2": 11.11,
+                  "missing_mm2": 12.58,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 179,
+                  "trims": 13,
+                  "jumps": 14,
+                  "jump_length_mm": 47.4,
+                  "max_stitch_mm": 3.81,
+                  "short_stitches": 0,
+                  "cost": 0.092509
+                }
+              }
+            },
+            {
+              "component": 6,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 0.96,
+              "area_mm2": 0.93,
+              "mat_coverage": 0.3432,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 7,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 0.96,
+              "area_mm2": 0.7,
+              "mat_coverage": 0.3977,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 8,
+              "method": "satin",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 9.85,
+              "area_mm2": 3413.6,
+              "mat_coverage": 0.8068,
+              "broad_fraction": 0.0016,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8029,
+                  "structural_coverage": 0.9142,
+                  "iou": 0.7309,
+                  "spill_mm2": 336.35,
+                  "missing_mm2": 672.78,
+                  "uncovered_p95_mm": 0.508,
+                  "stitches": 8204,
+                  "trims": 110,
+                  "jumps": 164,
+                  "jump_length_mm": 951.6,
+                  "max_stitch_mm": 7.88,
+                  "short_stitches": 0,
+                  "cost": 1.11294
+                },
+                "fill": {
+                  "coverage": 0.765,
+                  "structural_coverage": 1.0,
+                  "iou": 0.645,
+                  "spill_mm2": 635.16,
+                  "missing_mm2": 802.27,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 10166,
+                  "trims": 583,
+                  "jumps": 673,
+                  "jump_length_mm": 2427.1,
+                  "max_stitch_mm": 4.1,
+                  "short_stitches": 0,
+                  "cost": 1.292399
+                }
+              }
+            },
+            {
+              "component": 9,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 0.76,
+              "area_mm2": 0.53,
+              "mat_coverage": 0.4241,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 10,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 6.22,
+              "area_mm2": 142.41,
+              "mat_coverage": 0.9149,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 22,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 4.72,
+              "area_mm2": 75.66,
+              "mat_coverage": 0.7719,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8717,
+                  "structural_coverage": 0.9628,
+                  "iou": 0.7888,
+                  "spill_mm2": 7.95,
+                  "missing_mm2": 9.71,
+                  "uncovered_p95_mm": 0.24,
+                  "stitches": 288,
+                  "trims": 5,
+                  "jumps": 5,
+                  "jump_length_mm": 15.5,
+                  "max_stitch_mm": 5.19,
+                  "short_stitches": 0,
+                  "cost": 0.407654
+                },
+                "fill": {
+                  "coverage": 0.7761,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6663,
+                  "spill_mm2": 12.46,
+                  "missing_mm2": 16.94,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 209,
+                  "trims": 13,
+                  "jumps": 13,
+                  "jump_length_mm": 38.3,
+                  "max_stitch_mm": 3.8,
+                  "short_stitches": 0,
+                  "cost": 0.111106
+                }
+              }
+            },
+            {
+              "component": 33,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 4.46,
+              "area_mm2": 66.27,
+              "mat_coverage": 0.9208,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 34,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 1.69,
+              "area_mm2": 2.48,
+              "mat_coverage": 0.4151,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 30.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.5977,
+                  "structural_coverage": 0.931,
+                  "iou": 0.5149,
+                  "spill_mm2": 0.4,
+                  "missing_mm2": 1.01,
+                  "uncovered_p95_mm": 0.339,
+                  "stitches": 10,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.04,
+                  "short_stitches": 0,
+                  "cost": 0.773042
+                },
+                "fill": {
+                  "coverage": 0.7586,
+                  "structural_coverage": 1.0,
+                  "iou": 0.4783,
+                  "spill_mm2": 1.46,
+                  "missing_mm2": 0.6,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 17,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.2,
+                  "short_stitches": 0,
+                  "cost": 0.509764
+                }
+              }
+            },
+            {
+              "component": 35,
+              "method": "satin",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 1.83,
+              "area_mm2": 3.23,
+              "mat_coverage": 0.6041,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.7611,
+                  "structural_coverage": 0.9735,
+                  "iou": 0.6565,
+                  "spill_mm2": 0.52,
+                  "missing_mm2": 0.78,
+                  "uncovered_p95_mm": 0.24,
+                  "stitches": 12,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.24,
+                  "short_stitches": 0,
+                  "cost": 0.347974
+                },
+                "fill": {
+                  "coverage": 0.823,
+                  "structural_coverage": 1.0,
+                  "iou": 0.5376,
+                  "spill_mm2": 1.72,
+                  "missing_mm2": 0.57,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 23,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.4,
+                  "short_stitches": 0,
+                  "cost": 0.45442
+                }
+              }
+            },
+            {
+              "component": 36,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 4.71,
+              "area_mm2": 74.54,
+              "mat_coverage": 0.9252,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 37,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 1.44,
+              "area_mm2": 1.82,
+              "mat_coverage": 0.2596,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 38,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 1.36,
+              "area_mm2": 1.45,
+              "mat_coverage": 0.2409,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 39,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 1.22,
+              "area_mm2": 1.16,
+              "mat_coverage": 0.3047,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 40,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 1.07,
+              "area_mm2": 0.9,
+              "mat_coverage": 0.3288,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 43,
+              "method": "satin",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.71,
+              "area_mm2": 6.22,
+              "mat_coverage": 0.8608,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9355,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7719,
+                  "spill_mm2": 1.32,
+                  "missing_mm2": 0.4,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 33,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 3.1,
+                  "short_stitches": 0,
+                  "cost": 0.134369
+                },
+                "fill": {
+                  "coverage": 0.8756,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6129,
+                  "spill_mm2": 2.67,
+                  "missing_mm2": 0.78,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 36,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 0.4,
+                  "max_stitch_mm": 3.2,
+                  "short_stitches": 0,
+                  "cost": 0.353504
+                }
+              }
+            },
+            {
+              "component": 49,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 0.76,
+              "area_mm2": 0.67,
+              "mat_coverage": 0.3937,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 51,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 4.56,
+              "area_mm2": 87.09,
+              "mat_coverage": 0.9081,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 52,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 0.68,
+              "area_mm2": 0.5,
+              "mat_coverage": 0.4819,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 54,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.06,
+              "area_mm2": 8.2,
+              "mat_coverage": 0.3771,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.5053,
+                  "structural_coverage": 0.8211,
+                  "iou": 0.4706,
+                  "spill_mm2": 0.6,
+                  "missing_mm2": 4.05,
+                  "uncovered_p95_mm": 0.379,
+                  "stitches": 27,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 2.0,
+                  "max_stitch_mm": 2.31,
+                  "short_stitches": 0,
+                  "cost": 1.793054
+                },
+                "fill": {
+                  "coverage": 0.7684,
+                  "structural_coverage": 1.0,
+                  "iou": 0.5239,
+                  "spill_mm2": 3.82,
+                  "missing_mm2": 1.9,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 35,
+                  "trims": 3,
+                  "jumps": 3,
+                  "jump_length_mm": 8.5,
+                  "max_stitch_mm": 3.6,
+                  "short_stitches": 0,
+                  "cost": 0.391976
+                }
+              }
+            },
+            {
+              "component": 55,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 1.98,
+              "area_mm2": 8.29,
+              "mat_coverage": 0.3298,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 45.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.3611,
+                  "structural_coverage": 0.7083,
+                  "iou": 0.3467,
+                  "spill_mm2": 0.34,
+                  "missing_mm2": 5.28,
+                  "uncovered_p95_mm": 0.611,
+                  "stitches": 19,
+                  "trims": 3,
+                  "jumps": 3,
+                  "jump_length_mm": 3.0,
+                  "max_stitch_mm": 2.19,
+                  "short_stitches": 0,
+                  "cost": 2.923038
+                },
+                "fill": {
+                  "coverage": 0.9201,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6295,
+                  "spill_mm2": 3.82,
+                  "missing_mm2": 0.66,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 45,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.62,
+                  "short_stitches": 0,
+                  "cost": 0.383151
+                }
+              }
+            },
+            {
+              "component": 56,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 3.86,
+              "area_mm2": 45.32,
+              "mat_coverage": 0.6992,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.7535,
+                  "structural_coverage": 0.9106,
+                  "iou": 0.6818,
+                  "spill_mm2": 4.77,
+                  "missing_mm2": 11.17,
+                  "uncovered_p95_mm": 0.379,
+                  "stitches": 155,
+                  "trims": 4,
+                  "jumps": 4,
+                  "jump_length_mm": 4.9,
+                  "max_stitch_mm": 3.67,
+                  "short_stitches": 0,
+                  "cost": 0.927567
+                },
+                "fill": {
+                  "coverage": 0.7687,
+                  "structural_coverage": 1.0,
+                  "iou": 0.648,
+                  "spill_mm2": 8.44,
+                  "missing_mm2": 10.48,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 139,
+                  "trims": 11,
+                  "jumps": 12,
+                  "jump_length_mm": 37.4,
+                  "max_stitch_mm": 3.8,
+                  "short_stitches": 0,
+                  "cost": 0.128519
+                }
+              }
+            },
+            {
+              "component": 58,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 1.73,
+              "area_mm2": 6.49,
+              "mat_coverage": 0.3776,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.4602,
+                  "structural_coverage": 0.7832,
+                  "iou": 0.4228,
+                  "spill_mm2": 0.57,
+                  "missing_mm2": 3.5,
+                  "uncovered_p95_mm": 0.508,
+                  "stitches": 19,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.0,
+                  "short_stitches": 0,
+                  "cost": 2.177861
+                },
+                "fill": {
+                  "coverage": 0.8938,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6196,
+                  "spill_mm2": 2.87,
+                  "missing_mm2": 0.69,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 43,
+                  "trims": 4,
+                  "jumps": 4,
+                  "jump_length_mm": 8.7,
+                  "max_stitch_mm": 3.6,
+                  "short_stitches": 0,
+                  "cost": 0.370282
+                }
+              }
+            },
+            {
+              "component": 61,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.17,
+              "area_mm2": 13.05,
+              "mat_coverage": 0.3343,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 30.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.4154,
+                  "structural_coverage": 0.7209,
+                  "iou": 0.3803,
+                  "spill_mm2": 1.21,
+                  "missing_mm2": 7.64,
+                  "uncovered_p95_mm": 0.678,
+                  "stitches": 37,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 3.8,
+                  "max_stitch_mm": 2.19,
+                  "short_stitches": 0,
+                  "cost": 2.807777
+                },
+                "fill": {
+                  "coverage": 0.7297,
+                  "structural_coverage": 1.0,
+                  "iou": 0.5646,
+                  "spill_mm2": 3.82,
+                  "missing_mm2": 3.53,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 52,
+                  "trims": 4,
+                  "jumps": 4,
+                  "jump_length_mm": 9.7,
+                  "max_stitch_mm": 3.89,
+                  "short_stitches": 0,
+                  "cost": 0.220769
+                }
+              }
+            },
+            {
+              "component": 62,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 0.76,
+              "area_mm2": 0.62,
+              "mat_coverage": 0.4565,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 64,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 1.92,
+              "area_mm2": 6.86,
+              "mat_coverage": 0.3247,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.4435,
+                  "structural_coverage": 0.7908,
+                  "iou": 0.4093,
+                  "spill_mm2": 0.57,
+                  "missing_mm2": 3.82,
+                  "uncovered_p95_mm": 0.479,
+                  "stitches": 20,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 1.98,
+                  "short_stitches": 0,
+                  "cost": 2.097086
+                },
+                "fill": {
+                  "coverage": 0.7992,
+                  "structural_coverage": 1.0,
+                  "iou": 0.5618,
+                  "spill_mm2": 2.9,
+                  "missing_mm2": 1.38,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 36,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 4.4,
+                  "max_stitch_mm": 3.1,
+                  "short_stitches": 0,
+                  "cost": 0.346586
+                }
+              }
+            },
+            {
+              "component": 68,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 0.76,
+              "area_mm2": 0.5,
+              "mat_coverage": 0.3933,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 70,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 4.1,
+              "area_mm2": 45.53,
+              "mat_coverage": 0.8731,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 30.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9281,
+                  "structural_coverage": 0.9823,
+                  "iou": 0.8242,
+                  "spill_mm2": 5.74,
+                  "missing_mm2": 3.27,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 155,
+                  "trims": 3,
+                  "jumps": 3,
+                  "jump_length_mm": 5.8,
+                  "max_stitch_mm": 4.08,
+                  "short_stitches": 0,
+                  "cost": 0.229373
+                },
+                "fill": {
+                  "coverage": 0.7427,
+                  "structural_coverage": 0.9994,
+                  "iou": 0.6392,
+                  "spill_mm2": 7.38,
+                  "missing_mm2": 11.72,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 121,
+                  "trims": 8,
+                  "jumps": 9,
+                  "jump_length_mm": 23.6,
+                  "max_stitch_mm": 3.81,
+                  "short_stitches": 0,
+                  "cost": 0.104323
+                }
+              }
+            },
+            {
+              "component": 93,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 3.54,
+              "area_mm2": 35.68,
+              "mat_coverage": 0.6776,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.786,
+                  "structural_coverage": 0.9252,
+                  "iou": 0.7004,
+                  "spill_mm2": 4.37,
+                  "missing_mm2": 7.64,
+                  "uncovered_p95_mm": 0.379,
+                  "stitches": 151,
+                  "trims": 6,
+                  "jumps": 6,
+                  "jump_length_mm": 11.9,
+                  "max_stitch_mm": 3.19,
+                  "short_stitches": 0,
+                  "cost": 0.802771
+                },
+                "fill": {
+                  "coverage": 0.7466,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6287,
+                  "spill_mm2": 6.69,
+                  "missing_mm2": 9.05,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 108,
+                  "trims": 7,
+                  "jumps": 7,
+                  "jump_length_mm": 21.7,
+                  "max_stitch_mm": 3.7,
+                  "short_stitches": 0,
+                  "cost": 0.121703
+                }
+              }
+            },
+            {
+              "component": 115,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.73,
+              "area_mm2": 18.04,
+              "mat_coverage": 0.5263,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 60.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.5939,
+                  "structural_coverage": 0.8041,
+                  "iou": 0.5429,
+                  "spill_mm2": 1.69,
+                  "missing_mm2": 7.32,
+                  "uncovered_p95_mm": 0.611,
+                  "stitches": 73,
+                  "trims": 5,
+                  "jumps": 5,
+                  "jump_length_mm": 5.0,
+                  "max_stitch_mm": 2.62,
+                  "short_stitches": 0,
+                  "cost": 1.982852
+                },
+                "fill": {
+                  "coverage": 0.7611,
+                  "structural_coverage": 1.0,
+                  "iou": 0.5794,
+                  "spill_mm2": 5.66,
+                  "missing_mm2": 4.31,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 52,
+                  "trims": 3,
+                  "jumps": 3,
+                  "jump_length_mm": 10.1,
+                  "max_stitch_mm": 3.81,
+                  "short_stitches": 0,
+                  "cost": 0.239936
+                }
+              }
+            },
+            {
+              "component": 119,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 1.22,
+              "area_mm2": 1.13,
+              "mat_coverage": 0.2919,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 120,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 1.22,
+              "area_mm2": 1.48,
+              "mat_coverage": 0.2741,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 121,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 0.96,
+              "area_mm2": 0.85,
+              "mat_coverage": 0.3584,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 123,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 1.44,
+              "area_mm2": 1.88,
+              "mat_coverage": 0.2228,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 126,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 0.76,
+              "area_mm2": 0.67,
+              "mat_coverage": 0.4175,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 127,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 1.83,
+              "area_mm2": 2.54,
+              "mat_coverage": 0.3242,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 45.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.6404,
+                  "structural_coverage": 0.8989,
+                  "iou": 0.5481,
+                  "spill_mm2": 0.43,
+                  "missing_mm2": 0.92,
+                  "uncovered_p95_mm": 0.339,
+                  "stitches": 12,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.0,
+                  "short_stitches": 0,
+                  "cost": 1.102211
+                },
+                "fill": {
+                  "coverage": 0.9213,
+                  "structural_coverage": 1.0,
+                  "iou": 0.5616,
+                  "spill_mm2": 1.64,
+                  "missing_mm2": 0.2,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 19,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.12,
+                  "short_stitches": 0,
+                  "cost": 0.567308
+                }
+              }
+            },
+            {
+              "component": 128,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 3.46,
+              "area_mm2": 33.76,
+              "mat_coverage": 0.8118,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8835,
+                  "structural_coverage": 0.9677,
+                  "iou": 0.7679,
+                  "spill_mm2": 5.08,
+                  "missing_mm2": 3.93,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 139,
+                  "trims": 4,
+                  "jumps": 4,
+                  "jump_length_mm": 11.3,
+                  "max_stitch_mm": 3.5,
+                  "short_stitches": 0,
+                  "cost": 0.401759
+                },
+                "fill": {
+                  "coverage": 0.818,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6847,
+                  "spill_mm2": 6.58,
+                  "missing_mm2": 6.15,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 96,
+                  "trims": 6,
+                  "jumps": 6,
+                  "jump_length_mm": 25.3,
+                  "max_stitch_mm": 3.6,
+                  "short_stitches": 0,
+                  "cost": 0.127107
+                }
+              }
+            },
+            {
+              "component": 130,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 1.98,
+              "area_mm2": 3.2,
+              "mat_coverage": 0.5962,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.7768,
+                  "structural_coverage": 0.9375,
+                  "iou": 0.6397,
+                  "spill_mm2": 0.69,
+                  "missing_mm2": 0.72,
+                  "uncovered_p95_mm": 0.339,
+                  "stitches": 13,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.19,
+                  "short_stitches": 0,
+                  "cost": 0.76251
+                },
+                "fill": {
+                  "coverage": 0.8036,
+                  "structural_coverage": 1.0,
+                  "iou": 0.5,
+                  "spill_mm2": 1.95,
+                  "missing_mm2": 0.63,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 20,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.1,
+                  "short_stitches": 0,
+                  "cost": 0.531017
+                }
+              }
+            },
+            {
+              "component": 131,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.47,
+              "area_mm2": 15.35,
+              "mat_coverage": 0.4501,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 30.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.5701,
+                  "structural_coverage": 0.8262,
+                  "iou": 0.5152,
+                  "spill_mm2": 1.64,
+                  "missing_mm2": 6.61,
+                  "uncovered_p95_mm": 0.517,
+                  "stitches": 51,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 1.0,
+                  "max_stitch_mm": 2.34,
+                  "short_stitches": 0,
+                  "cost": 1.768943
+                },
+                "fill": {
+                  "coverage": 0.757,
+                  "structural_coverage": 1.0,
+                  "iou": 0.5991,
+                  "spill_mm2": 4.05,
+                  "missing_mm2": 3.73,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 46,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 5.3,
+                  "max_stitch_mm": 3.67,
+                  "short_stitches": 0,
+                  "cost": 0.187937
+                }
+              }
+            },
+            {
+              "component": 135,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.37,
+              "area_mm2": 15.68,
+              "mat_coverage": 0.3978,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.4505,
+                  "structural_coverage": 0.7344,
+                  "iou": 0.4191,
+                  "spill_mm2": 1.18,
+                  "missing_mm2": 8.62,
+                  "uncovered_p95_mm": 0.678,
+                  "stitches": 51,
+                  "trims": 4,
+                  "jumps": 4,
+                  "jump_length_mm": 9.5,
+                  "max_stitch_mm": 2.8,
+                  "short_stitches": 0,
+                  "cost": 2.664102
+                },
+                "fill": {
+                  "coverage": 0.7766,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6031,
+                  "spill_mm2": 4.51,
+                  "missing_mm2": 3.5,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 68,
+                  "trims": 5,
+                  "jumps": 5,
+                  "jump_length_mm": 16.6,
+                  "max_stitch_mm": 3.6,
+                  "short_stitches": 0,
+                  "cost": 0.21776
+                }
+              }
+            },
+            {
+              "component": 140,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.4,
+              "area_mm2": 12.39,
+              "mat_coverage": 0.3602,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.463,
+                  "structural_coverage": 0.7639,
+                  "iou": 0.4283,
+                  "spill_mm2": 1.01,
+                  "missing_mm2": 6.66,
+                  "uncovered_p95_mm": 0.611,
+                  "stitches": 40,
+                  "trims": 3,
+                  "jumps": 3,
+                  "jump_length_mm": 3.1,
+                  "max_stitch_mm": 2.05,
+                  "short_stitches": 0,
+                  "cost": 2.368584
+                },
+                "fill": {
+                  "coverage": 0.8125,
+                  "structural_coverage": 1.0,
+                  "iou": 0.5802,
+                  "spill_mm2": 4.97,
+                  "missing_mm2": 2.33,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 60,
+                  "trims": 4,
+                  "jumps": 4,
+                  "jump_length_mm": 8.5,
+                  "max_stitch_mm": 3.3,
+                  "short_stitches": 0,
+                  "cost": 0.329187
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source_preview": "flower/source.png",
+      "rails_coverage": 0.8303
+    },
+    {
+      "file": "gros_babe/Babe.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.9196,
+            "structural_coverage": 0.9999,
+            "iou": 0.8738,
+            "spill_mm2": 176.81,
+            "missing_mm2": 270.52,
+            "uncovered_p95_mm": 0.083,
+            "stitches": 6439,
+            "trims": 127,
+            "jumps": 169,
+            "jump_length_mm": 853.2,
+            "max_stitch_mm": 7.93,
+            "short_stitches": 0
+          },
+          "seconds": 1.0526,
+          "preview": "gros_babe/Babe/direct-auto/Babe_direct.png",
+          "footprint": "gros_babe/Babe/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 6439,
+            "jumps": 169,
+            "trims": 127,
+            "satin_regions": 17,
+            "fill_regions": 3,
+            "running_regions": 4,
+            "underlay_stitches": 1519,
+            "thread_length_mm": 21156.2,
+            "jump_length_mm": 853.2,
+            "max_stitch_mm": 7.93,
+            "short_stitches": 0,
+            "width_mm": 141.8,
+            "height_mm": 76.2,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 2,
+            "seconds": 0.6778
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 9.59,
+              "area_mm2": 1312.38,
+              "mat_coverage": 0.8685,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.832,
+                  "structural_coverage": 0.8985,
+                  "iou": 0.7882,
+                  "spill_mm2": 72.92,
+                  "missing_mm2": 220.53,
+                  "uncovered_p95_mm": 1.525,
+                  "stitches": 2450,
+                  "trims": 26,
+                  "jumps": 30,
+                  "jump_length_mm": 156.2,
+                  "max_stitch_mm": 7.85,
+                  "short_stitches": 0,
+                  "cost": 1.3419
+                },
+                "fill": {
+                  "coverage": 0.7473,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6969,
+                  "spill_mm2": 94.83,
+                  "missing_mm2": 331.67,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 2125,
+                  "trims": 82,
+                  "jumps": 97,
+                  "jump_length_mm": 414.5,
+                  "max_stitch_mm": 3.9,
+                  "short_stitches": 0,
+                  "cost": 0.16825
+                }
+              }
+            },
+            {
+              "component": 2,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 8.06,
+              "area_mm2": 584.55,
+              "mat_coverage": 0.9088,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 3,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 11.75,
+              "area_mm2": 1478.41,
+              "mat_coverage": 0.9784,
+              "broad_fraction": 0.1983,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "gros_babe/Babe/source.png",
+      "rails_coverage": 0.9325
+    },
+    {
+      "file": "gros_babe/Gros.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.8332,
+            "structural_coverage": 0.9999,
+            "iou": 0.7851,
+            "spill_mm2": 199.27,
+            "missing_mm2": 542.62,
+            "uncovered_p95_mm": 0.083,
+            "stitches": 5005,
+            "trims": 173,
+            "jumps": 219,
+            "jump_length_mm": 1029.6,
+            "max_stitch_mm": 3.9,
+            "short_stitches": 0
+          },
+          "seconds": 1.286,
+          "preview": "gros_babe/Gros/direct-auto/Gros_direct.png",
+          "footprint": "gros_babe/Gros/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 5005,
+            "jumps": 219,
+            "trims": 173,
+            "satin_regions": 0,
+            "fill_regions": 2,
+            "running_regions": 0,
+            "underlay_stitches": 614,
+            "thread_length_mm": 10248.4,
+            "jump_length_mm": 1029.6,
+            "max_stitch_mm": 3.9,
+            "short_stitches": 0,
+            "width_mm": 129.2,
+            "height_mm": 71.0,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.9531
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 12.58,
+              "area_mm2": 1538.49,
+              "mat_coverage": 0.8667,
+              "broad_fraction": 0.655,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8437,
+                  "structural_coverage": 0.8896,
+                  "iou": 0.8062,
+                  "spill_mm2": 71.59,
+                  "missing_mm2": 240.45,
+                  "uncovered_p95_mm": 4.186,
+                  "stitches": 2775,
+                  "trims": 12,
+                  "jumps": 12,
+                  "jump_length_mm": 52.4,
+                  "max_stitch_mm": 7.89,
+                  "short_stitches": 0,
+                  "cost": 1.13355
+                },
+                "fill": {
+                  "coverage": 0.7606,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7188,
+                  "spill_mm2": 89.49,
+                  "missing_mm2": 368.29,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 2277,
+                  "trims": 75,
+                  "jumps": 94,
+                  "jump_length_mm": 420.0,
+                  "max_stitch_mm": 3.9,
+                  "short_stitches": 0,
+                  "cost": 0.154554
+                }
+              }
+            },
+            {
+              "component": 2,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 10.17,
+              "area_mm2": 1709.97,
+              "mat_coverage": 0.8853,
+              "broad_fraction": 0.2903,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.873,
+                  "structural_coverage": 0.9185,
+                  "iou": 0.8222,
+                  "spill_mm2": 105.46,
+                  "missing_mm2": 217.24,
+                  "uncovered_p95_mm": 1.291,
+                  "stitches": 3815,
+                  "trims": 21,
+                  "jumps": 32,
+                  "jump_length_mm": 213.7,
+                  "max_stitch_mm": 7.86,
+                  "short_stitches": 0,
+                  "cost": 0.86763
+                },
+                "fill": {
+                  "coverage": 0.7527,
+                  "structural_coverage": 0.9999,
+                  "iou": 0.702,
+                  "spill_mm2": 123.3,
+                  "missing_mm2": 422.93,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 2726,
+                  "trims": 97,
+                  "jumps": 119,
+                  "jump_length_mm": 538.6,
+                  "max_stitch_mm": 3.9,
+                  "short_stitches": 0,
+                  "cost": 0.200452
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source_preview": "gros_babe/Gros/source.png",
+      "rails_coverage": 0.8843
+    },
+    {
+      "file": "gros_babe/Underline.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.9829,
+            "structural_coverage": 0.9999,
+            "iou": 0.92,
+            "spill_mm2": 39.71,
+            "missing_mm2": 9.96,
+            "uncovered_p95_mm": 0.0,
+            "stitches": 1000,
+            "trims": 1,
+            "jumps": 6,
+            "jump_length_mm": 50.2,
+            "max_stitch_mm": 6.45,
+            "short_stitches": 0
+          },
+          "seconds": 0.1698,
+          "preview": "gros_babe/Underline/direct-auto/Underline_direct.png",
+          "footprint": "gros_babe/Underline/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 1000,
+            "jumps": 6,
+            "trims": 1,
+            "satin_regions": 1,
+            "fill_regions": 0,
+            "running_regions": 0,
+            "underlay_stitches": 293,
+            "thread_length_mm": 3981.2,
+            "jump_length_mm": 50.2,
+            "max_stitch_mm": 6.45,
+            "short_stitches": 0,
+            "width_mm": 115.4,
+            "height_mm": 32.0,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.0973
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 6.11,
+              "area_mm2": 580.81,
+              "mat_coverage": 0.9797,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "gros_babe/Underline/source.png",
+      "rails_coverage": 0.9924
+    },
+    {
+      "file": "gros_babe.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.9212,
+            "structural_coverage": 0.9999,
+            "iou": 0.8749,
+            "spill_mm2": 381.11,
+            "missing_mm2": 567.09,
+            "uncovered_p95_mm": 0.083,
+            "stitches": 12905,
+            "trims": 207,
+            "jumps": 280,
+            "jump_length_mm": 1481.8,
+            "max_stitch_mm": 7.9,
+            "short_stitches": 0
+          },
+          "seconds": 2.6506,
+          "preview": "gros_babe/direct-auto/gros_babe_direct.png",
+          "footprint": "gros_babe/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 12905,
+            "jumps": 280,
+            "trims": 207,
+            "satin_regions": 21,
+            "fill_regions": 4,
+            "running_regions": 7,
+            "underlay_stitches": 2964,
+            "thread_length_mm": 42264.1,
+            "jump_length_mm": 1481.8,
+            "max_stitch_mm": 7.9,
+            "short_stitches": 0,
+            "width_mm": 145.6,
+            "height_mm": 138.8,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 2,
+            "seconds": 1.8836
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "satin",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 12.58,
+              "area_mm2": 1540.31,
+              "mat_coverage": 0.9787,
+              "broad_fraction": 0.9153,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9496,
+                  "structural_coverage": 0.9938,
+                  "iou": 0.9021,
+                  "spill_mm2": 81.07,
+                  "missing_mm2": 77.65,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 3009,
+                  "trims": 9,
+                  "jumps": 15,
+                  "jump_length_mm": 87.9,
+                  "max_stitch_mm": 7.89,
+                  "short_stitches": 0,
+                  "cost": 0.086018
+                },
+                "fill": {
+                  "coverage": 0.7436,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7026,
+                  "spill_mm2": 89.99,
+                  "missing_mm2": 394.87,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 2214,
+                  "trims": 62,
+                  "jumps": 83,
+                  "jump_length_mm": 444.4,
+                  "max_stitch_mm": 3.9,
+                  "short_stitches": 0,
+                  "cost": 0.128428
+                }
+              }
+            },
+            {
+              "component": 2,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 10.16,
+              "area_mm2": 1712.0,
+              "mat_coverage": 0.8807,
+              "broad_fraction": 0.059,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8719,
+                  "structural_coverage": 0.9211,
+                  "iou": 0.8221,
+                  "spill_mm2": 103.57,
+                  "missing_mm2": 219.39,
+                  "uncovered_p95_mm": 1.186,
+                  "stitches": 3739,
+                  "trims": 33,
+                  "jumps": 40,
+                  "jump_length_mm": 244.0,
+                  "max_stitch_mm": 7.93,
+                  "short_stitches": 0,
+                  "cost": 0.862478
+                },
+                "fill": {
+                  "coverage": 0.7471,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6975,
+                  "spill_mm2": 121.91,
+                  "missing_mm2": 432.9,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 2724,
+                  "trims": 100,
+                  "jumps": 123,
+                  "jump_length_mm": 546.2,
+                  "max_stitch_mm": 3.9,
+                  "short_stitches": 0,
+                  "cost": 0.205448
+                }
+              }
+            },
+            {
+              "component": 3,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 9.59,
+              "area_mm2": 1309.87,
+              "mat_coverage": 0.7888,
+              "broad_fraction": 0.115,
+              "fill_angle_deg": 60.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.7854,
+                  "structural_coverage": 0.8414,
+                  "iou": 0.7458,
+                  "spill_mm2": 69.5,
+                  "missing_mm2": 281.09,
+                  "uncovered_p95_mm": 2.732,
+                  "stitches": 2501,
+                  "trims": 26,
+                  "jumps": 36,
+                  "jump_length_mm": 209.2,
+                  "max_stitch_mm": 7.83,
+                  "short_stitches": 0,
+                  "cost": 1.643002
+                },
+                "fill": {
+                  "coverage": 0.8243,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7669,
+                  "spill_mm2": 98.0,
+                  "missing_mm2": 230.15,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 2167,
+                  "trims": 68,
+                  "jumps": 80,
+                  "jump_length_mm": 352.9,
+                  "max_stitch_mm": 3.94,
+                  "short_stitches": 0,
+                  "cost": 0.140334
+                }
+              }
+            },
+            {
+              "component": 4,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 8.15,
+              "area_mm2": 583.04,
+              "mat_coverage": 0.9674,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 5,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 11.76,
+              "area_mm2": 1476.34,
+              "mat_coverage": 0.9784,
+              "broad_fraction": 0.196,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 6,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 6.11,
+              "area_mm2": 580.5,
+              "mat_coverage": 0.9792,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "gros_babe/source.png",
+      "rails_coverage": 0.9288
+    },
+    {
+      "file": "margot.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.5486,
+            "structural_coverage": 0.9394,
+            "iou": 0.4607,
+            "spill_mm2": 5.83,
+            "missing_mm2": 13.81,
+            "uncovered_p95_mm": 0.264,
+            "stitches": 67,
+            "trims": 1,
+            "jumps": 1,
+            "jump_length_mm": 0.0,
+            "max_stitch_mm": 2.5,
+            "short_stitches": 0
+          },
+          "seconds": 0.1718,
+          "preview": "margot/direct-auto/margot_direct.png",
+          "footprint": "margot/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 67,
+            "jumps": 1,
+            "trims": 1,
+            "satin_regions": 0,
+            "fill_regions": 0,
+            "running_regions": 6,
+            "underlay_stitches": 0,
+            "thread_length_mm": 74.7,
+            "jump_length_mm": 0.0,
+            "max_stitch_mm": 2.5,
+            "short_stitches": 0,
+            "width_mm": 9.0,
+            "height_mm": 10.8,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.1173
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 0.82,
+              "area_mm2": 30.26,
+              "mat_coverage": 0.5389,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "margot/source.png",
+      "rails_coverage": 0.5423
+    },
+    {
+      "file": "nike.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.8458,
+            "structural_coverage": 1.0,
+            "iou": 0.8257,
+            "spill_mm2": 154.84,
+            "missing_mm2": 983.32,
+            "uncovered_p95_mm": 0.11,
+            "stitches": 7032,
+            "trims": 157,
+            "jumps": 203,
+            "jump_length_mm": 884.2,
+            "max_stitch_mm": 3.9,
+            "short_stitches": 0
+          },
+          "seconds": 1.7312,
+          "preview": "nike/direct-auto/nike_direct.png",
+          "footprint": "nike/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 7032,
+            "jumps": 203,
+            "trims": 157,
+            "satin_regions": 0,
+            "fill_regions": 1,
+            "running_regions": 0,
+            "underlay_stitches": 1013,
+            "thread_length_mm": 18962.8,
+            "jump_length_mm": 884.2,
+            "max_stitch_mm": 3.9,
+            "short_stitches": 0,
+            "width_mm": 263.6,
+            "height_mm": 94.2,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 1.2618
+          },
+          "decisions": [
+            {
+              "component": 2,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 46.73,
+              "area_mm2": 6398.9,
+              "mat_coverage": 0.912,
+              "broad_fraction": 0.9112,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9023,
+                  "structural_coverage": 0.9217,
+                  "iou": 0.8855,
+                  "spill_mm2": 121.37,
+                  "missing_mm2": 625.48,
+                  "uncovered_p95_mm": 3.494,
+                  "stitches": 10517,
+                  "trims": 4,
+                  "jumps": 18,
+                  "jump_length_mm": 149.8,
+                  "max_stitch_mm": 7.85,
+                  "short_stitches": 0,
+                  "cost": 0.812034
+                },
+                "fill": {
+                  "coverage": 0.7458,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7281,
+                  "spill_mm2": 154.84,
+                  "missing_mm2": 1626.91,
+                  "uncovered_p95_mm": 0.169,
+                  "stitches": 7032,
+                  "trims": 157,
+                  "jumps": 203,
+                  "jump_length_mm": 884.2,
+                  "max_stitch_mm": 3.9,
+                  "short_stitches": 0,
+                  "cost": 0.328064
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source_preview": "nike/source.png",
+      "rails_coverage": 0.9144
+    },
+    {
+      "file": "satin-demo.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.8877,
+            "structural_coverage": 0.9722,
+            "iou": 0.8363,
+            "spill_mm2": 28.73,
+            "missing_mm2": 52.49,
+            "uncovered_p95_mm": 0.186,
+            "stitches": 977,
+            "trims": 8,
+            "jumps": 13,
+            "jump_length_mm": 93.3,
+            "max_stitch_mm": 5.38,
+            "short_stitches": 0
+          },
+          "seconds": 0.1824,
+          "preview": "satin-demo/direct-auto/satin-demo_direct.png",
+          "footprint": "satin-demo/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 977,
+            "jumps": 13,
+            "trims": 8,
+            "satin_regions": 8,
+            "fill_regions": 0,
+            "running_regions": 4,
+            "underlay_stitches": 265,
+            "thread_length_mm": 3051.3,
+            "jump_length_mm": 93.3,
+            "max_stitch_mm": 5.38,
+            "short_stitches": 0,
+            "width_mm": 60.2,
+            "height_mm": 25.8,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.1122
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 4.07,
+              "area_mm2": 94.44,
+              "mat_coverage": 0.9629,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 2,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 4.1,
+              "area_mm2": 176.18,
+              "mat_coverage": 0.9782,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 3,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 5.09,
+              "area_mm2": 135.99,
+              "mat_coverage": 0.9418,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 4,
+              "method": "running",
+              "reason": "thin_stroke",
+              "width_mm": 1.02,
+              "area_mm2": 61.15,
+              "mat_coverage": 0.2947,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            }
+          ]
+        }
+      },
+      "source_preview": "satin-demo/source.png",
+      "rails_coverage": 0.896
+    },
+    {
+      "file": "shapes.svg",
+      "methods": {
+        "direct-auto": {
+          "metrics": {
+            "coverage": 0.8483,
+            "structural_coverage": 0.9997,
+            "iou": 0.6933,
+            "spill_mm2": 233.64,
+            "missing_mm2": 158.57,
+            "uncovered_p95_mm": 0.083,
+            "stitches": 3724,
+            "trims": 216,
+            "jumps": 244,
+            "jump_length_mm": 1114.1,
+            "max_stitch_mm": 4.94,
+            "short_stitches": 0
+          },
+          "seconds": 1.0742,
+          "preview": "shapes/direct-auto/shapes_direct.png",
+          "footprint": "shapes/direct-auto-footprint.png",
+          "stats": {
+            "stitches": 3724,
+            "jumps": 244,
+            "trims": 216,
+            "satin_regions": 4,
+            "fill_regions": 28,
+            "running_regions": 4,
+            "underlay_stitches": 375,
+            "thread_length_mm": 4447.1,
+            "jump_length_mm": 1114.1,
+            "max_stitch_mm": 4.94,
+            "short_stitches": 0,
+            "width_mm": 84.2,
+            "height_mm": 86.2,
+            "unsafe_connections": 0,
+            "gap_fill_regions": 0,
+            "seconds": 0.8596
+          },
+          "decisions": [
+            {
+              "component": 1,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 4.29,
+              "area_mm2": 82.69,
+              "mat_coverage": 0.8955,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 45.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9058,
+                  "structural_coverage": 0.9812,
+                  "iou": 0.8012,
+                  "spill_mm2": 10.81,
+                  "missing_mm2": 7.79,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 259,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 3.5,
+                  "max_stitch_mm": 3.7,
+                  "short_stitches": 0,
+                  "cost": 0.243242
+                },
+                "fill": {
+                  "coverage": 0.8801,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7285,
+                  "spill_mm2": 17.21,
+                  "missing_mm2": 9.91,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 267,
+                  "trims": 16,
+                  "jumps": 18,
+                  "jump_length_mm": 68.7,
+                  "max_stitch_mm": 3.82,
+                  "short_stitches": 0,
+                  "cost": 0.160653
+                }
+              }
+            },
+            {
+              "component": 2,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 4.56,
+              "area_mm2": 16.77,
+              "mat_coverage": 0.9171,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 4,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 3.46,
+              "area_mm2": 22.26,
+              "mat_coverage": 0.8807,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9161,
+                  "structural_coverage": 0.9871,
+                  "iou": 0.7692,
+                  "spill_mm2": 4.25,
+                  "missing_mm2": 1.87,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 65,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 3.72,
+                  "short_stitches": 0,
+                  "cost": 0.242077
+                },
+                "fill": {
+                  "coverage": 0.7806,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6315,
+                  "spill_mm2": 5.26,
+                  "missing_mm2": 4.89,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 73,
+                  "trims": 3,
+                  "jumps": 3,
+                  "jump_length_mm": 4.4,
+                  "max_stitch_mm": 3.8,
+                  "short_stitches": 0,
+                  "cost": 0.162471
+                }
+              }
+            },
+            {
+              "component": 6,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.73,
+              "area_mm2": 23.0,
+              "mat_coverage": 0.8498,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 60.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8839,
+                  "structural_coverage": 0.9825,
+                  "iou": 0.7613,
+                  "spill_mm2": 3.71,
+                  "missing_mm2": 2.67,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 82,
+                  "trims": 3,
+                  "jumps": 3,
+                  "jump_length_mm": 16.1,
+                  "max_stitch_mm": 3.0,
+                  "short_stitches": 0,
+                  "cost": 0.262436
+                },
+                "fill": {
+                  "coverage": 0.8027,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6488,
+                  "spill_mm2": 5.46,
+                  "missing_mm2": 4.54,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 78,
+                  "trims": 5,
+                  "jumps": 5,
+                  "jump_length_mm": 14.6,
+                  "max_stitch_mm": 3.67,
+                  "short_stitches": 0,
+                  "cost": 0.167499
+                }
+              }
+            },
+            {
+              "component": 7,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 3.41,
+              "area_mm2": 26.08,
+              "mat_coverage": 0.8846,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.891,
+                  "structural_coverage": 0.9846,
+                  "iou": 0.7611,
+                  "spill_mm2": 4.45,
+                  "missing_mm2": 2.85,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 90,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 3.65,
+                  "short_stitches": 0,
+                  "cost": 0.246811
+                },
+                "fill": {
+                  "coverage": 0.7665,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6116,
+                  "spill_mm2": 6.61,
+                  "missing_mm2": 6.09,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 91,
+                  "trims": 5,
+                  "jumps": 5,
+                  "jump_length_mm": 17.3,
+                  "max_stitch_mm": 3.4,
+                  "short_stitches": 0,
+                  "cost": 0.183637
+                }
+              }
+            },
+            {
+              "component": 8,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 4.1,
+              "area_mm2": 230.64,
+              "mat_coverage": 0.8064,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 60.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.7852,
+                  "structural_coverage": 0.9417,
+                  "iou": 0.6876,
+                  "spill_mm2": 32.73,
+                  "missing_mm2": 49.54,
+                  "uncovered_p95_mm": 0.339,
+                  "stitches": 628,
+                  "trims": 7,
+                  "jumps": 10,
+                  "jump_length_mm": 53.9,
+                  "max_stitch_mm": 4.18,
+                  "short_stitches": 0,
+                  "cost": 0.660168
+                },
+                "fill": {
+                  "coverage": 0.8231,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6256,
+                  "spill_mm2": 72.82,
+                  "missing_mm2": 40.81,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 1000,
+                  "trims": 63,
+                  "jumps": 70,
+                  "jump_length_mm": 241.9,
+                  "max_stitch_mm": 4.12,
+                  "short_stitches": 0,
+                  "cost": 0.363736
+                }
+              }
+            },
+            {
+              "component": 9,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 3.49,
+              "area_mm2": 52.46,
+              "mat_coverage": 0.8845,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 30.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9173,
+                  "structural_coverage": 0.966,
+                  "iou": 0.786,
+                  "spill_mm2": 8.77,
+                  "missing_mm2": 4.34,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 157,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 3.72,
+                  "short_stitches": 0,
+                  "cost": 0.429486
+                },
+                "fill": {
+                  "coverage": 0.7399,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6328,
+                  "spill_mm2": 8.88,
+                  "missing_mm2": 13.65,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 158,
+                  "trims": 13,
+                  "jumps": 14,
+                  "jump_length_mm": 49.6,
+                  "max_stitch_mm": 3.72,
+                  "short_stitches": 0,
+                  "cost": 0.115585
+                }
+              }
+            },
+            {
+              "component": 10,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.73,
+              "area_mm2": 26.68,
+              "mat_coverage": 0.8793,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 60.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.873,
+                  "structural_coverage": 0.9806,
+                  "iou": 0.73,
+                  "spill_mm2": 5.23,
+                  "missing_mm2": 3.39,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 87,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 9.7,
+                  "max_stitch_mm": 3.09,
+                  "short_stitches": 0,
+                  "cost": 0.314178
+                },
+                "fill": {
+                  "coverage": 0.8353,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6807,
+                  "spill_mm2": 6.06,
+                  "missing_mm2": 4.4,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 88,
+                  "trims": 6,
+                  "jumps": 6,
+                  "jump_length_mm": 21.4,
+                  "max_stitch_mm": 3.94,
+                  "short_stitches": 0,
+                  "cost": 0.159286
+                }
+              }
+            },
+            {
+              "component": 11,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.8,
+              "area_mm2": 20.76,
+              "mat_coverage": 0.854,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 45.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8216,
+                  "structural_coverage": 0.9765,
+                  "iou": 0.7063,
+                  "spill_mm2": 3.39,
+                  "missing_mm2": 3.71,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 70,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 7.5,
+                  "max_stitch_mm": 2.96,
+                  "short_stitches": 0,
+                  "cost": 0.32241
+                },
+                "fill": {
+                  "coverage": 0.9032,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7144,
+                  "spill_mm2": 5.49,
+                  "missing_mm2": 2.01,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 83,
+                  "trims": 6,
+                  "jumps": 6,
+                  "jump_length_mm": 24.2,
+                  "max_stitch_mm": 3.82,
+                  "short_stitches": 0,
+                  "cost": 0.196577
+                }
+              }
+            },
+            {
+              "component": 12,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.73,
+              "area_mm2": 15.62,
+              "mat_coverage": 0.8627,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.921,
+                  "structural_coverage": 0.9871,
+                  "iou": 0.7534,
+                  "spill_mm2": 3.48,
+                  "missing_mm2": 1.24,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 57,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 5.9,
+                  "max_stitch_mm": 3.04,
+                  "short_stitches": 0,
+                  "cost": 0.275919
+                },
+                "fill": {
+                  "coverage": 0.7941,
+                  "structural_coverage": 1.0,
+                  "iou": 0.618,
+                  "spill_mm2": 4.45,
+                  "missing_mm2": 3.22,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 71,
+                  "trims": 4,
+                  "jumps": 4,
+                  "jump_length_mm": 8.4,
+                  "max_stitch_mm": 3.7,
+                  "short_stitches": 0,
+                  "cost": 0.213051
+                }
+              }
+            },
+            {
+              "component": 13,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.88,
+              "area_mm2": 51.08,
+              "mat_coverage": 0.8539,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 45.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8723,
+                  "structural_coverage": 0.9488,
+                  "iou": 0.7428,
+                  "spill_mm2": 8.91,
+                  "missing_mm2": 6.52,
+                  "uncovered_p95_mm": 0.339,
+                  "stitches": 173,
+                  "trims": 5,
+                  "jumps": 5,
+                  "jump_length_mm": 19.2,
+                  "max_stitch_mm": 3.04,
+                  "short_stitches": 0,
+                  "cost": 0.616773
+                },
+                "fill": {
+                  "coverage": 0.9033,
+                  "structural_coverage": 1.0,
+                  "iou": 0.716,
+                  "spill_mm2": 13.36,
+                  "missing_mm2": 4.94,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 192,
+                  "trims": 12,
+                  "jumps": 12,
+                  "jump_length_mm": 31.4,
+                  "max_stitch_mm": 3.96,
+                  "short_stitches": 0,
+                  "cost": 0.205927
+                }
+              }
+            },
+            {
+              "component": 14,
+              "method": "satin",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.65,
+              "area_mm2": 5.85,
+              "mat_coverage": 0.7402,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8382,
+                  "structural_coverage": 0.9902,
+                  "iou": 0.6923,
+                  "spill_mm2": 1.24,
+                  "missing_mm2": 0.95,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 19,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 1.2,
+                  "max_stitch_mm": 3.0,
+                  "short_stitches": 0,
+                  "cost": 0.234071
+                },
+                "fill": {
+                  "coverage": 0.7843,
+                  "structural_coverage": 1.0,
+                  "iou": 0.5479,
+                  "spill_mm2": 2.53,
+                  "missing_mm2": 1.26,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 27,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.7,
+                  "short_stitches": 0,
+                  "cost": 0.354669
+                }
+              }
+            },
+            {
+              "component": 15,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.58,
+              "area_mm2": 5.62,
+              "mat_coverage": 0.7514,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 30.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.7041,
+                  "structural_coverage": 0.9643,
+                  "iou": 0.6161,
+                  "spill_mm2": 0.8,
+                  "missing_mm2": 1.67,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 16,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.81,
+                  "short_stitches": 0,
+                  "cost": 0.421425
+                },
+                "fill": {
+                  "coverage": 0.7755,
+                  "structural_coverage": 1.0,
+                  "iou": 0.5714,
+                  "spill_mm2": 2.01,
+                  "missing_mm2": 1.26,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 25,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.56,
+                  "short_stitches": 0,
+                  "cost": 0.279813
+                }
+              }
+            },
+            {
+              "component": 16,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 3.39,
+              "area_mm2": 15.91,
+              "mat_coverage": 0.8706,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9116,
+                  "structural_coverage": 0.9874,
+                  "iou": 0.7571,
+                  "spill_mm2": 3.25,
+                  "missing_mm2": 1.41,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 51,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 3.68,
+                  "short_stitches": 0,
+                  "cost": 0.252422
+                },
+                "fill": {
+                  "coverage": 0.7762,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6268,
+                  "spill_mm2": 3.79,
+                  "missing_mm2": 3.56,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 58,
+                  "trims": 3,
+                  "jumps": 3,
+                  "jump_length_mm": 6.9,
+                  "max_stitch_mm": 3.6,
+                  "short_stitches": 0,
+                  "cost": 0.164385
+                }
+              }
+            },
+            {
+              "component": 17,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.73,
+              "area_mm2": 18.12,
+              "mat_coverage": 0.8471,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9081,
+                  "structural_coverage": 0.9778,
+                  "iou": 0.765,
+                  "spill_mm2": 3.39,
+                  "missing_mm2": 1.67,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 65,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 6.5,
+                  "max_stitch_mm": 2.97,
+                  "short_stitches": 0,
+                  "cost": 0.333224
+                },
+                "fill": {
+                  "coverage": 0.7781,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6084,
+                  "spill_mm2": 5.06,
+                  "missing_mm2": 4.02,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 68,
+                  "trims": 4,
+                  "jumps": 4,
+                  "jump_length_mm": 8.9,
+                  "max_stitch_mm": 3.8,
+                  "short_stitches": 0,
+                  "cost": 0.207397
+                }
+              }
+            },
+            {
+              "component": 18,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.73,
+              "area_mm2": 22.8,
+              "mat_coverage": 0.8723,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9295,
+                  "structural_coverage": 0.9861,
+                  "iou": 0.7918,
+                  "spill_mm2": 3.97,
+                  "missing_mm2": 1.61,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 75,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 7.6,
+                  "max_stitch_mm": 3.03,
+                  "short_stitches": 0,
+                  "cost": 0.237246
+                },
+                "fill": {
+                  "coverage": 0.8023,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6383,
+                  "spill_mm2": 5.86,
+                  "missing_mm2": 4.51,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 83,
+                  "trims": 6,
+                  "jumps": 6,
+                  "jump_length_mm": 21.4,
+                  "max_stitch_mm": 3.6,
+                  "short_stitches": 0,
+                  "cost": 0.189144
+                }
+              }
+            },
+            {
+              "component": 19,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.27,
+              "area_mm2": 4.41,
+              "mat_coverage": 0.7103,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 60.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8506,
+                  "structural_coverage": 0.974,
+                  "iou": 0.7043,
+                  "spill_mm2": 0.92,
+                  "missing_mm2": 0.66,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 20,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.63,
+                  "short_stitches": 0,
+                  "cost": 0.390597
+                },
+                "fill": {
+                  "coverage": 0.8766,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6,
+                  "spill_mm2": 2.04,
+                  "missing_mm2": 0.55,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 24,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.69,
+                  "short_stitches": 0,
+                  "cost": 0.384501
+                }
+              }
+            },
+            {
+              "component": 20,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 3.41,
+              "area_mm2": 26.11,
+              "mat_coverage": 0.8891,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 30.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9373,
+                  "structural_coverage": 0.9879,
+                  "iou": 0.8177,
+                  "spill_mm2": 3.82,
+                  "missing_mm2": 1.64,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 92,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 3.62,
+                  "short_stitches": 0,
+                  "cost": 0.189497
+                },
+                "fill": {
+                  "coverage": 0.7294,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6033,
+                  "spill_mm2": 5.46,
+                  "missing_mm2": 7.07,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 80,
+                  "trims": 4,
+                  "jumps": 4,
+                  "jump_length_mm": 15.9,
+                  "max_stitch_mm": 3.89,
+                  "short_stitches": 0,
+                  "cost": 0.137289
+                }
+              }
+            },
+            {
+              "component": 21,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 3.49,
+              "area_mm2": 52.86,
+              "mat_coverage": 0.8897,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 60.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.887,
+                  "structural_coverage": 0.9696,
+                  "iou": 0.7735,
+                  "spill_mm2": 7.76,
+                  "missing_mm2": 5.98,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 155,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 3.77,
+                  "short_stitches": 0,
+                  "cost": 0.373104
+                },
+                "fill": {
+                  "coverage": 0.8277,
+                  "structural_coverage": 1.0,
+                  "iou": 0.7144,
+                  "spill_mm2": 8.39,
+                  "missing_mm2": 9.11,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 149,
+                  "trims": 12,
+                  "jumps": 13,
+                  "jump_length_mm": 46.2,
+                  "max_stitch_mm": 3.67,
+                  "short_stitches": 0,
+                  "cost": 0.103009
+                }
+              }
+            },
+            {
+              "component": 22,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.73,
+              "area_mm2": 20.76,
+              "mat_coverage": 0.8477,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9115,
+                  "structural_coverage": 0.982,
+                  "iou": 0.7808,
+                  "spill_mm2": 3.48,
+                  "missing_mm2": 1.84,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 69,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 7.5,
+                  "max_stitch_mm": 3.01,
+                  "short_stitches": 0,
+                  "cost": 0.271743
+                },
+                "fill": {
+                  "coverage": 0.7621,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6015,
+                  "spill_mm2": 5.55,
+                  "missing_mm2": 4.94,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 73,
+                  "trims": 4,
+                  "jumps": 4,
+                  "jump_length_mm": 11.9,
+                  "max_stitch_mm": 3.9,
+                  "short_stitches": 0,
+                  "cost": 0.195447
+                }
+              }
+            },
+            {
+              "component": 23,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.8,
+              "area_mm2": 23.12,
+              "mat_coverage": 0.8639,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8261,
+                  "structural_coverage": 0.9789,
+                  "iou": 0.7015,
+                  "spill_mm2": 4.11,
+                  "missing_mm2": 4.02,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 75,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 8.4,
+                  "max_stitch_mm": 3.06,
+                  "short_stitches": 0,
+                  "cost": 0.312921
+                },
+                "fill": {
+                  "coverage": 0.7925,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6374,
+                  "spill_mm2": 5.63,
+                  "missing_mm2": 4.8,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 86,
+                  "trims": 7,
+                  "jumps": 7,
+                  "jump_length_mm": 23.3,
+                  "max_stitch_mm": 3.8,
+                  "short_stitches": 0,
+                  "cost": 0.177688
+                }
+              }
+            },
+            {
+              "component": 24,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.73,
+              "area_mm2": 26.6,
+              "mat_coverage": 0.8685,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9114,
+                  "structural_coverage": 0.9806,
+                  "iou": 0.7779,
+                  "spill_mm2": 4.57,
+                  "missing_mm2": 2.36,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 87,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 9.6,
+                  "max_stitch_mm": 2.97,
+                  "short_stitches": 0,
+                  "cost": 0.289999
+                },
+                "fill": {
+                  "coverage": 0.7667,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6362,
+                  "spill_mm2": 5.46,
+                  "missing_mm2": 6.21,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 84,
+                  "trims": 4,
+                  "jumps": 4,
+                  "jump_length_mm": 15.9,
+                  "max_stitch_mm": 3.6,
+                  "short_stitches": 0,
+                  "cost": 0.133455
+                }
+              }
+            },
+            {
+              "component": 25,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 3.49,
+              "area_mm2": 22.31,
+              "mat_coverage": 0.863,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9099,
+                  "structural_coverage": 0.9794,
+                  "iou": 0.7693,
+                  "spill_mm2": 4.08,
+                  "missing_mm2": 2.01,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 64,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 3.74,
+                  "short_stitches": 0,
+                  "cost": 0.310965
+                },
+                "fill": {
+                  "coverage": 0.7542,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6091,
+                  "spill_mm2": 5.32,
+                  "missing_mm2": 5.49,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 85,
+                  "trims": 6,
+                  "jumps": 6,
+                  "jump_length_mm": 16.2,
+                  "max_stitch_mm": 3.7,
+                  "short_stitches": 0,
+                  "cost": 0.170575
+                }
+              }
+            },
+            {
+              "component": 26,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.88,
+              "area_mm2": 18.03,
+              "mat_coverage": 0.8432,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 30.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8678,
+                  "structural_coverage": 0.9761,
+                  "iou": 0.7486,
+                  "spill_mm2": 2.87,
+                  "missing_mm2": 2.39,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 63,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 5.3,
+                  "max_stitch_mm": 3.09,
+                  "short_stitches": 0,
+                  "cost": 0.322279
+                },
+                "fill": {
+                  "coverage": 0.7213,
+                  "structural_coverage": 1.0,
+                  "iou": 0.5613,
+                  "spill_mm2": 5.14,
+                  "missing_mm2": 5.03,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 67,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 7.7,
+                  "max_stitch_mm": 3.09,
+                  "short_stitches": 0,
+                  "cost": 0.209167
+                }
+              }
+            },
+            {
+              "component": 27,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 4.32,
+              "area_mm2": 82.64,
+              "mat_coverage": 0.8968,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.92,
+                  "structural_coverage": 0.9739,
+                  "iou": 0.8129,
+                  "spill_mm2": 10.89,
+                  "missing_mm2": 6.61,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 246,
+                  "trims": 3,
+                  "jumps": 3,
+                  "jump_length_mm": 11.5,
+                  "max_stitch_mm": 3.84,
+                  "short_stitches": 0,
+                  "cost": 0.319275
+                },
+                "fill": {
+                  "coverage": 0.7754,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6631,
+                  "spill_mm2": 14.0,
+                  "missing_mm2": 18.56,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 231,
+                  "trims": 13,
+                  "jumps": 14,
+                  "jump_length_mm": 56.8,
+                  "max_stitch_mm": 3.9,
+                  "short_stitches": 0,
+                  "cost": 0.11588
+                }
+              }
+            },
+            {
+              "component": 28,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.8,
+              "area_mm2": 51.43,
+              "mat_coverage": 0.8616,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8659,
+                  "structural_coverage": 0.9648,
+                  "iou": 0.751,
+                  "spill_mm2": 7.87,
+                  "missing_mm2": 6.9,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 162,
+                  "trims": 3,
+                  "jumps": 3,
+                  "jump_length_mm": 12.1,
+                  "max_stitch_mm": 3.03,
+                  "short_stitches": 0,
+                  "cost": 0.431358
+                },
+                "fill": {
+                  "coverage": 0.7598,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6002,
+                  "spill_mm2": 13.68,
+                  "missing_mm2": 12.36,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 188,
+                  "trims": 8,
+                  "jumps": 8,
+                  "jump_length_mm": 29.0,
+                  "max_stitch_mm": 3.8,
+                  "short_stitches": 0,
+                  "cost": 0.202387
+                }
+              }
+            },
+            {
+              "component": 29,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.58,
+              "area_mm2": 5.59,
+              "mat_coverage": 0.769,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8154,
+                  "structural_coverage": 0.959,
+                  "iou": 0.6709,
+                  "spill_mm2": 1.21,
+                  "missing_mm2": 1.03,
+                  "uncovered_p95_mm": 0.24,
+                  "stitches": 16,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 2.84,
+                  "short_stitches": 0,
+                  "cost": 0.548509
+                },
+                "fill": {
+                  "coverage": 0.7692,
+                  "structural_coverage": 1.0,
+                  "iou": 0.5245,
+                  "spill_mm2": 2.62,
+                  "missing_mm2": 1.29,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 27,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 3.0,
+                  "short_stitches": 0,
+                  "cost": 0.390789
+                }
+              }
+            },
+            {
+              "component": 30,
+              "method": "satin",
+              "reason": "paired_rails",
+              "width_mm": 4.55,
+              "area_mm2": 16.8,
+              "mat_coverage": 0.9278,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": null,
+              "candidates": {}
+            },
+            {
+              "component": 31,
+              "method": "satin",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.65,
+              "area_mm2": 5.85,
+              "mat_coverage": 0.7402,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 60.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.8235,
+                  "structural_coverage": 0.9853,
+                  "iou": 0.6942,
+                  "spill_mm2": 1.09,
+                  "missing_mm2": 1.03,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 16,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 3.0,
+                  "short_stitches": 0,
+                  "cost": 0.255416
+                },
+                "fill": {
+                  "coverage": 0.8382,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6241,
+                  "spill_mm2": 2.01,
+                  "missing_mm2": 0.95,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 25,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 3.0,
+                  "short_stitches": 0,
+                  "cost": 0.265748
+                }
+              }
+            },
+            {
+              "component": 32,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.8,
+              "area_mm2": 23.09,
+              "mat_coverage": 0.8565,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 0.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9104,
+                  "structural_coverage": 0.9789,
+                  "iou": 0.7746,
+                  "spill_mm2": 4.05,
+                  "missing_mm2": 2.07,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 87,
+                  "trims": 3,
+                  "jumps": 3,
+                  "jump_length_mm": 15.7,
+                  "max_stitch_mm": 3.01,
+                  "short_stitches": 0,
+                  "cost": 0.312568
+                },
+                "fill": {
+                  "coverage": 0.755,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6125,
+                  "spill_mm2": 5.37,
+                  "missing_mm2": 5.66,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 81,
+                  "trims": 4,
+                  "jumps": 4,
+                  "jump_length_mm": 14.8,
+                  "max_stitch_mm": 3.7,
+                  "short_stitches": 0,
+                  "cost": 0.160721
+                }
+              }
+            },
+            {
+              "component": 33,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 2.88,
+              "area_mm2": 15.68,
+              "mat_coverage": 0.8374,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 60.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9084,
+                  "structural_coverage": 0.9799,
+                  "iou": 0.7774,
+                  "spill_mm2": 2.64,
+                  "missing_mm2": 1.44,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 54,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 4.6,
+                  "max_stitch_mm": 3.0,
+                  "short_stitches": 0,
+                  "cost": 0.293513
+                },
+                "fill": {
+                  "coverage": 0.8022,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6152,
+                  "spill_mm2": 4.77,
+                  "missing_mm2": 3.1,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 59,
+                  "trims": 2,
+                  "jumps": 2,
+                  "jump_length_mm": 7.1,
+                  "max_stitch_mm": 3.45,
+                  "short_stitches": 0,
+                  "cost": 0.228395
+                }
+              }
+            },
+            {
+              "component": 34,
+              "method": "fill",
+              "reason": "sampled_stitch_quality",
+              "width_mm": 3.36,
+              "area_mm2": 15.82,
+              "mat_coverage": 0.8478,
+              "broad_fraction": 0.0,
+              "fill_angle_deg": 90.0,
+              "candidates": {
+                "satin": {
+                  "coverage": 0.9274,
+                  "structural_coverage": 0.9909,
+                  "iou": 0.7802,
+                  "spill_mm2": 2.99,
+                  "missing_mm2": 1.15,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 47,
+                  "trims": 1,
+                  "jumps": 1,
+                  "jump_length_mm": 0.0,
+                  "max_stitch_mm": 3.69,
+                  "short_stitches": 0,
+                  "cost": 0.202093
+                },
+                "fill": {
+                  "coverage": 0.7695,
+                  "structural_coverage": 1.0,
+                  "iou": 0.6101,
+                  "spill_mm2": 4.14,
+                  "missing_mm2": 3.65,
+                  "uncovered_p95_mm": 0.17,
+                  "stitches": 77,
+                  "trims": 5,
+                  "jumps": 5,
+                  "jump_length_mm": 12.4,
+                  "max_stitch_mm": 3.6,
+                  "short_stitches": 0,
+                  "cost": 0.191845
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source_preview": "shapes/source.png",
+      "rails_coverage": 0.8888
+    }
+  ]
+}

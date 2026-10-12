@@ -1,32 +1,42 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "embroidery-rungs"
-version = "0.1.0"
-description = "Automatic rung placement for embroidery satins using the Medial Axis Transform"
+version = "0.3.0"
+description = "SVG medial-axis digitizing with editable rails and direct PES/DST stitches"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
-    "numpy",
-    "scipy",
-    "scikit-image",
-    "pillow",
-    "svgelements",
-    "networkx",
+    "numpy>=1.26,<3",
+    "scipy>=1.11,<2",
+    "scikit-image>=0.25,<0.27",
+    "pillow>=10,<13",
+    "svgelements>=1.9.6,<2",
+    "resvg-py>=0.5,<0.6",
+    "defusedxml>=0.7,<1",
+    "shapely>=2,<3",
+    "pyembroidery>=1.5.1,<2",
 ]
 
 [project.optional-dependencies]
-web = [
-    "flask>=2.3",
-]
-dev = [
-    "pytest>=7",
-]
+web = ["flask>=3.1,<4", "waitress>=3,<4"]
+dev = ["pytest>=8,<10", "ruff>=0.9,<1", "build>=1,<2"]
 
 [project.scripts]
 embroidery-rungs = "embroidery_rungs.cli:main"
+embroidery-rungs-web = "embroidery_rungs.web.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]

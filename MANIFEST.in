@@ -1,0 +1,13 @@
+include .mise.toml .envrc uv.lock
+include package.json pnpm-workspace.yaml pnpm-lock.yaml
+recursive-include examples *.svg
+recursive-include tests *.py
+recursive-include scripts *.py *.sh *.mjs
+recursive-include docs *.md *.json
+recursive-include notebooks *.ipynb
+graft frontend
+prune frontend/node_modules
+prune frontend/.next
+exclude frontend/.env*.local
+exclude frontend/next-env.d.ts
+global-exclude *.tsbuildinfo

@@ -8,8 +8,10 @@ practice. The result is the same columns, reordered and individually reversed
 so the design stitches with the shortest possible travel.
 """
 
-import math
 import logging
+import math
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,9 @@ def _dist(p, q):
 
 def _endpoints(element):
     """Entry/exit points of an element: (start, end) in image coords."""
+    if element["type"] == "fill":
+        point = element["polygon"].representative_point().coords[0]
+        return point, point
     if element["type"] == "running":
         pts = element["points"]
         return pts[0], pts[-1]
@@ -37,12 +42,14 @@ def _total_travel(seq):
 def _nearest_neighbour(ends):
     """Greedy chain. ``ends[i] = (start, end)``. Returns a sequence of dicts."""
     n = len(ends)
-    visited = [False] * n
+    visited = np.zeros(n, dtype=bool)
+    coordinates = np.asarray(ends, dtype=float)
 
     # Start from the top-left-most endpoint (a natural origin for embroidery).
     start_col, start_end = min(
         ((i, k) for i in range(n) for k in (0, 1)),
-        key=lambda t: ends[t[0]][t[1]][0] + ends[t[0]][t[1]][1])
+        key=lambda t: ends[t[0]][t[1]][0] + ends[t[0]][t[1]][1],
+    )
 
     seq = []
 
@@ -54,19 +61,14 @@ def _nearest_neighbour(ends):
 
     current = visit(start_col, start_end)
     for _ in range(n - 1):
-        best_i, best_k, best_d = -1, 0, math.inf
-        for i in range(n):
-            if visited[i]:
-                continue
-            for k in (0, 1):
-                d = _dist(current, ends[i][k])
-                if d < best_d:
-                    best_i, best_k, best_d = i, k, d
+        distances = np.sum((coordinates - current) ** 2, axis=2)
+        distances[visited] = np.inf
+        best_i, best_k = np.unravel_index(np.argmin(distances), distances.shape)
         current = visit(best_i, best_k)
     return seq
 
 
-def _two_opt(seq, max_passes=20):
+def _two_opt(seq, max_passes=4):
     """Improve the chain in place. Reversing a sub-path flips each column's
     direction; internal jumps are preserved, so only the two boundary jumps of
     a reversed segment change (cheap delta)."""
@@ -74,17 +76,17 @@ def _two_opt(seq, max_passes=20):
     for _ in range(max_passes):
         improved = False
         for i in range(n - 1):
-            for j in range(i + 1, n):
-                old = (_dist(seq[i - 1]["exit"], seq[i]["enter"]) if i > 0 else 0.0)
-                old += (_dist(seq[j]["exit"], seq[j + 1]["enter"]) if j < n - 1 else 0.0)
-                new = (_dist(seq[i - 1]["exit"], seq[j]["exit"]) if i > 0 else 0.0)
-                new += (_dist(seq[i]["enter"], seq[j + 1]["enter"]) if j < n - 1 else 0.0)
+            for j in range(i + 1, min(n, i + 65)):
+                old = _dist(seq[i - 1]["exit"], seq[i]["enter"]) if i > 0 else 0.0
+                old += _dist(seq[j]["exit"], seq[j + 1]["enter"]) if j < n - 1 else 0.0
+                new = _dist(seq[i - 1]["exit"], seq[j]["exit"]) if i > 0 else 0.0
+                new += _dist(seq[i]["enter"], seq[j + 1]["enter"]) if j < n - 1 else 0.0
                 if new + 1e-9 < old:
-                    segment = seq[i:j + 1][::-1]
+                    segment = seq[i : j + 1][::-1]
                     for e in segment:
                         e["rev"] = not e["rev"]
                         e["enter"], e["exit"] = e["exit"], e["enter"]
-                    seq[i:j + 1] = segment
+                    seq[i : j + 1] = segment
                     improved = True
         if not improved:
             break
@@ -92,14 +94,18 @@ def _two_opt(seq, max_passes=20):
 
 
 def _reversed_element(el):
+    if el["type"] == "fill":
+        return el
     if el["type"] == "running":
-        return {"type": "running", "points": el["points"][::-1]}
-    return {
-        "type": "satin",
+        return {**el, **{key: el[key][::-1] for key in ("points", "rail_a", "rail_b") if key in el}}
+    reversed_element = {
+        **el,
         "rail_a": el["rail_a"][::-1],
         "rail_b": el["rail_b"][::-1],
-        "rungs": list(reversed(el["rungs"])),
     }
+    if "rungs" in el:
+        reversed_element["rungs"] = list(reversed(el["rungs"]))
+    return reversed_element
 
 
 def route_columns(elements):
@@ -115,9 +121,12 @@ def route_columns(elements):
     seq = _nearest_neighbour(ends)
     _two_opt(seq)
     after = _total_travel(seq)
+    if after > baseline + 1e-9:
+        return elements
     pct = 100 * (baseline - after) / baseline if baseline > 1e-6 else 0.0
-    logger.info(f"Routed {len(elements)} elements: "
-                f"travel {baseline:.0f}px -> {after:.0f}px (-{pct:.0f}%)")
+    logger.info(
+        f"Routed {len(elements)} elements: travel {baseline:.0f}px -> {after:.0f}px (-{pct:.0f}%)"
+    )
 
     ordered = []
     for e in seq:
