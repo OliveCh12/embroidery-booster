@@ -170,16 +170,39 @@ def digitize(svg: SVGDocument, params: StitchParams) -> tuple[StitchPlan, list[d
         plan.decisions = decisions
         omitted = sum(d["method"] == "omitted" for d in decisions)
         plan.stats["omitted_regions"] += omitted
-        if omitted:
+        rejected_geometry = sum(
+            d["method"] == "omitted" and d["reason"] == "machine_geometry_rejected"
+            for d in decisions
+        )
+        if rejected_geometry:
             plan.warnings.append(
-                f"{omitted} details are below machine resolution and were omitted; enlarge the design."
+                f"{rejected_geometry} details failed safe geometry validation on the machine grid and were omitted; inspect the preview or simplify their sharp corners."
+            )
+        if omitted > rejected_geometry:
+            plan.warnings.append(
+                f"{omitted - rejected_geometry} details are below machine resolution and were omitted; enlarge the design."
             )
         plan.stats["crowded_satin_penetrations"] = satin_crowding(plan, params.min_stitch_mm)
         metrics, _ = measure_plan(plan, mask, scale, [transform.e, transform.f])
-        if coverage_needs_review(metrics):
-            plan.warnings.append(
-                f"Top-layer coverage is {metrics['structural_coverage']:.2%}; largest unfilled area {metrics['largest_gap_mm2']:g} mm², maximum distance from thread {metrics['uncovered_max_mm']:g} mm. Enlarge fine details or inspect before sewing."
+        if params.stitch_type == "satin" and (
+            coverage_needs_review(metrics)
+            or plan.stats["unsafe_connections"]
+            or plan.stats["crowded_satin_penetrations"]
+            or plan.stats["omitted_regions"]
+            or plan.stats["short_stitches"]
+        ):
+            raise ValueError(
+                f"Satin requested, but colour {color} fails complete safe coverage or regularity in the final machine plan. Use automatic or fill stitching, or simplify the shape."
             )
+        if coverage_needs_review(metrics):
+            if params.stitch_type == "running":
+                plan.warnings.append(
+                    f"Running stitches reproduce contours/centerlines rather than solid fill; solid artwork coverage is {metrics['structural_coverage']:.2%}. Inspect the intended outlines before sewing."
+                )
+            else:
+                plan.warnings.append(
+                    f"Top-layer coverage is {metrics['structural_coverage']:.2%}; largest unfilled area {metrics['largest_gap_mm2']:g} mm², maximum distance from thread {metrics['uncovered_max_mm']:g} mm. Enlarge fine details or inspect before sewing."
+                )
         for decision in decisions:
             decision["coverage_basis"] = "quantized_top_layer"
         diagnostics.append({"color": color, "area_pixels": int(mask.sum()), **metrics})
@@ -230,6 +253,12 @@ def digitize(svg: SVGDocument, params: StitchParams) -> tuple[StitchPlan, list[d
     result.adjustments = adjustments
     result.analysis = {
         **analysis,
+        "requested_stitch_type": params.stitch_type,
+        "strategy_policy": "coherent_color_fill"
+        if any(d.get("strategy_scope") == "color" for d in result.decisions)
+        else "geometry_per_region"
+        if params.stitch_type == "auto"
+        else "explicit_uniform",
         "strategy_counts": {
             method: sum(d["method"] == method for d in result.decisions)
             for method in ("satin", "fill", "running", "omitted")
@@ -239,9 +268,14 @@ def digitize(svg: SVGDocument, params: StitchParams) -> tuple[StitchPlan, list[d
         or result.stats["unsafe_connections"]
         or result.stats["short_stitches"]
         or result.stats["crowded_satin_penetrations"]
+        or analysis["micro_region_count"] >= 50
         or any(coverage_needs_review(d) for d in diagnostics)
         else "geometric_checks_passed",
     }
+    if analysis["micro_region_count"] >= 50:
+        result.warnings.append(
+            f"Artwork contains {analysis['micro_region_count']} disconnected colour islands smaller than 0.15 mm² ({analysis['micro_region_area_mm2']:g} mm² total). These may produce excessive tiny runs and jumps; inspect image noise and colour boundaries."
+        )
     if reduced:
         result.warnings.append(
             f"Artwork gradients/colours were quantized to {len(colors)} thread colours; inspect the interpreted palette."

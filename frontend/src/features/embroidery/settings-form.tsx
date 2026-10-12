@@ -4,7 +4,7 @@ import { Accordion, Button, Card, Form, Separator, Spinner } from "@heroui/react
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { ChoiceSetting, NumberSetting, ToggleSetting } from "./controls";
-import { applyMachineProfile, applyMaterialPreset } from "./settings";
+import { applyMachineProfile, applyMaterialPreset, BACKGROUND_MODE_OPTIONS, STITCH_TYPE_OPTIONS } from "./settings";
 import type { Capabilities, GenerationSettings } from "./types";
 
 function AdvancedSection({ title, children }: { title: string; children: ReactNode }) {
@@ -58,6 +58,9 @@ export function SettingsForm({ settings: s, onChange, capabilities, busy, canGen
               { value: "unspecified", label: "À préciser" }, { value: "cutaway", label: "À découper" }, { value: "tearaway", label: "À déchirer" }, { value: "washaway", label: "Hydrosoluble" },
             ]} />
           </div>
+          <ChoiceSetting label="Type de points" value={s.stitch_type} onChange={value => update("stitch_type", value)} disabled={busy} options={STITCH_TYPE_OPTIONS} />
+          {s.stitch_type === "satin" && <p className="text-xs leading-relaxed text-muted">Le satin forcé est refusé si la forme ne permet pas un satin régulier dans les limites de la machine. Choisissez Auto ou Tatami pour les zones larges ou complexes.</p>}
+          {s.stitch_type === "running" && <p className="text-xs leading-relaxed text-muted">Le point droit suit les lignes fines ; il ne couvre pas une surface comme le satin ou le tatami.</p>}
           <ToggleSetting label="Ajustement automatique" value={s.auto_adjust} onChange={value => update("auto_adjust", value)} disabled={busy} />
           <p className="text-xs leading-relaxed text-muted">Le dessin et le tissu guident densité, compensation et sous-couche. Les réglages appliqués sont indiqués après génération. Désactivez l’ajustement pour régler les points manuellement.</p>
           <Accordion className="w-full">
@@ -75,11 +78,13 @@ export function SettingsForm({ settings: s, onChange, capabilities, busy, canGen
               {!s.auto_fill_angle && <NumberSetting label="Angle fill (°)" value={s.fill_angle} onChange={value => update("fill_angle", value ?? NaN)} min={-180} max={180} step={5} disabled={busy} />}
             </AdvancedSection>
             <AdvancedSection title="Interprétation de l’image">
+              <ChoiceSetting label="Fond du dessin" value={s.background_mode} onChange={value => update("background_mode", value)} disabled={busy} options={BACKGROUND_MODE_OPTIONS} />
+              <ToggleSetting label="Réduire les parasites" value={s.raster_cleanup} onChange={value => update("raster_cleanup", value)} disabled={busy} />
               <ToggleSetting label="Conserver les couleurs" value={s.preserve_colors} onChange={value => update("preserve_colors", value)} disabled={busy} />
               {s.preserve_colors && <NumberSetting label="Couleurs maximum" value={s.max_colors} onChange={value => update("max_colors", value ?? NaN)} min={1} max={32} disabled={busy} />}
               <NumberSetting label="Seuil noir / blanc" value={s.raster_threshold} onChange={value => update("raster_threshold", value)} min={0} max={255} optional disabled={busy} />
               <ToggleSetting label="Inverser clair / foncé" value={s.raster_invert} onChange={value => update("raster_invert", value)} disabled={busy} />
-              <p className="text-xs leading-relaxed text-muted">Les couleurs visibles sont conservées et le fond uniforme d’une image est retiré. Un seuil manuel produit une silhouette monochrome. Vérifiez le dessin interprété.</p>
+              <p className="text-xs leading-relaxed text-muted">Auto retire un fond uniforme reconnu. Conserver garde les aplats de fond ; Supprimer demande leur retrait. Un seuil manuel produit une silhouette monochrome. Vérifiez le dessin interprété.</p>
             </AdvancedSection>
           </Accordion>
         </Card.Content>

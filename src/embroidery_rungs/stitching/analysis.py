@@ -69,12 +69,16 @@ def analyze_regions(labels, pixels_per_mm, params, *, palette_reduced=False):
     )
     colors = np.unique(labels[labels > 0])
     regions, holes, fine_pixels, boundary = 0, 0, 0, 0.0
+    micro_regions, micro_pixels = 0, 0
     background_structure = np.ones((3, 3), dtype=bool)
     for color in colors:
         mask = labels == color
         components, count = label(mask)
         regions += count
         areas = np.bincount(components.ravel())[1:]
+        micro = areas / pixels_per_mm**2 < 0.15
+        micro_regions += int(micro.sum())
+        micro_pixels += int(areas[micro].sum())
         widths = 2 * maximum(distance_transform_edt(mask), components, np.arange(1, count + 1))
         fine_pixels += int(areas[widths / pixels_per_mm < minimum_width].sum())
         holes += label(
@@ -99,5 +103,7 @@ def analyze_regions(labels, pixels_per_mm, params, *, palette_reduced=False):
         "area_mm2": round(pixels / pixels_per_mm**2, 2),
         "boundary_length_mm": round(boundary, 2),
         "fine_region_area_ratio": round(fine_pixels / pixels, 4),
+        "micro_region_count": micro_regions,
+        "micro_region_area_mm2": round(micro_pixels / pixels_per_mm**2, 2),
         "palette_reduced": bool(palette_reduced),
     }

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
-import { pointAt, viewport, type StitchPlan } from "./model";
+import { pointAt, STITCH_PHASE, viewport, type StitchPlan } from "./model";
 
 interface CanvasOptions { dark: boolean; underlay: boolean; travel: boolean }
 
@@ -81,15 +81,17 @@ class StitchRenderer {
     for (let index = this.cursor; index < end; index++) {
       const sewn = plan.codes[index] === plan.command.stitch && index > 0 && plan.codes[index - 1] === plan.command.stitch;
       const jump = this.options.travel && plan.codes[index] === plan.command.jump && index > 0;
-      if (!sewn && !jump || sewn && plan.underlay[index] && !this.options.underlay) continue;
-      const underlay = sewn && plan.underlay[index] === 1;
-      const nextStyle = jump ? "jump" : underlay ? "underlay" : plan.threads[plan.colors[index]];
+      const underlay = sewn && plan.phases[index] === STITCH_PHASE.underlay;
+      const travel = sewn && plan.phases[index] === STITCH_PHASE.travel;
+      const lock = sewn && plan.phases[index] === STITCH_PHASE.lock;
+      if (!sewn && !jump || underlay && !this.options.underlay || (travel || lock) && !this.options.travel) continue;
+      const nextStyle = jump ? "jump" : underlay ? "underlay" : travel ? "travel" : lock ? "lock" : plan.threads[plan.colors[index]];
       if (nextStyle !== style) {
         if (drawing) ctx.stroke();
         style = nextStyle; drawing = true;
         ctx.beginPath(); ctx.setLineDash(jump ? [3, 4] : []);
-        ctx.strokeStyle = jump ? (this.options.dark ? "#e4e8f0" : "#56647a") : underlay ? "#8c8c8c" : nextStyle;
-        ctx.lineWidth = jump ? 0.7 : underlay ? Math.max(0.5, 0.15 * this.transform.scale) : Math.max(0.65, 0.3 * this.transform.scale);
+        ctx.strokeStyle = jump || travel ? "#c98316" : lock ? "#7860c1" : underlay ? "#8c8c8c" : nextStyle;
+        ctx.lineWidth = jump ? 0.7 : underlay || travel || lock ? Math.max(0.5, 0.15 * this.transform.scale) : Math.max(0.65, 0.3 * this.transform.scale);
         ctx.lineCap = "round"; ctx.lineJoin = "round";
       }
       ctx.moveTo(this.x(plan.points[(index - 1) * 2]), this.y(plan.points[(index - 1) * 2 + 1]));
@@ -104,6 +106,7 @@ class StitchRenderer {
   private drawNeedle() {
     const ctx = this.overlay;
     ctx.clearRect(0, 0, this.width, this.height);
+    if (this.cursor === this.plan.count) return;
     const firstIndex = this.plan.codes.indexOf(this.plan.command.stitch);
     if (firstIndex >= 0) {
       ctx.strokeStyle = "#147d52"; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.beginPath();

@@ -22,7 +22,10 @@ Bitmap tracing precedes this step. Explicit alpha takes priority; a sufficiently
 uniform opaque perimeter background can be removed. The first GIF/TIFF frame is
 used. Cropping and contour simplification have physical bounds. The interpreted
 SVG is exported for inspection, since background removal and palette reduction
-can change the intended artwork.
+can change the intended artwork. [Input interpretation](INPUT_INTERPRETATION.md)
+documents Auto/Keep/Remove, preservation of enclosed white paint, compressed-flat
+palette recovery and the optional 0.10 mm² adjacent-speckle cleanup. Background
+removal floods only from the border, rather than globally erasing a colour.
 
 ## Predictable region decisions
 
@@ -42,7 +45,8 @@ outlines and actual coverage audits. Detected design symmetry provides an
 alignment cue; it does not impose reflection symmetry on asymmetric artwork
 such as the Union Jack, whose relevant symmetry is a half turn.
 
-The top strategy is coherent per connected colour region:
+`StitchParams.stitch_type` selects `auto` (default), `satin`, `fill` or `running`.
+The automatic top strategy is coherent per connected colour region:
 
 - **Running:** fine details below the useful satin width, only when the actual
   sewn path retains structural coverage. The starting width threshold is
@@ -59,6 +63,18 @@ candidate fails after machine rounding. Automatic fill direction uses filled
 area moments, including holes, rounded to 15° bands. Near-round shapes retain
 the configured direction in their canonical frame. An explicit fill angle stays
 in the global design frame and can override automatic angles.
+
+If fill occupies at least 70% of a colour's substantive area (regions ≥4 mm²),
+compact solid satin companions ≥4 mm² and area/width² <3 also receive fill.
+Columns, curved lettering, counters and tiny regions keep their geometric
+choice. Substantive fill cohorts share the colour's direction in their canonical
+frames; small fill details retain their own geometry-derived direction.
+
+Explicit **Satin** requires safe satin throughout and fails on inadequate
+coverage, crowding, missing regions or excessive width. Explicit **Fill** uses
+tatami on every sewable region without a medial-axis pass. Explicit **Running**
+uses broad contours or fine centre lines and reports solid coverage honestly.
+Material auto-adjustment and stitch-type selection are independent controls.
 
 ## Bounded material adjustments
 
@@ -115,6 +131,12 @@ its dimensions. Explicit needle-up jumps, trims, locks, colour changes and END
 commands are encoded by pyembroidery into PES v6 and extended DST without writer
 resampling. Empty or unsewable designs fail clearly.
 
+Locks are verified after their own machine rounding. On a fine stepped edge,
+a short already-audited segment can replace an unsafe rounded anchor; an anchor
+is never added outside the region to secure a thread. Geometric candidate errors
+can trigger a cohort fallback or an explicitly diagnosed omission, while budget,
+hoop and invalid-input errors remain fatal.
+
 Tiny compact details may receive at most 0.08 mm extension per endpoint to keep
 a legal sewn segment. The adjustment is reported. Details or entire colours
 that remain unsewable are marked omitted and remain part of the coverage audit.
@@ -126,6 +148,12 @@ separate satin/fill/running from underlay and travel. Playback follows the
 commands; its duration counts needle cycles only. The Skitch profile uses
 [Brother's 400 SPM and 100 × 100 mm specifications](https://www.brother-usa.com/p/sewing-embroidery/PP1).
 The generic profile's 400 SPM is an explicit simulation assumption.
+
+Travel and locks have their own command ranges. `analysis.stitch_breakdown`
+counts top, underlay, sewn travel, lock and initial-entry penetrations exactly
+once; the context node at each run's start is not another stitch. Underlay is
+grey in playback, connections amber and locks violet; preview toggles do not
+alter machine commands.
 
 ## Quality evidence and limitations
 

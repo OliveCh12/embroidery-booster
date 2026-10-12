@@ -9,13 +9,14 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 from scipy.ndimage import distance_transform_edt
 from shapely.geometry import Polygon
+from shapely.ops import unary_union
 from svgelements import Matrix
 
 from ..image_processor import compute_medial_axis
 from ..svg_manager import UNITS_PER_MM
 from .params import StitchParams
-from .planner import UnstitchableRegion, build_stitch_plan
-from .quality import measure_plan, satin_crowding
+from .planner import CandidateGeometryError, UnstitchableRegion, build_stitch_plan
+from .quality import coverage_needs_review, measure_plan, satin_crowding
 from .rails import generate_columns
 from .regions import Region, canonical_regions, physical_elements, route_region_groups
 from .selection import _fill_angle, fill_elements, mask_polygons, select_stitch_types
@@ -29,6 +30,56 @@ class RegionCandidate:
     polygons: list[Polygon]
     params: StitchParams
     metrics: dict = field(default_factory=dict)
+
+
+def _color_policy(groups, params):
+    policies = {}
+    for group, members in groups.items():
+        methods = {m.decision["method"] for m in members}
+        policies[group] = (
+            next(iter(methods))
+            if len(methods) == 1
+            else ("omitted" if params.stitch_type == "running" else "fill")
+        )
+        if (
+            params.stitch_type == "auto"
+            and policies[group] == "satin"
+            and len({len(m.elements) for m in members}) > 1
+        ):
+            policies[group] = "fill"
+    if params.stitch_type != "auto":
+        return policies, None, set()
+    substantive = [
+        (group, member, sum(p.area for p in member.polygons))
+        for group, members in groups.items()
+        for member in members
+        if sum(p.area for p in member.polygons) >= 4 and policies[group] != "omitted"
+    ]
+    total = sum(area for _, _, area in substantive)
+    fill_area = sum(area for group, _, area in substantive if policies[group] == "fill")
+    if not total or fill_area < 0.7 * total:
+        return policies, None, set()
+    converted = set()
+    for group, members in groups.items():
+        # Filled bodies benefit from a common face texture, but this must not
+        # replace useful satin lettering/borders or small intact details.
+        if policies[group] == "satin" and all(
+            sum(p.area for p in m.polygons) >= 4
+            and not any(p.interiors for p in m.polygons)
+            and sum(p.area for p in m.polygons) / max(m.decision["width_mm"] ** 2, 1e-6) < 3
+            for m in members
+        ):
+            policies[group] = "fill"
+            converted.add(group)
+    geometry = unary_union(
+        [
+            member.region.frame.geometry_to_world(polygon)
+            for _, member, _ in substantive
+            for polygon in member.polygons
+        ]
+    )
+    angle = _fill_angle(geometry, params) if params.auto_fill_angle else None
+    return policies, angle, converted
 
 
 def _assign_policy(members, method, params, angle, finish_inset):
@@ -114,16 +165,16 @@ def _audit_members(members, method, params, origin, transform, scale):
             metrics["crowded_satin_penetrations"] = crowding
             metrics["underlay_stitches"] = candidate.stats["underlay_stitches"]
             member.metrics = metrics
-            passed &= (
-                metrics["structural_coverage"] >= 0.999
-                and metrics["largest_gap_mm2"] <= 0.05
-                and (
-                    method != "satin"
-                    or (crowding == 0 and candidate.stats["unsafe_connections"] == 0)
-                )
+            passed &= not coverage_needs_review(metrics) and (
+                method != "satin" or (crowding == 0 and candidate.stats["unsafe_connections"] == 0)
             )
-        except UnstitchableRegion as exc:
-            member.metrics = {"error": str(exc)}
+        except (UnstitchableRegion, CandidateGeometryError) as exc:
+            member.metrics = {
+                "error": str(exc),
+                "failure": "machine_geometry"
+                if isinstance(exc, CandidateGeometryError)
+                else "machine_resolution",
+            }
             passed = False
     return passed
 
@@ -155,7 +206,13 @@ def select_consistent_regions(mask, transform, params: StitchParams, origin, sym
         # satin gate and cohort consensus rather than treating edge noise as proof.
         broad = diameter > safe_width + 2 / scale
         elements = []
-        if not broad:
+        minimum_width = max(
+            2 * params.min_stitch_mm, {30: 0.75, 40: 0.6, 60: 0.45}[params.thread_weight]
+        )
+        needs_mat = (params.stitch_type in ("auto", "satin") and not broad) or (
+            params.stitch_type == "running" and diameter < minimum_width
+        )
+        if needs_mat:
             skeleton, distance = compute_medial_axis(local_mask)
             elements = generate_columns(
                 skeleton,
@@ -172,8 +229,8 @@ def select_consistent_regions(mask, transform, params: StitchParams, origin, sym
             origin_mm=local_origin,
         )
         if decisions:
-            decisions[0]["mat_evaluated"] = not broad
-            if broad:
+            decisions[0]["mat_evaluated"] = needs_mat
+            if broad and params.stitch_type in ("auto", "satin"):
                 decisions[0]["reason"] = "exceeds_safe_satin_width"
             groups[region.group].append(
                 RegionCandidate(
@@ -186,26 +243,38 @@ def select_consistent_regions(mask, transform, params: StitchParams, origin, sym
             )
 
     selected_groups, decisions = [], []
+    policies, color_angle, converted = _color_policy(groups, params)
     for group, members in groups.items():
-        methods = {m.decision["method"] for m in members}
-        method = next(iter(methods)) if len(methods) == 1 else "fill"
-        if method == "satin" and len({len(m.elements) for m in members}) > 1:
-            method = "fill"
+        method = policies[group]
         representative = next((m for m in members if m.decision["method"] == "fill"), members[0])
         angle = _fill_angle(representative.polygons[0], representative.params)
+        color_texture = (
+            method == "fill"
+            and color_angle is not None
+            and all(sum(p.area for p in m.polygons) >= 4 for m in members)
+        )
+        if color_texture:
+            # A cohort shares its canonical direction, so mirrored/rotated
+            # counterparts still follow the same policy in their own frame.
+            angle = representative.region.frame.angle_to_local(color_angle)
         finish_inset = min(
             (e.get("finish_inset", 0.12) for m in members for e in m.elements), default=0.12
         )
         profile = _assign_policy(members, method, params, angle, finish_inset)
-        if not _audit_members(members, method, params, origin, transform, scale) and method in (
-            "satin",
-            "running",
-        ):
+        passed = _audit_members(members, method, params, origin, transform, scale)
+        if not passed and params.stitch_type == "satin":
+            raise ValueError(
+                f"Satin requested, but component {members[0].region.component} fails safe coverage or regularity on the machine grid. Use automatic or fill stitching, or simplify the shape."
+            )
+        if not passed and params.stitch_type == "auto" and method in ("satin", "running"):
             # Grid phase can expose a crowded satin fan on only one counterpart.
             # Retain the strict gate; switch the whole cohort to the safer style.
             method = "fill"
             profile = _assign_policy(members, method, params, angle, finish_inset)
             _audit_members(members, method, params, origin, transform, scale)
+        if method == "running" and any("error" in m.metrics for m in members):
+            method = "omitted"
+            profile = _assign_policy(members, method, params, angle, finish_inset)
         if method == "fill":
             if any("error" in m.metrics for m in members):
                 method = "omitted"
@@ -234,9 +303,15 @@ def select_consistent_regions(mask, transform, params: StitchParams, origin, sym
                     **decision,
                     "component": region.component,
                     "method": method,
-                    "reason": "equivalent_region_consensus"
+                    "reason": "machine_geometry_rejected"
+                    if method == "omitted" and member.metrics.get("failure") == "machine_geometry"
+                    else "coherent_color_fill"
+                    if group in converted
+                    else "equivalent_region_consensus"
                     if method != decision["method"]
                     else decision["reason"],
+                    "requested_stitch_type": params.stitch_type,
+                    "strategy_scope": "color" if color_texture else "region",
                     "individual_method": decision["method"],
                     "equivalence_group": group + 1,
                     "equivalent_regions": len(members),

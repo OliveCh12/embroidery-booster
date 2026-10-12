@@ -60,6 +60,8 @@ def create_app(config=None):
             accepted_formats=["svg", "png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff", "gif"],
             direct=True,
             direct_formats=["pes", "dst"],
+            stitch_types=["auto", "satin", "fill", "running"],
+            background_modes=["auto", "keep", "remove"],
             quality_report=(Path(app.config["QUALITY_REPORT_DIR"]) / "comparison.json").is_file(),
             machine_profiles=MACHINE_PROFILES,
             material_presets={
@@ -129,6 +131,8 @@ def create_app(config=None):
                 if request.form.get("raster_threshold")
                 else None,
                 raster_invert=boolean("raster_invert", False),
+                background_mode=request.form.get("background_mode", "auto"),
+                raster_cleanup=boolean("raster_cleanup", True),
             )
             params.validate()
             stitch_params = StitchParams.for_fabric(
@@ -157,6 +161,7 @@ def create_app(config=None):
             stitch_params.thread_color = request.form.get(
                 "thread_color", stitch_params.thread_color
             )
+            stitch_params.stitch_type = request.form.get("stitch_type", "auto")
             stitch_params.validate()
         except ValueError as exc:
             return jsonify(error=str(exc)), 400
@@ -210,6 +215,7 @@ def create_app(config=None):
                 artwork_preview=url(artwork_preview),
                 artwork_svg=url(result.original_path),
                 artwork_size_mm=result.artwork_size_mm,
+                input_analysis=result.input_analysis,
                 converted_from=source.suffix.lower()[1:]
                 if source.suffix.lower() != ".svg"
                 else None,

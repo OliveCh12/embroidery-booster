@@ -305,5 +305,5 @@ def generate_columns(
                             "rail_b": rb.tolist(),
                         }
                     )
-    logger.info("Extracted %d satin/running rail elements", len(elements))
+    logger.debug("Extracted %d satin/running rail elements", len(elements))
     return elements

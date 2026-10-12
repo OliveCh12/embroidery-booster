@@ -25,6 +25,8 @@ class GenerationParams:
     fit_to_hoop: bool = False
     raster_threshold: int | None = None
     raster_invert: bool = False
+    background_mode: str = "auto"
+    raster_cleanup: bool = True
 
     def validate(self) -> None:
         if self.design_width_mm is not None and (
@@ -42,6 +44,10 @@ class GenerationParams:
             raise ValueError("raster_threshold must be an integer between 0 and 255.")
         if not isinstance(self.fit_to_hoop, bool) or not isinstance(self.raster_invert, bool):
             raise ValueError("fit_to_hoop and raster_invert must be booleans.")
+        if self.background_mode not in ("auto", "keep", "remove"):
+            raise ValueError("background_mode must be 'auto', 'keep' or 'remove'.")
+        if not isinstance(self.raster_cleanup, bool):
+            raise ValueError("raster_cleanup must be a boolean.")
 
 
 @dataclass
@@ -53,6 +59,7 @@ class GenerationResult:
     params: GenerationParams
     warnings: list[str] = field(default_factory=list)
     timings: dict[str, float] = field(default_factory=dict)
+    input_analysis: dict = field(default_factory=dict)
 
 
 def generate(
@@ -81,7 +88,7 @@ def generate(
     input_source = Path(input_path).resolve()
     output = Path(output_dir).resolve()
     with tempfile.TemporaryDirectory(prefix="embroidery-input-") as temporary:
-        source, warnings = prepare_artwork(
+        source, warnings, input_analysis = prepare_artwork(
             input_source,
             temporary,
             params,
@@ -97,7 +104,9 @@ def generate(
         with tempfile.TemporaryDirectory(prefix=".embroidery-", dir=stage_parent) as temporary:
             stage = Path(temporary)
             shutil.copy2(source, stage / artwork_name)
-            names, plan = export_direct(svg, stage, input_source.stem, stitch_params)
+            names, plan = export_direct(
+                svg, stage, input_source.stem, stitch_params, input_analysis=input_analysis
+            )
             generated = time.perf_counter()
             direct = DirectGenerationResult(
                 *(str(output / name) for name in names),
@@ -135,4 +144,5 @@ def generate(
         params=params,
         warnings=list(warnings),
         timings=timings,
+        input_analysis=input_analysis,
     )

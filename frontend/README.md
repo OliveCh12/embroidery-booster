@@ -48,13 +48,34 @@ les paramètres au dessin et au matériau. Les réglages effectivement appliqué
 leurs modifications et les mesures de couverture figurent dans les détails du
 résultat. Désactiver l’ajustement permet de régler les points manuellement.
 
+Le type de points peut rester en **Auto**, ou être fixé à Satin, Tatami ou Point
+droit. Le satin forcé est refusé si la région ne permet pas une couverture
+régulière dans les limites de la machine. Le point droit convient aux lignes
+fines ; il ne remplit pas un aplat.
+
+Dans « Interprétation de l’image », **Fond : Auto / Conserver / Supprimer**
+contrôle le fond relié au bord, en préservant les aplats intérieurs. Auto conserve
+un bord ambigu ; les couleurs explicites d’un SVG sont préservées. Supprimer
+sur un SVG effectue une conversion contrôlée du dessin. « Réduire les parasites »
+nettoie les petits îlots raster selon leur taille physique ; désactiver cette
+option conserve tous les détails de couleur. Les détails du résultat indiquent
+le fond réellement traité, les nuances de compression consolidées, le nombre
+d’îlots avant/après et la surface modifiée. Le nombre de nuances de l’image est
+distingué du nombre de couleurs de fil retenues.
+
 La simulation lit les commandes du **plan machine schema 3**, à 0,1 mm près :
 points, déplacements aiguille levée, coupes et changements de fil. Le dessin
 reste centré dans son cadre physique ; la grille et les graduations sont en
-millimètres, espacées de 10 mm. Le premier point est vert, l’aiguille rouge.
+millimètres, espacées de 10 mm. Pendant la lecture, le premier point est vert et
+l’aiguille rouge ; ces marqueurs disparaissent sur l’aperçu terminé.
 Le lecteur propose lecture/pause, retour au départ, pas par commande, affichage
 complet et déplacement sur la timeline. Il montre l’ordre des fils et peut
-s’arrêter à chaque changement de couleur. Sous-couches et sauts sont affichables.
+s’arrêter à chaque changement de couleur. Le menu d’affichage distingue couverture
+dans la couleur du fil, sous-couche grise, liaisons cousues ambre, sauts pointillés
+et ancrages violets. La sous-couche est masquable ; liaisons, sauts et ancrages
+se masquent ensemble. Les détails de
+qualité séparent le nombre de points de couverture, de sous-couche, de liaison
+et d’ancrage ; les commandes machine et les exports restent identiques.
 
 La cadence indicative est de 400 points/min, avec une accélération ×60 par défaut.
 ×1 représente uniquement les cycles d’aiguille ; le temps des déplacements,

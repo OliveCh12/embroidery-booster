@@ -11,4 +11,4 @@ from .pipeline import GenerationParams, GenerationResult, generate
 from .stitching.params import StitchParams
 
 __all__ = ["generate", "GenerationParams", "GenerationResult", "StitchParams"]
-__version__ = "0.4.0"
+__version__ = "0.5.0"

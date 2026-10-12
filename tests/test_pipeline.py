@@ -40,6 +40,7 @@ def test_generate_produces_machine_outputs_by_default(svg_file, tmp_path):
         "params",
         "warnings",
         "timings",
+        "input_analysis",
     }
     assert {p.name for p in (tmp_path / "result").iterdir()} == {
         "shape_artwork.svg",

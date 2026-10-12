@@ -11,6 +11,7 @@ from shapely.geometry import LineString, Polygon
 from embroidery_rungs import StitchParams, generate
 from embroidery_rungs.stitching.paths import fill_paths, resample_running, satin_points
 from embroidery_rungs.stitching.planner import build_stitch_plan
+from embroidery_rungs.stitching.regions import RegionFrame
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
 
@@ -28,6 +29,45 @@ def sew_segments(plan):
     commands = np.asarray(plan.commands)
     sewn = (commands[:-1, 2] == pe.STITCH) & (commands[1:, 2] == pe.STITCH)
     return np.stack([commands[:-1, :2], commands[1:, :2]], axis=1)[sewn] / 10 + plan.origin_mm
+
+
+def test_rounded_locks_stay_inside_a_mirrored_thin_stepped_boundary():
+    # Reduced from the eagle's fine colour fringe. The top path is legal, but
+    # re-rounding its end lock previously crossed the allowed boundary.
+    polygon = Polygon(
+        [
+            (7.33, 0.29),
+            (6.16, 0.29),
+            (6.08, 0.46),
+            (4.58, 0.46),
+            (4.50, 0.62),
+            (1.33, 0.71),
+            (3.75, 0.79),
+        ]
+    )
+    frame = RegionFrame(np.diag([1.0, -1.0]), np.array([35.726557377, 16.322622951]))
+    allowance = polygon.buffer(0.010703613 + 0.08)
+    plan = build_stitch_plan(
+        [
+            {
+                "type": "fill",
+                "polygon": polygon,
+                "compensation": 0.010703613,
+                "fill_angle_deg": 15,
+                "finish_inset": 0,
+                "underlay": False,
+                "frame": frame,
+            }
+        ],
+        StitchParams(),
+        origin_mm=(39.848852459, 35.976393443),
+    )
+    assert plan.stats["omitted_regions"] == 0
+    assert plan.stats["short_stitches"] == 0
+    assert any(b.kind == "lock" for b in plan.blocks)
+    assert covered_by(
+        linestrings(sew_segments(plan)), frame.geometry_to_world(allowance).buffer(0.08)
+    ).all()
 
 
 def test_satin_density_is_physical_and_compensation_is_per_side():

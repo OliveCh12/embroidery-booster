@@ -12,8 +12,8 @@ from svgelements import Matrix
 
 from ..routing import route_columns
 from ..svg_manager import UNITS_PER_MM
-from .planner import UnstitchableRegion, build_stitch_plan
-from .quality import measure_plan, satin_crowding
+from .planner import CandidateGeometryError, UnstitchableRegion, build_stitch_plan
+from .quality import coverage_needs_review, measure_plan, satin_crowding
 from .rails import _valid_rail_pieces
 
 
@@ -220,7 +220,7 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
                         }
                     )
         areas = [Polygon(np.vstack([e["rail_a"], e["rail_b"][::-1]])).buffer(0) for e in satin]
-        linear = _linear_column(source, params)
+        linear = _linear_column(source, params) if params.stitch_type in ("auto", "satin") else None
         if linear is not None:
             satin = [linear]
             areas = [Polygon(np.vstack([linear["rail_a"], linear["rail_b"][::-1]]))]
@@ -239,7 +239,11 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
         method, reason, angle, candidates = "fill", "incomplete_or_broad_column", None, {}
         option = None
         detail = _compact_detail(source, params) if width < minimum_width else None
-        if width < minimum_width and (groups[i] or detail is not None):
+        if params.stitch_type == "running" or (
+            params.stitch_type == "auto"
+            and width < minimum_width
+            and (groups[i] or detail is not None)
+        ):
             running = [
                 {
                     "type": "running",
@@ -250,6 +254,18 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
             ]
             if detail is not None:
                 running = [detail]
+            running_contour = False
+            if params.stitch_type == "running" and (width >= minimum_width or not running):
+                running_contour = True
+                running = [
+                    {
+                        "type": "running",
+                        "points": np.asarray(ring.coords),
+                        "allowed_area": source.buffer(0.08),
+                    }
+                    for polygon in polygons
+                    for ring in (polygon.exterior, *polygon.interiors)
+                ]
             try:
                 running = route_columns(running)
                 candidate = build_stitch_plan(running, params, origin_mm=origin_mm)
@@ -260,16 +276,34 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
                     np.array([local_transform.e, local_transform.f]) + 3,
                 )
                 candidates["running"] = metrics
-                if metrics["structural_coverage"] >= 0.999 and metrics["largest_gap_mm2"] <= 0.05:
-                    option, method, reason = running, "running", "below_satin_width"
+                if params.stitch_type == "running" or (not coverage_needs_review(metrics)):
+                    option, method, reason = (
+                        running,
+                        "running",
+                        (
+                            "requested_running_contour"
+                            if running_contour
+                            else "requested_running_centerline"
+                            if params.stitch_type == "running"
+                            else "below_satin_width"
+                        ),
+                    )
                 else:
                     reason = "running_top_layer_incomplete"
             except ValueError as exc:
                 candidates["running"] = {"error": str(exc)}
                 reason = "running_geometry_rejected"
+            if params.stitch_type == "running" and option is None:
+                option, method, reason = [], "omitted", "below_machine_resolution"
         # Auto satin must fit throughout the column. A percentile can conceal a
         # broad cap whose long floats snag, even when most of the column is narrow.
-        elif satin and covered >= 0.9 and not wide:
+        elif (
+            params.stitch_type in ("auto", "satin")
+            and width >= minimum_width
+            and satin
+            and covered >= 0.9
+            and not wide
+        ):
             try:
                 ordered = route_columns(satin)
                 candidate = build_stitch_plan(ordered, params, origin_mm=origin_mm)
@@ -284,8 +318,7 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
                     candidate, params.min_stitch_mm
                 )
                 if (
-                    metrics["structural_coverage"] >= 0.999
-                    and metrics["largest_gap_mm2"] <= 0.05
+                    not coverage_needs_review(metrics)
                     and candidate.stats["unsafe_connections"] == 0
                     and metrics["crowded_satin_penetrations"] == 0
                 ):
@@ -296,8 +329,14 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
                 candidates["satin"] = {"error": str(exc)}
                 reason = "satin_geometry_rejected"
         if option is None:
+            if params.stitch_type == "satin":
+                raise ValueError(
+                    f"Satin requested, but component {i + 1} cannot be sewn as a complete safe column (width {width:.2f} mm; safe satin limit {float_limit:.2f} mm). Use automatic or fill stitching, or simplify/narrow the shape."
+                )
             angle = _fill_angle(source, params)
             option = fill_elements(polygons, angle, params)
+            if params.stitch_type == "fill":
+                reason = "requested_uniform_fill"
             try:
                 candidate = build_stitch_plan(route_columns(option), params, origin_mm=origin_mm)
                 metrics, _ = measure_plan(
@@ -318,9 +357,15 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
                         np.array([local_transform.e, local_transform.f]) + 3,
                     )
                 candidates["fill"] = metrics
-            except UnstitchableRegion as exc:
+            except (UnstitchableRegion, CandidateGeometryError) as exc:
                 candidates["fill"] = {"error": str(exc)}
-                option, method, reason = [], "omitted", "below_machine_resolution"
+                option, method, reason = (
+                    [],
+                    "omitted",
+                    "machine_geometry_rejected"
+                    if isinstance(exc, CandidateGeometryError)
+                    else "below_machine_resolution",
+                )
         chosen.extend(option)
         decisions.append(
             {

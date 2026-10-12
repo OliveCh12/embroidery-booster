@@ -18,7 +18,8 @@ describe("physical stitch plan", () => {
     expect(plan.bounds).toEqual([-10, -5, 5, 2]);
     expect(plan.hoop).toEqual({ width: 100, height: 80 });
     expect(plan.stitchesPerMinute).toBe(400);
-    expect(Array.from(plan.underlay)).toEqual([0, 0, 1, 0, 0, 0, 0, 0, 0]);
+    expect(Array.from(plan.phases)).toEqual([0, 0, 1, 0, 0, 0, 0, 0, 0]);
+    expect(eventLabel(plan, 3)).toBe("Sous-couche");
   });
 
   it("preserves color changes, jumps, trims and exact needle cycle counts", () => {
@@ -54,6 +55,14 @@ describe("physical stitch plan", () => {
     expect(() => parseStitchPlan({ ...example, commands: [[0, 0, 3]] })).toThrow("commande");
     expect(() => parseStitchPlan({ ...example, threads: ["#ffffff"] })).toThrow("palette");
     expect(() => parseStitchPlan({ ...example, hoop: { width_mm: 0, height_mm: 100 } })).toThrow("cadre");
-    expect(() => parseStitchPlan({ ...example, underlay_runs: [{ start: 5, end: 100 }] })).toThrow("sous-couche");
+    expect(() => parseStitchPlan({ ...example, underlay_runs: [{ start: 5, end: 100 }] })).toThrow("phase");
+  });
+
+  it("separates coverage, sewn travel and locks without reclassifying their context nodes", () => {
+    const plan = parseStitchPlan({ ...example, runs: [{ start: 0, end: 2, kind: "lock" }, { start: 1, end: 3, kind: "underlay" }, { start: 5, end: 7, kind: "travel" }, { start: 6, end: 8, kind: "fill" }] });
+    expect(Array.from(plan.phases)).toEqual([0, 3, 1, 0, 0, 0, 2, 0, 0]);
+    expect(eventLabel(plan, 2)).toBe("Ancrage du fil");
+    expect(eventLabel(plan, 7)).toBe("Liaison cousue");
+    expect(eventLabel(plan, 8)).toBe("Point cousu");
   });
 });

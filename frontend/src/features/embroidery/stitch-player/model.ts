@@ -1,10 +1,12 @@
+export const STITCH_PHASE = { top: 0, underlay: 1, travel: 2, lock: 3 } as const;
+
 export interface StitchPlan {
   count: number;
   points: Float32Array;
   codes: Uint8Array;
   colors: Uint8Array;
   stitches: Uint32Array;
-  underlay: Uint8Array;
+  phases: Uint8Array;
   threads: string[];
   hoop: { width: number; height: number };
   bounds: [number, number, number, number];
@@ -41,7 +43,7 @@ export function parseStitchPlan(value: unknown): StitchPlan {
   const codes = new Uint8Array(count);
   const colors = new Uint8Array(count);
   const stitches = new Uint32Array(count + 1);
-  const underlay = new Uint8Array(count);
+  const phases = new Uint8Array(count);
   const colorChanges: number[] = [];
   let color = 0;
   const bounds: StitchPlan["bounds"] = [Infinity, Infinity, -Infinity, -Infinity];
@@ -63,15 +65,17 @@ export function parseStitchPlan(value: unknown): StitchPlan {
     }
   }
   if (!stitches[count]) throw new Error("Ce plan ne contient aucun point cousu.");
-  if (Array.isArray(source.underlay_runs)) for (const value of source.underlay_runs) {
+  const runs = Array.isArray(source.runs) ? source.runs : Array.isArray(source.underlay_runs) ? source.underlay_runs.map(run => ({ ...record(run), kind: "underlay" })) : [];
+  for (const value of runs) {
     const run = record(value);
-    if (!Number.isInteger(run.start) || !Number.isInteger(run.end) || (run.start as number) < 0 || (run.end as number) > count || (run.end as number) < (run.start as number)) throw new Error("Plage de sous-couche invalide.");
+    if (!Number.isInteger(run.start) || !Number.isInteger(run.end) || (run.start as number) < 0 || (run.end as number) > count || (run.end as number) < (run.start as number)) throw new Error("Plage de phase invalide.");
+    const phase = run.kind === "underlay" ? STITCH_PHASE.underlay : run.kind === "travel" ? STITCH_PHASE.travel : run.kind === "lock" ? STITCH_PHASE.lock : STITCH_PHASE.top;
     // A run includes its preceding context node; only following segments belong to the phase.
-    underlay.fill(1, (run.start as number) + 1, run.end as number);
+    phases.fill(phase, (run.start as number) + 1, run.end as number);
   }
   const machine = source.machine ? record(source.machine) : {};
   const stitchesPerMinute = finite(machine.stitches_per_minute) && machine.stitches_per_minute > 0 ? machine.stitches_per_minute : 400;
-  return { count, points, codes, colors, stitches, underlay, threads: source.threads, hoop: { width: hoop.width_mm, height: hoop.height_mm }, bounds, command, colorChanges, stitchesPerMinute };
+  return { count, points, codes, colors, stitches, phases, threads: source.threads, hoop: { width: hoop.width_mm, height: hoop.height_mm }, bounds, command, colorChanges, stitchesPerMinute };
 }
 
 export function viewport(width: number, height: number, hoopWidth: number, hoopHeight: number) {
@@ -102,5 +106,9 @@ export function eventLabel(plan: StitchPlan, cursor: number) {
   if (code === plan.command.trim) return "Coupe du fil";
   if (code === plan.command.color_change) return "Changement de fil";
   if (code === plan.command.end) return "Broderie terminée";
+  const phase = plan.phases[cursor - 1];
+  if (phase === STITCH_PHASE.underlay) return "Sous-couche";
+  if (phase === STITCH_PHASE.travel) return "Liaison cousue";
+  if (phase === STITCH_PHASE.lock) return "Ancrage du fil";
   return "Point cousu";
 }

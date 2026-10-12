@@ -46,6 +46,10 @@ class UnstitchableRegion(ValueError):
     """No sewn segment survives the machine grid and minimum stitch length."""
 
 
+class CandidateGeometryError(ValueError):
+    """An emitted candidate leaves its allowed geometry after machine rounding."""
+
+
 def _machine_points(points, origin, minimum):
     quantized = np.rint((points - origin) * 10).astype(int)
     threshold = (minimum * 10 - 0.01) ** 2
@@ -264,21 +268,35 @@ def build_stitch_plan(
         if len(commands) > params.max_stitches:
             raise ValueError("Stitch budget exceeded; simplify the design or increase spacing.")
 
-    def lock(points, start, region):
-        if len(points) < 2:
+    def lock(block_points, start, region):
+        if len(block_points) < 2:
             return
-        endpoint = points[0] if start else points[-1]
-        direction = (points[1] - endpoint) if start else (points[-2] - endpoint)
+        endpoint = block_points[0] if start else block_points[-1]
+        direction = (block_points[1] - endpoint) if start else (block_points[-2] - endpoint)
         length = np.linalg.norm(direction)
         if length < 0.6:
             return
         direction /= length
+        points = np.vstack([endpoint, endpoint + np.outer([0.6, 0.3, 0], direction)])
+        points = _machine_points(points, origin, params.min_stitch_mm)
+        segments = linestrings(np.stack([points[:-1], points[1:]], axis=1))
+        if not covers(quantized_areas[region], segments).all():
+            # A second rounding along an already rounded boundary can exceed
+            # the grid allowance. Backtrack a short, audited segment instead
+            # of adding an anchor outside a fine contour.
+            neighbour = block_points[1] if start else block_points[-2]
+            if length > min(1.5, params.max_stitch_mm):
+                return
+            points = np.vstack([endpoint, neighbour, endpoint])
         begin = len(commands) - 1
-        for length in (0.6, 0.3, 0):
-            append(pe.STITCH, endpoint + direction * length)
+        for point in points[1:]:
+            append(pe.STITCH, point)
         rendered.append(
             StitchBlock(
-                "lock", np.asarray([c[:2] for c in commands[begin:]], dtype=float) / 10, region
+                "lock",
+                np.asarray([c[:2] for c in commands[begin:]], dtype=float) / 10,
+                region,
+                command_range=(begin, len(commands)),
             )
         )
 
@@ -323,6 +341,7 @@ def build_stitch_plan(
                         "travel",
                         np.asarray([c[:2] for c in commands[begin - 1 :]], dtype=float) / 10,
                         block.region,
+                        command_range=(begin - 1, len(commands)),
                     )
                 )
             else:
@@ -371,7 +390,7 @@ def build_stitch_plan(
     quantized_area = allowed.buffer(0.08)
     prepare(quantized_area)
     if not covers(quantized_area, linestrings(physical_segments)).all():
-        raise ValueError(
+        raise CandidateGeometryError(
             "Quantized stitches leave their regions; simplify sharp corners or reduce the minimum stitch length."
         )
     warnings = []
@@ -390,7 +409,7 @@ def build_stitch_plan(
         "satin_regions": len({b.region for b in blocks if b.kind == "satin"}),
         "fill_regions": len({b.region for b in blocks if b.kind == "fill"}),
         "running_regions": len({b.region for b in blocks if b.kind == "running"}),
-        "underlay_stitches": sum(len(b.points) for b in rendered if b.kind == "underlay"),
+        "underlay_stitches": sum(len(b.points) - 1 for b in rendered if b.kind == "underlay"),
         "thread_length_mm": round(float(lengths[sewn].sum()), 1),
         "jump_length_mm": round(float(lengths[jumps].sum()), 1),
         "max_stitch_mm": round(float(lengths[sewn].max(initial=0)), 2),

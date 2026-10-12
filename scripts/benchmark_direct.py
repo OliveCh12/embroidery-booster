@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -15,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def worker(source_root, width):
+def worker(source_root, width, inputs, max_colors):
     sys.path.insert(0, str(source_root))
     from embroidery_rungs import GenerationParams, StitchParams, generate
     from embroidery_rungs.image_processor import rasterize_svg
@@ -37,7 +38,9 @@ def worker(source_root, width):
     export._preview_svg = capture
     rows = []
     with tempfile.TemporaryDirectory(prefix="embroidery-benchmark-") as directory:
-        for source in sorted((ROOT / "examples").rglob("*.svg")):
+        sources = inputs or sorted((ROOT / "examples").rglob("*.svg"))
+        for source in sources:
+            identifier = source.name if inputs else source.relative_to(ROOT / "examples").as_posix()
             started = time.perf_counter()
             try:
                 result = generate(
@@ -45,7 +48,9 @@ def worker(source_root, width):
                     directory,
                     GenerationParams(design_width_mm=width),
                     method="direct",
-                    stitch_params=StitchParams(hoop_width_mm=500, hoop_height_mm=500),
+                    stitch_params=StitchParams(
+                        hoop_width_mm=500, hoop_height_mm=500, max_colors=max_colors
+                    ),
                 )
                 plan = captured[-1]
                 document, _ = load_svg_paths(result.original_path)
@@ -55,7 +60,8 @@ def worker(source_root, width):
                 )
                 rows.append(
                     {
-                        "file": source.relative_to(ROOT / "examples").as_posix(),
+                        "file": identifier,
+                        "input_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
                         "top_metrics": metrics,
                         "stats": result.direct.stats,
                         "threads": getattr(plan, "threads", [result.direct.params.thread_color]),
@@ -64,12 +70,11 @@ def worker(source_root, width):
                         "warnings": result.direct.warnings,
                         "analysis": getattr(plan, "analysis", {}),
                         "adjustments": getattr(plan, "adjustments", []),
+                        "input_analysis": getattr(result, "input_analysis", {}),
                     }
                 )
             except (ValueError, RuntimeError, OSError) as exc:
-                rows.append(
-                    {"file": source.relative_to(ROOT / "examples").as_posix(), "error": str(exc)}
-                )
+                rows.append({"file": identifier, "error": str(exc)})
     print(json.dumps(rows))
 
 
@@ -82,16 +87,23 @@ def main():
         "--baseline-ref", help="Optional Git revision, run in an isolated temporary checkout"
     )
     parser.add_argument("--design-width-mm", type=float)
+    parser.add_argument(
+        "--input", type=Path, action="append", help="SVG/bitmap; repeat for a custom corpus"
+    )
+    parser.add_argument("--max-colors", type=int, default=12)
     parser.add_argument("--worker-src", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.worker_src:
-        worker(args.worker_src, args.design_width_mm)
+        worker(args.worker_src, args.design_width_mm, args.input, args.max_colors)
         return
 
     def run(source_root):
         command = [sys.executable, str(Path(__file__).resolve()), "--worker-src", str(source_root)]
         if args.design_width_mm is not None:
             command += ["--design-width-mm", str(args.design_width_mm)]
+        command += ["--max-colors", str(args.max_colors)]
+        for source in args.input or []:
+            command += ["--input", str(source.resolve())]
         return json.loads(
             subprocess.run(command, capture_output=True, text=True, check=True).stdout
         )
@@ -117,6 +129,7 @@ def main():
             {
                 "baseline_ref": args.baseline_ref,
                 "design_width_mm": args.design_width_mm,
+                "max_colors": args.max_colors,
                 "measurement": {
                     "basis": "quantized_top_layer",
                     "thread_mm": 0.3,
@@ -134,6 +147,9 @@ def main():
         if rows is None:
             continue
         valid = [row for row in rows if "error" not in row]
+        if not valid:
+            print(f"{title}: 0/{len(rows)} plans; inspect the recorded errors")
+            continue
         print(
             f"{title}: {len(valid)}/{len(rows)} plans, top coverage {sum(r['top_metrics']['structural_coverage'] for r in valid) / len(valid):.4%}, "
             f"{sum(r['stats']['trims'] for r in valid)} trims; largest gap {max(r['top_metrics']['largest_gap_mm2'] for r in valid):g} mm²"

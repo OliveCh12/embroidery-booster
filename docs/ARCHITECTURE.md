@@ -1,6 +1,6 @@
 # Architecture
 
-La version 0.4 utilise un seul moteur direct. `generate()` prépare l'entrée,
+La version 0.5 utilise un seul moteur direct. `generate()` prépare l'entrée,
 applique la taille demandée et publie les fichiers après réussite des exports.
 La classification, les rails internes, les points et les contrôles machine
 appartiennent au package `stitching/`.
@@ -44,14 +44,18 @@ output/                   Jobs et artefacts générés, ignorés par Git
 
 ## Flux de génération
 
-1. Valider les réglages et le fichier ; tracer le bitmap si nécessaire.
+1. Valider les réglages et le fichier ; interpréter le fond connecté au bord,
+   consolider la palette bitmap et réduire les petits parasites adjacents avant
+   le tracé. Exposer chaque modification dans `input_analysis`.
 2. Appliquer le redimensionnement explicite et charger le SVG sécurisé.
 3. Borner les réglages physiques, puis rendre les couleurs visibles à 305 DPI,
    sous le budget mémoire du renderer.
 4. Séparer les couleurs et leurs composantes connexes ; établir des repères
    locaux canoniques pour les translations, rotations et réflexions pertinentes.
 5. Extraire les rails, comparer les candidats et appliquer une politique commune
-   aux régions équivalentes. Chaque contour source reste intact.
+   aux régions équivalentes et aux couleurs dominées par le fill. Un mode forcé
+   remplace la sélection automatique sans contourner les contrôles satin.
+   Chaque contour du SVG interprété reste intact.
 6. Construire sous-couches et points, retrouver les coordonnées du dessin,
    quantifier une seule fois sur une grille commune et vérifier la couverture.
 7. Assembler les couleurs, encoder PES/DST et écrire previews/JSON en staging.
@@ -64,18 +68,20 @@ plus un export séparé. Les programmes externes et leur découverte ont été r
 ## Contrats et responsabilités
 
 `GenerationParams` décrit l'interprétation de l'entrée : largeur physique,
-ajustement au cadre, seuil et inversion bitmap. `StitchParams` décrit la couture.
+ajustement au cadre, seuil et inversion bitmap, `background_mode` et
+`raster_cleanup`. `StitchParams` décrit la couture, dont `stitch_type`.
 Le moteur conserve les valeurs demandées et expose les valeurs effectives avec
-chaque ajustement. La sélection du type est automatique ; désactiver
+chaque ajustement. La sélection du type est automatique par défaut ; désactiver
 `auto_adjust` conserve les réglages explicites sans contourner les contrôles
 physiques et géométriques.
 
 `GenerationResult` contient `input_path`, `original_path`, `direct`,
-`artwork_size_mm`, `params`, `warnings` et `timings`. `direct` est obligatoire ;
+`artwork_size_mm`, `params`, `warnings`, `timings` et `input_analysis`. `direct` est obligatoire ;
 `original_path` désigne le SVG interprété, pas une copie systématique de l'entrée.
 Le résultat direct rassemble fichiers, métriques, décisions, palette, paramètres
 effectifs/demandés, ajustements et analyse. Le JSON schema 3 ajoute les commandes
-et les plages nécessaires à la lecture de couture.
+et les plages nécessaires à la lecture de couture, y compris liaisons cousues
+et ancrages. `analysis.stitch_breakdown` compte chaque pénétration une seule fois.
 
 Les composants front ne calculent pas de points et ne redéfinissent pas les
 presets. Next.js relaie l'API Python sur la même origine. Flask valide les

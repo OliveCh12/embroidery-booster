@@ -89,7 +89,7 @@ def _preview_svg(plan: StitchPlan, viewport_mm, path):
     ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
 
 
-def export_direct(svg, stage: Path, stem: str, params: StitchParams):
+def export_direct(svg, stage: Path, stem: str, params: StitchParams, *, input_analysis=None):
     started = time.perf_counter()
     plan, layers = digitize(svg, params)
     params = plan.params
@@ -128,6 +128,18 @@ def export_direct(svg, stage: Path, stem: str, params: StitchParams):
         for b in plan.blocks
         if b.command_range is not None
     ]
+    # The first node of a run is its previous-position context, not an extra
+    # penetration. This ledger separates actual cover stitches from support
+    # and connections without counting overlapping run anchors twice.
+    phase_names = ("entry", "top", "underlay", "travel", "lock")
+    phases = np.zeros(len(coordinates), dtype=np.uint8)
+    for run in runs:
+        phase = "top" if run["kind"] in ("satin", "fill", "running") else run["kind"]
+        phases[run["start"] + 1 : run["end"]] = phase_names.index(phase)
+    needle = coordinates[:, 2] == pe.STITCH
+    plan.analysis["stitch_breakdown"] = {
+        name: int(np.count_nonzero(needle & (phases == i))) for i, name in enumerate(phase_names)
+    }
     (stage / names[4]).write_text(
         json.dumps(
             {
@@ -180,6 +192,7 @@ def export_direct(svg, stage: Path, stem: str, params: StitchParams):
                 "requested_params": plan.requested_params,
                 "adjustments": plan.adjustments,
                 "analysis": plan.analysis,
+                "input_analysis": input_analysis or {},
                 "warnings": plan.warnings,
                 "decisions": plan.decisions,
                 "threads": plan.threads,

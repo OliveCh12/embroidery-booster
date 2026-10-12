@@ -1,4 +1,9 @@
-import type { Capabilities, Fabric, GenerationSettings, Machine, ThreadWeight } from "./types";
+import type { BackgroundMode, Capabilities, Fabric, GenerationSettings, Machine, StitchType, ThreadWeight } from "./types";
+
+export const STITCH_TYPE_LABELS: Record<StitchType, string> = { auto: "Auto", satin: "Satin", fill: "Tatami", running: "Point droit" };
+export const BACKGROUND_MODE_LABELS: Record<BackgroundMode, string> = { auto: "Auto", keep: "Conserver", remove: "Supprimer" };
+export const STITCH_TYPE_OPTIONS = Object.entries(STITCH_TYPE_LABELS).map(([value, label]) => ({ value: value as StitchType, label }));
+export const BACKGROUND_MODE_OPTIONS = Object.entries(BACKGROUND_MODE_LABELS).map(([value, label]) => ({ value: value as BackgroundMode, label }));
 
 export const DEFAULT_SETTINGS: GenerationSettings = {
   fabric: "custom", thread_weight: "40", stabilizer: "unspecified", machine: "generic",
@@ -7,6 +12,7 @@ export const DEFAULT_SETTINGS: GenerationSettings = {
   running_length: 2.5, max_stitch: 8, max_satin_width: 8, underlay: true,
   auto_adjust: true, auto_fill_angle: true, fill_angle: 45,
   raster_threshold: null, raster_invert: false, max_colors: 12, preserve_colors: true,
+  background_mode: "auto", stitch_type: "auto", raster_cleanup: true,
 };
 
 export function applyMachineProfile(settings: GenerationSettings, machine: Machine, capabilities: Capabilities): GenerationSettings {

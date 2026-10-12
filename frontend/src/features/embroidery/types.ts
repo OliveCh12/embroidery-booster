@@ -2,6 +2,8 @@ export type Fabric = "custom" | "stable" | "stretch" | "textured";
 export type Stabilizer = "unspecified" | "cutaway" | "tearaway" | "washaway";
 export type ThreadWeight = "30" | "40" | "60";
 export type Machine = "generic" | "brother-skitch-pp1";
+export type BackgroundMode = "auto" | "keep" | "remove";
+export type StitchType = "auto" | "satin" | "fill" | "running";
 
 export interface MachineProfile {
   label: string; hoop_width: number; hoop_height: number; max_colors: number;
@@ -23,6 +25,7 @@ export interface GenerationSettings {
   running_length: number; max_stitch: number; max_satin_width: number; underlay: boolean;
   auto_adjust: boolean; auto_fill_angle: boolean; fill_angle: number;
   raster_threshold: number | null; raster_invert: boolean; max_colors: number; preserve_colors: boolean;
+  background_mode: BackgroundMode; stitch_type: StitchType; raster_cleanup: boolean;
 }
 export interface StitchParams {
   satin_spacing_mm: number; fill_spacing_mm: number; pull_compensation_mm: number;
@@ -30,6 +33,7 @@ export interface StitchParams {
   hoop_width_mm: number; hoop_height_mm: number; underlay: boolean; auto_adjust: boolean;
   fill_angle_deg: number; auto_fill_angle: boolean; machine: Machine; fabric: Fabric;
   thread_weight: number; stabilizer: Stabilizer;
+  stitch_type: StitchType;
 }
 export interface StitchStats {
   stitches: number; trims: number; jumps: number; color_changes: number;
@@ -47,6 +51,23 @@ export interface DesignAnalysis {
   category: string; topology_basis: string; boundary_length_mm: number; palette_reduced: boolean; area_mm2: number; color_count: number; region_count: number;
   hole_count: number; fine_region_area_ratio: number; strategy_counts: Record<string, number>;
   quality_status: "needs_review" | "geometric_checks_passed";
+  stitch_breakdown?: { entry: number; top: number; underlay: number; travel: number; lock: number };
+}
+export interface InputAnalysis {
+  background?: {
+    mode: BackgroundMode | null; applied: boolean | null; reason: string | null;
+    background_color: string | null; border_confidence: number | null;
+    removed_fraction: number | null; interior_preserved_pixels: number | null;
+  };
+  cleanup?: {
+    enabled: boolean | null; changed_pixels: number | null; removed_pixels: number | null;
+    regions_before: number | null; regions_after: number | null;
+    changed_area_mm2: number | null; reason: string | null;
+    palette_source_colors?: number | null; palette_colors?: number | null;
+    flat_paints_recovered?: boolean | null; palette_consolidated_pixels?: number | null;
+    palette_changed_area_mm2?: number | null; regions_after_palette?: number | null;
+    retained_accent_colors?: number | null;
+  };
 }
 export interface DirectResult {
   files: { pes: string; dst: string; plan_json: string; preview_svg: string };
@@ -57,4 +78,5 @@ export interface GenerationResult {
   success: true; job: string; artwork_preview: string; artwork_svg: string;
   artwork_size_mm: [number, number]; converted_from: string | null; warnings: string[];
   logs: string; stats: { total_seconds: number }; direct: DirectResult;
+  input_analysis?: InputAnalysis;
 }

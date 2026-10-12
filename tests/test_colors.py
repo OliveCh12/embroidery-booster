@@ -92,7 +92,10 @@ def test_color_bitmap_retains_red_blue_and_counter(tmp_path, transparent):
     path = tmp_path / "logo.png"
     image.save(path)
     result = generate(path, tmp_path / "out", GenerationParams(design_width_mm=60), method="direct")
-    assert set(result.direct.threads) == {"#1267c9", "#e83546"}
+    expected = {"#1267c9", "#e83546"}
+    if not transparent:
+        expected.add("#ffffff")
+    assert set(result.direct.threads) == expected
     assert result.direct.stats["structural_coverage"] >= 0.999
     assert data_for(result)["layers"][0]["largest_gap_mm2"] == 0
 

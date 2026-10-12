@@ -32,6 +32,23 @@ describe("Python generation contract", () => {
     expect(form.get("preserve_colors")).toBe("false");
   });
 
+  it("sends automatic background and stitch strategy by default", () => {
+    const form = generationForm(file, DEFAULT_SETTINGS);
+    expect(form.get("background_mode")).toBe("auto");
+    expect(form.get("stitch_type")).toBe("auto");
+    expect(form.get("raster_cleanup")).toBe("true");
+  });
+
+  it("preserves explicit background and stitch choices independently of automatic density", () => {
+    const form = generationForm(file, { ...DEFAULT_SETTINGS, background_mode: "keep", stitch_type: "satin", auto_adjust: true, raster_cleanup: false });
+    expect(form.get("background_mode")).toBe("keep");
+    expect(form.get("stitch_type")).toBe("satin");
+    expect(form.get("auto_adjust")).toBe("true");
+    expect(form.get("raster_cleanup")).toBe("false");
+    expect(generationForm(file, { ...DEFAULT_SETTINGS, background_mode: "remove", stitch_type: "fill" }).get("stitch_type")).toBe("fill");
+    expect(generationForm(file, { ...DEFAULT_SETTINGS, stitch_type: "running" }).get("stitch_type")).toBe("running");
+  });
+
   it("uses server machine recommendations without changing material or density", () => {
     const capabilities = { machine_profiles: { "brother-skitch-pp1": { hoop_width: 100, hoop_height: 100, max_colors: 6, max_satin_width: 7 } } } as Capabilities;
     const source = { ...DEFAULT_SETTINGS, hoop_width: 200, fabric: "stretch" as const, stabilizer: "cutaway" as const, stitch_spacing: 0.5 };

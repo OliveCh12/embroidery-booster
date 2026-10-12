@@ -68,9 +68,10 @@ function Timeline({ plan }: { plan: StitchPlan }) {
         <Popover.Content placement="top end"><Popover.Dialog className="flex w-72 flex-col gap-4 p-4">
           <Popover.Heading>Options de l’aperçu</Popover.Heading>
           <ToggleSetting label="Afficher la sous-couche" value={underlay} onChange={setUnderlay} />
-          <ToggleSetting label="Afficher les sauts de fil" value={travel} onChange={setTravel} />
+          <ToggleSetting label="Liaisons, sauts et ancrages" value={travel} onChange={setTravel} />
           <ToggleSetting label="Pause au changement de fil" value={pauseAtColor} onChange={setPauseAtColor} />
-          <p className="text-xs leading-relaxed text-muted">Dessin : {formatNumber(plan.bounds[2] - plan.bounds[0])} × {formatNumber(plan.bounds[3] - plan.bounds[1])} mm. Grille de 10 mm. Vert : premier point ; rouge : aiguille.</p>
+          <p className="text-xs leading-relaxed text-muted">Couverture : couleur du fil. Sous-couche : gris. Liaisons : ambre ; sauts en pointillés. Ancrages : violet. Les repères vert (départ) et rouge (aiguille) apparaissent pendant la lecture.</p>
+          <p className="text-xs leading-relaxed text-muted">Dessin : {formatNumber(plan.bounds[2] - plan.bounds[0])} × {formatNumber(plan.bounds[3] - plan.bounds[1])} mm. Grille de 10 mm.</p>
           <p className="text-xs leading-relaxed text-muted">Simulation à {plan.stitchesPerMinute} points/min, accélérée ×{speed}. Sauts, coupes et changements de fil ne sont pas chronométrés.</p>
         </Popover.Dialog></Popover.Content>
       </Popover>

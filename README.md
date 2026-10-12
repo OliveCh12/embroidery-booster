@@ -2,8 +2,9 @@
 
 Generate **PES and DST embroidery directly from SVG or bitmap artwork**. The
 application chooses satin, running stitches or tatami for each visible colour
-region, then produces inspectable machine points. Version **0.4.0** uses one
-automatic direct engine throughout the library, CLI and web application.
+region, then produces inspectable machine points. Version **0.5.0** adds
+background interpretation, bounded colour-speckle cleanup and explicit stitch
+strategies to the same direct engine throughout the library, CLI and web app.
 
 ## Installation
 
@@ -37,11 +38,19 @@ must be converted to vector paths; scripts, external resources and embedded
 images are rejected. PDF, EPS, PS and AI must be exported to SVG before import.
 
 PNG, JPEG, WebP, BMP, GIF and TIFF are traced locally. GIF/TIFF use the first
-frame. Alpha is preserved, and a sufficiently uniform opaque border background
-is removed. Blank margins are cropped. Flat artwork retains its colours; photos
+frame. Alpha is preserved. **Auto background** removes only a sufficiently
+uniform background connected to the perimeter: a white badge enclosed by a
+logo remains white embroidery. Choose **Keep** to retain a deliberate canvas or
+**Remove** to explicitly remove the dominant exterior colour. SVG Auto/Keep
+retain explicit vector paints; SVG Remove rasterizes and retraces at the original
+physical scale. Blank margins are cropped. Flat artwork retains its colours; photos
 and gradients use a bounded palette, with 12 threads by default and six in the
 Skitch preset. This is colour quantization, not semantic photo recognition.
-Review the interpreted SVG to confirm important details and backgrounds.
+Small adjacent colour speckles can be merged into a similar stable region;
+transparent holes and isolated or contrasting details are preserved. This is
+enabled by default and can be disabled. Diagnostics report changed area and
+region counts. Review the interpreted SVG to confirm important details and
+backgrounds. See [input interpretation](docs/INPUT_INTERPRETATION.md).
 
 Bitmap artwork defaults to an **80 mm longest side**. SVGs keep their original
 size. `--design-width` sets the interpreted document width, while `--fit-to-hoop`
@@ -60,6 +69,16 @@ uv run embroidery-rungs examples/quality/sewout.svg --machine brother-skitch-pp1
 
 # Explicit monochrome interpretation
 uv run embroidery-rungs logo.png --single-color --thread-color '#176d9c'
+
+# Keep an intentional background, with uniform tatami top stitches
+uv run embroidery-rungs logo.png --background keep --stitch-type fill
+
+# Require satin; unsuitable broad/branched shapes fail with a clear error
+uv run embroidery-rungs narrow-lettering.svg --stitch-type satin
+
+# Keep every bitmap colour detail, or generate outline embroidery
+uv run embroidery-rungs logo.png --no-raster-cleanup
+uv run embroidery-rungs logo.svg --stitch-type running
 
 # Expert settings without automatic material adjustments
 uv run embroidery-rungs logo.svg --no-auto-adjust --stitch-spacing 0.45 --fill-spacing 0.45
@@ -87,6 +106,9 @@ support without excess penetrations.
 | Material | custom / 40 wt | `--fabric`, `--thread-weight`, `--stabilizer` |
 | Fill direction | geometry-driven | `--fill-angle` overrides it |
 | Bitmap silhouette | automatic | `--raster-threshold`, `--invert-image` |
+| Background | automatic exterior removal | `--background auto/keep/remove` |
+| Small colour speckles | bounded cleanup | `--no-raster-cleanup` disables it |
+| Top stitch strategy | automatic geometry/coherence | `--stitch-type auto/satin/fill/running` |
 
 `stable`, `stretch` and `textured` presets propose density and support for 30,
 40 or 60 wt thread. They are starting points, not calibrated fabric models.
@@ -99,9 +121,11 @@ from embroidery_rungs import GenerationParams, StitchParams, generate
 result = generate(
     "logo.png",
     "output/logo",
-    GenerationParams(design_width_mm=70, fit_to_hoop=True),
+    GenerationParams(design_width_mm=70, fit_to_hoop=True, background_mode="auto"),
     stitch_params=StitchParams.for_fabric(
-        "stretch", thread_weight=40, stabilizer="cutaway",
+        "stretch",
+        thread_weight=40,
+        stabilizer="cutaway",
         machine="brother-skitch-pp1",
     ),
 )
@@ -109,15 +133,20 @@ print(result.direct.pes_path, result.direct.dst_path)
 print(result.artwork_size_mm, result.direct.stats)
 print(result.direct.params, result.direct.adjustments)
 print(result.direct.decisions, result.direct.threads)
+print(result.input_analysis, result.direct.analysis["stitch_breakdown"])
 ```
 
 `generate(input, output, params)` keeps its three positional arguments.
-`GenerationParams` contains only `design_width_mm`, `fit_to_hoop`,
-`raster_threshold` and `raster_invert`. `GenerationResult.direct` is mandatory;
+`GenerationParams` contains `design_width_mm`, `fit_to_hoop`,
+`raster_threshold`, `raster_invert`, `background_mode` and `raster_cleanup`.
+Set `StitchParams(stitch_type="fill")` for uniform tatami, or pass `stitch_type`
+to `StitchParams.for_fabric()`. `GenerationResult.direct` is mandatory;
 `input_path` identifies the untouched source and `original_path` the interpreted
 SVG. Results also contain physical dimensions, input settings, warnings and
 stage timings. Missing files raise `FileNotFoundError`, invalid inputs/settings
-raise `ValueError`, and file errors raise `OSError`. Failed generation preserves
+raise `ValueError`, and file errors raise `OSError`. Strict satin never silently
+falls back to fill. Running outlines are intentionally not solid coverage.
+Failed generation preserves
 previous outputs.
 
 **Migration from 0.3:** editable rail/rung exports and external embroidery
@@ -141,10 +170,12 @@ Each successful generation produces:
 
 JSON **schema 3** stores integer coordinates in **0.1 mm**, centred in the hoop.
 It declares command codes, hoop/machine bounds, first stitch, colour changes,
-and command ranges for top stitches, underlay and travel. Machine files are
+and command ranges for top stitches, underlay, sewn travel and locks. Exact needle
+counts distinguish these phases in `analysis.stitch_breakdown`. Machine files are
 encoded with [pyembroidery](https://github.com/EmbroidePy/pyembroidery); round-trip
 tests verify sewn coordinates. Playback follows these commands and displays
-needle-up travel. Its timing counts needle cycles only, excluding manual thread
+needle-up travel. Grey underlay can be hidden; amber connections, jumps and violet
+locks share a separate visibility control. Its timing counts needle cycles only, excluding manual thread
 changes, machine acceleration and cutting.
 
 Brother specifies the [Skitch PP1](https://www.brother-usa.com/p/sewing-embroidery/PP1)
@@ -156,7 +187,11 @@ Follow the [physical sew-out protocol](docs/SEWOUT.md) before using a new materi
 
 ## Engine and validation
 
-Each connected colour region uses one coherent top strategy. Satin candidates
+In Auto, each connected colour region uses one coherent top strategy. Colours
+dominated by broad fill regions also use fill for compact solid companions;
+narrow columns, lettering and counters retain their useful satin treatment.
+Explicit Fill applies tatami throughout; explicit Satin requires safe columns
+throughout; Running produces contours/axes. Satin candidates
 must fit the float limit and pass coverage/crowding checks on the final machine
 grid; broad or unsuitable regions receive clipped tatami. Fine details use
 running stitches where they retain coverage. Rigidly equivalent regions share

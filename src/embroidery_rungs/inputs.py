@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
 import numpy as np
+import resvg_py
 from PIL import Image, ImageOps, UnidentifiedImageError
+from scipy.ndimage import label
 from skimage.filters import threshold_otsu
 from skimage.measure import approximate_polygon, find_contours
 
-from .colors import bitmap_foreground, separate_colors
+from .colors import bitmap_colors, bitmap_foreground, clean_color_regions
 from .svg_manager import MAX_INPUT_BYTES, UNITS_PER_MM, load_svg_paths
 
 RASTER_EXT = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
 MAX_RASTER_PIXELS = 16_000_000
+MAX_TRACED_REGIONS = 4096
 
 
 def raster_to_svg(
@@ -26,19 +30,43 @@ def raster_to_svg(
     invert: bool = False,
     preserve_colors: bool = False,
     max_colors: int = 12,
+    background_mode: str = "auto",
+    cleanup: bool = True,
+    diagnostics: dict | None = None,
+    hoop_size_mm: tuple[float, float] | None = None,
 ) -> str:
-    """Trace a monochrome silhouette; crop blank margins and preserve holes."""
+    """Trace visible paint, preserving alpha holes and enclosed opaque colours."""
+    if background_mode not in ("auto", "keep", "remove"):
+        raise ValueError("background mode must be 'auto', 'keep' or 'remove'.")
+    if not isinstance(cleanup, bool):
+        raise ValueError("cleanup must be a boolean.")
+    diagnostics = diagnostics if diagnostics is not None else {}
     try:
         with Image.open(input_path) as original:
             if original.width * original.height > MAX_RASTER_PIXELS:
                 raise ValueError("Raster image exceeds 16 megapixels.")
             image = ImageOps.exif_transpose(original).convert("RGBA")
             if preserve_colors and threshold is None and not invert:
-                return _color_bitmap_svg(image, svg_path, width_mm, max_colors)
-            alpha = np.asarray(image.getchannel("A"))
-            if alpha.min() < 255 and threshold is None:
+                return _color_bitmap_svg(
+                    image,
+                    svg_path,
+                    width_mm,
+                    max_colors,
+                    background_mode,
+                    cleanup,
+                    diagnostics,
+                    hoop_size_mm=hoop_size_mm,
+                )
+            background_info = {}
+            if threshold is None and not invert:
+                rgba = bitmap_foreground(np.asarray(image), background_mode, background_info)
+                alpha = rgba[..., 3]
                 mask = alpha >= 128
             else:
+                background_info.update(
+                    mode=background_mode, applied=False, reason="manual_threshold_or_inversion"
+                )
+                alpha = np.asarray(image.getchannel("A"))
                 background = Image.new("RGBA", image.size, "white")
                 gray = np.asarray(Image.alpha_composite(background, image).convert("L"))
                 if gray.min() == gray.max():
@@ -50,14 +78,28 @@ def raster_to_svg(
                         mask = ~mask
             if invert:
                 mask = ~mask
+            # Threshold/inversion changes paint selection, never the explicit
+            # alpha silhouette: transparent margins and counters cannot sew.
+            mask &= alpha >= 128
+            diagnostics.update(
+                background=background_info,
+                cleanup={
+                    "enabled": cleanup,
+                    "reason": "single_colour_silhouette",
+                    "changed_pixels": 0,
+                    "removed_pixels": 0,
+                },
+            )
     except (UnidentifiedImageError, Image.DecompressionBombError, OSError) as exc:
         raise ValueError(f"Invalid raster image: {exc}") from exc
-    if not mask.any() or mask.all():
-        raise ValueError("No distinct visible shapes found in the image.")
+    if not mask.any():
+        raise ValueError("No shapes found in a uniform or fully transparent image.")
+    _check_trace_budget(label(mask)[1])
     ys, xs = np.nonzero(mask)
     mask = np.pad(mask[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1], 1)
     height, width = mask.shape
     physical_width = width_mm if width_mm is not None else 80 * width / max(width, height)
+    physical_width = _fitted_width(physical_width, width, height, hoop_size_mm, diagnostics)
     parts = []
     # Scale simplification to physical size, with a half-pixel upper bound.
     tolerance = min(0.5, 0.05 * width / physical_width)
@@ -79,16 +121,78 @@ def raster_to_svg(
     return str(svg_path)
 
 
-def _color_bitmap_svg(image, svg_path, width_mm, max_colors):
-    # Preserve physical detail (~0.08 mm) without tracing camera-sized noise.
-    longest_mm = max(80.0, width_mm or 80.0)
-    image.thumbnail((min(2048, round(longest_mm * 12)),) * 2, Image.Resampling.LANCZOS)
-    rgba = bitmap_foreground(np.asarray(image))
-    labels, colors, _ = separate_colors(rgba, max_colors)
+def _color_bitmap_svg(
+    image,
+    svg_path,
+    width_mm,
+    max_colors,
+    background_mode,
+    cleanup,
+    diagnostics,
+    *,
+    pixel_size_mm=None,
+    hoop_size_mm=None,
+):
+    background_info = {}
+    # Flood the source before resampling: Lanczos otherwise mixes opaque blank
+    # margins into the artwork and makes background-coloured islands.
+    rgba = bitmap_foreground(np.asarray(image), background_mode, background_info)
+    ys, xs = np.nonzero(rgba[..., 3] >= 128)
+    if not len(ys):
+        raise ValueError("No shapes found in a uniform or fully transparent image.")
+    rgba = rgba[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
+    source_height, source_width = rgba.shape[:2]
+    physical_width = (
+        width_mm
+        if width_mm is not None
+        else (
+            pixel_size_mm * (source_width + 2)
+            if pixel_size_mm is not None
+            else 80 * (source_width + 2) / (max(source_width, source_height) + 2)
+        )
+    )
+    requested_width = physical_width
+    physical_width = _fitted_width(
+        physical_width, source_width + 2, source_height + 2, hoop_size_mm, diagnostics
+    )
+    # Crop first so blank canvas cannot consume the physical detail budget.
+    image = Image.fromarray(rgba)
+    physical_longest = physical_width * max(source_width, source_height) / source_width
+    image.thumbnail(
+        (min(2048, max(1, round(physical_longest * 12))),) * 2, Image.Resampling.LANCZOS
+    )
+    rgba = np.asarray(image)
+    cleanup_info = {
+        "enabled": cleanup,
+        "changed_pixels": 0,
+        "removed_pixels": 0,
+        "changed_area_mm2": 0.0,
+        "reason": "disabled_by_request",
+    }
+    labels, colors, reduced = bitmap_colors(
+        rgba, max_colors, cleanup=cleanup, diagnostics=cleanup_info
+    )
+    cleanup_info.update(palette_reduced=bool(reduced), palette_colors=len(colors))
     ys, xs = np.nonzero(labels)
-    labels = np.pad(labels[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1], 1)
+    labels = labels[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
+    height, width = np.array(labels.shape) + 2
+    physical_width = _fitted_width(requested_width, width, height, hoop_size_mm, diagnostics)
+    pixels_per_mm = width / physical_width
+    if cleanup:
+        labels = clean_color_regions(labels, colors, pixels_per_mm, cleanup_info)
+    else:
+        count = sum(label(labels == index)[1] for index in range(1, len(colors) + 1))
+        cleanup_info.update(regions_before=count, regions_after=count)
+    if cleanup_info["flat_paints_recovered"]:
+        cleanup_info["regions_after_palette"] = cleanup_info["regions_before"]
+        cleanup_info["regions_before"] = cleanup_info.pop("palette_regions_before")
+        cleanup_info["palette_changed_area_mm2"] = (
+            cleanup_info["palette_consolidated_pixels"] / pixels_per_mm**2
+        )
+    _check_trace_budget(cleanup_info["regions_after"])
+    diagnostics.update(background=background_info, cleanup=cleanup_info)
+    labels = np.pad(labels, 1)
     height, width = labels.shape
-    physical_width = width_mm if width_mm is not None else 80 * width / max(width, height)
     root = ET.Element(
         "svg",
         xmlns="http://www.w3.org/2000/svg",
@@ -109,6 +213,26 @@ def _color_bitmap_svg(image, svg_path, width_mm, max_colors):
             )
     ET.ElementTree(root).write(svg_path, encoding="utf-8", xml_declaration=True)
     return str(svg_path)
+
+
+def _fitted_width(width_mm, width, height, hoop_size_mm, diagnostics):
+    effective = width_mm
+    if hoop_size_mm is not None:
+        effective = min(width_mm, hoop_size_mm[0] - 2, (hoop_size_mm[1] - 2) * width / height)
+    diagnostics["sizing"] = {
+        "requested_width_mm": float(width_mm),
+        "effective_width_mm": float(effective),
+        "effective_height_mm": float(effective * height / width),
+        "fitted": bool(effective < width_mm - 1e-6),
+    }
+    return effective
+
+
+def _check_trace_budget(regions):
+    if regions > MAX_TRACED_REGIONS:
+        raise ValueError(
+            f"Bitmap contains {regions} visible regions after interpretation; the limit is {MAX_TRACED_REGIONS}. Enable raster cleanup, reduce colours, or simplify the image."
+        )
 
 
 def convert_to_svg(input_path, work_dir):
@@ -136,6 +260,10 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
     if source.stat().st_size > MAX_INPUT_BYTES:
         raise ValueError("Input exceeds the 10 MiB limit.")
     converted = source.suffix.lower() in RASTER_EXT
+    input_analysis = {}
+    hoop_size = (
+        (stitch_params.hoop_width_mm, stitch_params.hoop_height_mm) if params.fit_to_hoop else None
+    )
     if converted:
         prepared = Path(
             raster_to_svg(
@@ -146,21 +274,84 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
                 invert=params.raster_invert,
                 preserve_colors=preserve_colors,
                 max_colors=stitch_params.max_colors,
+                background_mode=params.background_mode,
+                cleanup=params.raster_cleanup,
+                diagnostics=input_analysis,
+                hoop_size_mm=hoop_size,
             )
         )
     elif source.suffix.lower() == ".svg":
         prepared = source
+        input_analysis.update(
+            background={
+                "mode": params.background_mode,
+                "applied": False,
+                "reason": "explicit_vector_paint",
+            },
+            cleanup={
+                "enabled": params.raster_cleanup,
+                "reason": "vector_artwork_preserved",
+                "changed_pixels": 0,
+                "removed_pixels": 0,
+            },
+        )
+        if params.background_mode == "remove":
+            svg, _ = load_svg_paths(source)
+            longest_mm = max(svg.width, svg.height) / UNITS_PER_MM
+            side = min(2048, max(1, round(longest_mm * 12)))
+            size = {"width": side} if svg.width >= svg.height else {"height": side}
+            png = resvg_py.svg_to_bytes(svg_string=svg.xml, dpi=96, skip_system_fonts=True, **size)
+            with Image.open(io.BytesIO(png)) as rendered:
+                prepared = Path(
+                    _color_bitmap_svg(
+                        rendered.convert("RGBA"),
+                        directory / f"{source.stem}.svg",
+                        params.design_width_mm,
+                        stitch_params.max_colors,
+                        "remove",
+                        params.raster_cleanup,
+                        input_analysis,
+                        pixel_size_mm=svg.width / UNITS_PER_MM / rendered.width,
+                        hoop_size_mm=hoop_size,
+                    )
+                )
     else:
         raise ValueError(_unsupported_format(source.suffix.lower()))
     warnings = []
     if converted:
         warnings.append(
-            "Bitmap traced with a bounded colour palette and automatic background removal. Check the interpreted artwork before sewing."
+            "Bitmap traced with a bounded colour palette. Check the interpreted artwork before sewing."
             if preserve_colors and params.raster_threshold is None and not params.raster_invert
             else "Bitmap traced as a single-colour silhouette. Check the interpreted artwork before sewing."
         )
+    elif params.background_mode == "remove":
+        warnings.append(
+            "SVG rasterized and retraced for explicit border-connected background removal; physical scale is preserved."
+        )
+    if input_analysis["background"]["applied"]:
+        warnings.append(
+            "Only the background connected to the image border was removed; enclosed opaque colours remain embroidery regions."
+        )
+    elif input_analysis["background"]["reason"] == "ambiguous_perimeter":
+        warnings.append(
+            "Background kept because the image perimeter is ambiguous; choose Keep or Remove explicitly after checking the artwork."
+        )
+    cleaning = input_analysis["cleanup"]
+    if cleaning.get("changed_pixels"):
+        warnings.append(
+            f"Reduced {cleaning['changed_pixels']} small adjacent colour speckles ({cleaning['changed_area_mm2']:.2f} mm²); isolated or contrasting accents were preserved. Disable raster cleanup to retain every colour detail."
+        )
+    if cleaning.get("flat_paints_recovered"):
+        warnings.append(
+            f"Recovered {cleaning['palette_colors']} flat paints from compressed colour shades; {cleaning['retained_accent_colors']} additional accent colours were preserved. Background and tiny detail interpretation still need a preview check."
+        )
+    if input_analysis.get("sizing", {}).get("fitted"):
+        sizing = input_analysis["sizing"]
+        warnings.append(
+            f"Artwork sized to {sizing['effective_width_mm']:.1f} × {sizing['effective_height_mm']:.1f} mm."
+        )
     if params.design_width_mm is None and not params.fit_to_hoop:
-        return prepared, warnings
+        return prepared, warnings, input_analysis
     svg, _ = load_svg_paths(prepared)
     width, height = svg.width / UNITS_PER_MM, svg.height / UNITS_PER_MM
     factor = params.design_width_mm / width if params.design_width_mm is not None else 1.0
@@ -171,7 +362,7 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
             (stitch_params.hoop_height_mm - 2) / height,
         )
     if abs(factor - 1) < 1e-6:
-        return prepared, warnings
+        return prepared, warnings, input_analysis
     # Explicit viewBox is essential for SVGs whose geometry uses bare CSS pixels.
     if not svg.root.get("viewBox"):
         svg.root.set("viewBox", f"0 0 {svg.width:g} {svg.height:g}")
@@ -180,4 +371,4 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
     prepared = directory / f"{source.stem}.svg"
     ET.ElementTree(svg.root).write(prepared, encoding="utf-8", xml_declaration=True)
     warnings.append(f"Artwork sized to {width * factor:.1f} × {height * factor:.1f} mm.")
-    return prepared, warnings
+    return prepared, warnings, input_analysis

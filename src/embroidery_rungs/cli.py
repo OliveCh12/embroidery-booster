@@ -21,6 +21,19 @@ def parse_arguments(argv=None):
     parser.add_argument("--fit-to-hoop", action="store_true", help="Shrink artwork to fit the hoop")
     parser.add_argument("--raster-threshold", type=int, help="Bitmap luminance threshold (0–255)")
     parser.add_argument("--invert-image", action="store_true", help="Invert bitmap foreground")
+    parser.add_argument(
+        "--background",
+        choices=("auto", "keep", "remove"),
+        default="auto",
+        help="Keep or remove border-connected background; auto preserves enclosed artwork",
+    )
+    parser.add_argument("--no-raster-cleanup", action="store_true", help="Preserve image speckles")
+    parser.add_argument(
+        "--stitch-type",
+        choices=("auto", "satin", "fill", "running"),
+        default="auto",
+        help="Top stitch strategy; satin requires safe columns, running draws contours",
+    )
     parser.add_argument("-o", "--output-dir", default="output")
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("--json", action="store_true", help="Print structured results to stdout")
@@ -105,6 +118,8 @@ def main(argv=None):
                 fit_to_hoop=args.fit_to_hoop,
                 raster_threshold=args.raster_threshold,
                 raster_invert=args.invert_image,
+                background_mode=args.background,
+                raster_cleanup=not args.no_raster_cleanup,
             ),
             stitch_params=StitchParams.for_fabric(
                 args.fabric,
@@ -117,6 +132,7 @@ def main(argv=None):
                 underlay=not args.no_underlay,
                 auto_adjust=not args.no_auto_adjust,
                 auto_fill_angle=args.fill_angle is None,
+                stitch_type=args.stitch_type,
                 hoop_width_mm=args.hoop_width,
                 hoop_height_mm=args.hoop_height,
                 thread_color=args.thread_color or "#176d9c",

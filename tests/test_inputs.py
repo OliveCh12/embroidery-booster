@@ -32,7 +32,14 @@ def test_bitmap_library_traces_holes_in_physical_units_without_web(tmp_path, tra
     source = tmp_path / "logo.png"
     bitmap(source, transparent=transparent)
     original = source.read_bytes()
-    result = generate(source, tmp_path / "output", method="direct")
+    # An opaque white counter is paint by default. Explicit thresholding is
+    # appropriate when the caller intends a monochrome cutout instead.
+    result = generate(
+        source,
+        tmp_path / "output",
+        GenerationParams(raster_threshold=None if transparent else 128),
+        method="direct",
+    )
     assert source.read_bytes() == original
     assert result.direct.stats["width_mm"] <= 80.5
     assert result.direct.stats["height_mm"] <= 41
