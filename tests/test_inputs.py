@@ -56,9 +56,9 @@ def test_explicit_size_scales_svg_and_does_not_overwrite_same_directory_input(tm
         f'<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" {viewbox}><rect x="20" y="30" width="200" height="40"/></svg>'
     )
     original = source.read_bytes()
-    result = generate(source, tmp_path, GenerationParams(design_width_mm=60), method="both")
+    result = generate(source, tmp_path, GenerationParams(design_width_mm=60))
     assert source.read_bytes() == original
-    assert Path(result.original_path).name == "logo_prepared.svg"
+    assert Path(result.original_path).name == "logo_artwork.svg"
     document, _ = load_svg_paths(result.original_path)
     assert document.width / UNITS_PER_MM == pytest.approx(60)
     assert result.direct.stats["width_mm"] == pytest.approx(50, abs=0.6)
@@ -136,8 +136,6 @@ def test_cli_generates_bitmap_pes_at_requested_size(tmp_path, capsys):
         main(
             [
                 str(source),
-                "--method",
-                "direct",
                 "--design-width",
                 "45",
                 "--fit-to-hoop",
@@ -173,18 +171,40 @@ def test_extreme_svg_aspect_ratio_keeps_physical_geometry(tmp_path, width, heigh
     source.write_text(
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}mm" height="{height}mm" viewBox="0 0 {width} {height}"><rect width="{width}" height="{height}"/></svg>'
     )
-    from svgelements import SVG
-
     from embroidery_rungs.image_processor import rasterize_svg
-    from embroidery_rungs.pipeline import image_scale
 
     result = generate(source, tmp_path / "out")
-    bounds = SVG.parse(result.satin_path).bbox()
-    # Running stitches represent a centreline, whose SVG stroke is narrower than the source.
-    axis = 1 if height > width else 0
-    assert (bounds[axis + 2] - bounds[axis]) / UNITS_PER_MM == pytest.approx(100, abs=0.3)
+    metric = "height_mm" if height > width else "width_mm"
+    assert result.artwork_size_mm == pytest.approx([width, height])
+    # Legal terminal penetrations may stop within one row of the painted edge.
+    assert result.direct.stats[metric] == pytest.approx(
+        100, abs=result.direct.params.satin_spacing_mm + 0.1
+    )
+    assert result.direct.stats["structural_coverage"] >= 0.999
+    assert result.direct.stats["largest_gap_mm2"] == 0
     document, _ = load_svg_paths(source)
     mask, transform = rasterize_svg(document)
     physical_size = np.array(mask.shape[::-1]) - 6
-    physical_size = physical_size / image_scale(transform) / UNITS_PER_MM
+    scale = np.sqrt(abs(transform.a * transform.d - transform.b * transform.c))
+    physical_size = physical_size / scale / UNITS_PER_MM
     assert physical_size == pytest.approx([width, height], abs=0.3)
+
+
+@pytest.mark.parametrize("extension", [".pdf", ".eps", ".ps", ".ai", ".txt"])
+def test_unsupported_formats_require_explicit_svg_conversion(tmp_path, extension):
+    source = tmp_path / ("artwork" + extension)
+    source.write_bytes(b"unsupported artwork")
+    output = tmp_path / "out"
+    with pytest.raises(ValueError, match="Use SVG, PNG, JPEG, WebP"):
+        generate(source, output)
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("extension", [".png", ".jpg", ".webp", ".bmp", ".gif", ".tiff"])
+def test_supported_bitmap_formats_generate_machine_files(tmp_path, extension):
+    source = tmp_path / ("artwork" + extension)
+    bitmap(source)
+    result = generate(source, tmp_path / "out", GenerationParams(design_width_mm=30))
+    assert Path(result.direct.pes_path).read_bytes().startswith(b"#PES0060")
+    assert result.direct.stats["structural_coverage"] >= 0.999
+    assert result.input_path == str(source.resolve())

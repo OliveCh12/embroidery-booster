@@ -1,4 +1,4 @@
-"""Compute boundary rails once, then select geometry-aware rung checkpoints."""
+"""Extract continuous boundary rails from the medial axis for direct stitches."""
 
 from __future__ import annotations
 
@@ -10,14 +10,13 @@ from scipy.ndimage import find_objects, gaussian_filter1d, label, map_coordinate
 from shapely.geometry import Polygon
 from skimage.segmentation import watershed
 
-from .geometry_utils import get_skeleton_paths, segments_intersect
-from .optimizer import checkpoint_indices
+from ..geometry_utils import get_skeleton_paths, segments_intersect
 
 logger = logging.getLogger(__name__)
 
 
 def _valid_rail_pieces(a, b, centers):
-    """Trim folded caps and subdivide invalid sweeps before SVG export."""
+    """Trim folded caps and subdivide invalid sweeps before stitch planning."""
     pending = [(a, b, centers)]
     while pending:
         a, b, c = pending.pop()
@@ -161,20 +160,18 @@ def _crossing_filter(rails):
     return output
 
 
-def generate_rungs(
+def generate_columns(
     skeleton,
     distance_map,
-    spacing_px,
     binary_img,
-    min_satin_width_px=0.0,
     *,
+    min_satin_width_px=0.0,
     pixels_per_mm=6.0,
-    auto_optimize=False,
 ):
-    """Return guide rungs, bridges and ordered satin/running elements.
+    """Return satin rails and running paths without producing SVG guide geometry.
 
     Branches remain separate columns at junctions. No artificial bridges are
-    stitched across empty space. Rail sampling is independent of rung spacing.
+    stitched across empty space.
     """
     paths = get_skeleton_paths(skeleton, distance=distance_map)
     paths = _fallback_axes(binary_img, paths, distance_map)
@@ -253,7 +250,7 @@ def generate_rungs(
         # Keep invalid gaps visible to segmentation rather than connecting over them.
         a[~good] = b[~good] = centers[~good]
         rails.append((a, b, centers))
-    elements, rungs = [], []
+    elements = []
     for a, b, centers, valid in _crossing_filter(rails):
         widths = np.linalg.norm(b - a, axis=1)
         satin = widths >= min_satin_width_px
@@ -266,7 +263,7 @@ def generate_rungs(
                 (satin[valid[1:]] != satin[valid[:-1]])
                 | (
                     np.linalg.norm(np.diff(centers[valid], axis=0), axis=1)
-                    > np.maximum(spacing_px * 2, widths[valid[:-1]])
+                    > np.maximum(6 * pixels_per_mm, widths[valid[:-1]])
                 )
             )
             + 1
@@ -301,17 +298,12 @@ def generate_rungs(
                         continue
                     if len(ra) == 2:
                         ra, rb, c = [np.vstack([x[0], x.mean(axis=0), x[1]]) for x in (ra, rb, c)]
-                    width = np.linalg.norm(rb - ra, axis=1)
-                    ck = checkpoint_indices(c, width, spacing_px, auto_optimize)
-                    pairs = [(ra[k].tolist(), rb[k].tolist()) for k in ck]
                     elements.append(
                         {
                             "type": "satin",
                             "rail_a": ra.tolist(),
                             "rail_b": rb.tolist(),
-                            "rungs": pairs,
                         }
                     )
-                    rungs.extend(pairs)
-    logger.info("Generated %d checkpoints in %d elements", len(rungs), len(elements))
-    return rungs, [], elements
+    logger.info("Extracted %d satin/running rail elements", len(elements))
+    return elements

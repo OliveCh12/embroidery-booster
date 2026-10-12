@@ -11,10 +11,10 @@ from skimage.measure import find_contours
 from svgelements import Matrix
 
 from ..routing import route_columns
-from ..rung_generator import _valid_rail_pieces
 from ..svg_manager import UNITS_PER_MM
 from .planner import UnstitchableRegion, build_stitch_plan
 from .quality import measure_plan, satin_crowding
+from .rails import _valid_rail_pieces
 
 
 def _fill_angle(polygon, params):

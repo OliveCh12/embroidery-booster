@@ -1,264 +1,178 @@
 # Embroidery Booster
 
-Automatically turn an SVG or bitmap into **PES / DST stitches**, or
-editable **Ink/Stitch satin columns**. Both paths share a deterministic Medial
-Axis Transform and the same `generate()` entry point.
+Generate **PES and DST embroidery directly from SVG or bitmap artwork**. The
+application chooses satin, running stitches or tatami for each visible colour
+region, then produces inspectable machine points. Version **0.4.0** uses one
+automatic direct engine throughout the library, CLI and web application.
 
-**Recommended workflow:** direct automatic generation, with the actual design
-size, fabric and thread selected by the user. Keep Ink/Stitch for inspection and
-manual finishing. The library and CLI retain `inkstitch` as their default for
-backward compatibility; the web UI defaults to direct generation.
+## Installation
 
-## Install and run
-
-Python **3.10+** is required by the native SVG renderer; development uses 3.12.
-The application uses **Node.js 24**, **pnpm 12.4.2**, Next.js **16.4** and HeroUI **3.2**.
-No Inkscape or Ink/Stitch installation is needed for direct generation.
+Python **3.10+** is required by the SVG renderer. Development versions are pinned
+in `.mise.toml`: Python 3.12, Node.js 24 and pnpm 12.4.2. Inkscape and Ink/Stitch
+are not required.
 
 ```bash
 git clone https://github.com/OliveCh12/embroidery-booster.git
 cd embroidery-booster
-uv sync --extra web
+uv sync --extra web --extra dev
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open <http://127.0.0.1:3000>, upload an SVG or image, choose its physical size,
-hoop, fabric, thread weight and stabilizer, then generate. Review the interpreted
-artwork and stitch preview before downloading PES or DST. Choose **Comparer
-les deux moteurs** to inspect both approaches side by side. Real native stitch previews
-and native machine downloads are available when Ink/Stitch is installed.
+Open <http://127.0.0.1:3000>. Import an SVG or image on the preview side by file
+selection, drag-and-drop or clipboard paste. Choose its physical size, machine,
+fabric, thread and stabilizer; generate, review the interpreted artwork and
+stitch playback, then download PES. The interface has light, dark and system
+modes. See [frontend development](frontend/README.md) for separate processes and
+production builds.
 
-Core only: `uv sync`. Development: `uv sync --frozen --extra dev --extra web`.
-A normal installation also works: `python -m pip install ".[web]"`.
-Build distributable packages with `uv build`. `.mise.toml` and `.envrc` support
-mise and direnv without requiring them.
+`pnpm dev` starts Next.js on port 3000 and the Python API on port 8000.
+`FRONTEND_PORT` and `API_PORT` override them. Core-only installation: `uv sync`.
+Build the Python wheel with `uv build`.
 
-`pnpm dev` runs the Next.js application on port 3000 and the Python API on port
-8000. `FRONTEND_PORT` and `API_PORT` override these ports together. The app includes
-light, dark and system themes, responsive controls and a comparison gallery.
-See [frontend development](frontend/README.md) for separate processes and production builds.
+## Inputs and physical size
 
-## Input and sizing
+SVG dimensions, transforms, viewBoxes and intentional holes are preserved. Text
+must be converted to vector paths; scripts, external resources and embedded
+images are rejected. PDF, EPS, PS and AI must be exported to SVG before import.
 
-SVGs retain their physical size unless resizing is requested. Transforms,
-shifted viewBoxes, separate components and holes are preserved. Convert text to
-paths and remove unwanted backgrounds first.
+PNG, JPEG, WebP, BMP, GIF and TIFF are traced locally. GIF/TIFF use the first
+frame. Alpha is preserved, and a sufficiently uniform opaque border background
+is removed. Blank margins are cropped. Flat artwork retains its colours; photos
+and gradients use a bounded palette, with 12 threads by default and six in the
+Skitch preset. This is colour quantization, not semantic photo recognition.
+Review the interpreted SVG to confirm important details and backgrounds.
 
-PNG, JPEG, WebP, TIFF, GIF and BMP use local tracing in the library, CLI and web
-UI. Direct automatic generation separates visible colors, preserves alpha and
-removes a uniform opaque perimeter background. Flat logo colors retain their RGB
-values; photos and gradients use a bounded thread palette (12 colors by default).
-Blank margins are cropped, intentional holes are preserved and the default
-longest side is **80 mm**. Inspect the interpreted artwork before sewing.
-
-The original Ink/Stitch and manual paths retain monochrome silhouette tracing.
-Explicit threshold/inversion or `--single-color` also selects monochrome tracing.
-PDF/EPS/PS/AI require Inkscape. Photo quantization does not reconstruct the subject
-or guarantee stitchable photographic detail.
-
-`design_width_mm` / `--design-width` sets the prepared document width in mm.
-`fit_to_hoop` / `--fit-to-hoop` permits proportional shrinking to the selected
-hoop with a margin. The UI enables fitting by default; library/CLI calls do not
-resize implicitly. Actual compensated stitch bounds are checked separately.
+Bitmap artwork defaults to an **80 mm longest side**. SVGs keep their original
+size. `--design-width` sets the interpreted document width, while `--fit-to-hoop`
+allows proportional shrinking to leave **1 mm per side**. The web interface
+requests fitting by default; the library and CLI require the explicit option.
+Actual compensated stitch bounds are also checked against the selected hoop.
 
 ## CLI
 
 ```bash
-# Automatic machine stitches from an image
-uv run embroidery-rungs logo.png --method direct --design-width 70 --fit-to-hoop --fabric stretch --thread-weight 40 --stabilizer cutaway --auto-optimize
+# Colour logo, automatically fitted to the chosen hoop
+uv run embroidery-rungs logo.png --design-width 70 --fit-to-hoop --fabric stable -o output/logo
 
-# Both export paths from the same prepared artwork
-uv run embroidery-rungs examples/direct-quality.svg --method both --auto-optimize -o output/comparison
+# Brother Skitch PP1 and a reproducible material coupon
+uv run embroidery-rungs examples/quality/sewout.svg --machine brother-skitch-pp1 --fabric stable --thread-weight 40 --stabilizer cutaway --fit-to-hoop -o output/sewout
 
-# Preserve logo colors, export Brother PES and DST
-uv run embroidery-rungs examples/quality/multicolor.svg --method direct --max-colors 8 -o output/color-logo
+# Explicit monochrome interpretation
+uv run embroidery-rungs logo.png --single-color --thread-color '#176d9c'
 
-# Skitch PP1: 100 × 100 mm, practical palette and satin recommendations
-uv run embroidery-rungs examples/quality/sewout.svg --method direct --machine brother-skitch-pp1 --fabric stable --thread-weight 40 --stabilizer cutaway --fit-to-hoop -o output/sewout-cotton
+# Expert settings without automatic material adjustments
+uv run embroidery-rungs logo.svg --no-auto-adjust --stitch-spacing 0.45 --fill-spacing 0.45
 
-# Explicit monochrome override
-uv run embroidery-rungs logo.png --method direct --single-color --thread-color '#176d9c'
-
-# Existing editable Ink/Stitch workflow
-uv run embroidery-rungs examples/satin-demo.svg --auto-optimize -o output/rails
-
-# Machine-readable result
-uv run embroidery-rungs logo.svg --method direct --json
+uv run embroidery-rungs logo.svg --json
 uv run embroidery-rungs --help
 ```
 
-The automatic direct engine uses **one top stitch strategy per connected color
-region**: regular satin for suitable columns, running stitches for fine details,
-or whole-region clipped tatami for broad, branched or incompletely covered shapes.
-Satin candidates must pass coverage and crowding checks in the actual sewing direction,
-including the final shared machine grid. Internal stitch phase is preserved during routing.
-It never patches a deficient satin region with a different top stitch type.
-Small compact details can receive a bounded minimum-length adjustment, reported
-in warnings. Decisions and candidate diagnostics are recorded in JSON.
-Equivalent regions share stitch type, density, local fill angle, compensation and
-underlay policy. Rotated/reflected counterparts retain their original outlines;
-automatic fill direction follows filled-area geometry rather than sample position.
-Details that cannot form a sewn segment after machine rounding are explicitly
-marked `omitted`, including an entirely unsewable color. Missing colors remain in
-the coverage audit; an entirely unsewable design fails with an enlargement message.
-See the [consistency validation](docs/QUALITY_REPORT.md), including the Union Jack.
+Automatic adjustment bounds excessively dense/sparse settings, compensation and
+satin width, and enables underlay on stretch/textured fabrics. Requested and
+effective values, with reasons, are included in the result. `--no-auto-adjust`
+keeps explicit settings; geometric coverage, machine-length and hoop checks
+still apply. Underlay may be omitted on a tiny region when it cannot form useful
+support without excess penetrations.
 
-| Setting | Default | CLI |
+| Control | Starting value | CLI |
 |---|---:|---|
-| Satin same-edge row pitch | 0.4 mm | `--stitch-spacing` |
-| Fill row pitch | 0.4 mm | `--fill-spacing` |
-| Pull compensation per rail | 0.15 mm | `--pull-compensation` |
-| Running length | 2.5 mm | `--running-length` |
-| Maximum sewn segment | 8 mm | `--max-stitch` |
-| Maximum automatic satin width | 8 mm | `--max-satin-width` |
-| Underlay | enabled | `--no-underlay` |
+| Satin / fill row pitch | 0.4 / 0.4 mm | `--stitch-spacing`, `--fill-spacing` |
+| Running stitch length | 2.5 mm | `--running-length` |
+| Maximum stitch length | 8 mm | `--max-stitch` |
+| Pull compensation per side | 0.15 mm | `--pull-compensation` |
+| Maximum satin width | 8 mm before automatic bounds | `--max-satin-width` |
 | Hoop | 100 × 100 mm | `--hoop-width`, `--hoop-height` |
-| Automatic stitch-type selection | enabled | `--no-auto-select` |
-| Automatic fill angle | enabled | explicit `--fill-angle` overrides it |
-| Maximum thread colors | 12 | `--max-colors` |
-| Preserve visible colors | enabled in auto | `--single-color` disables it |
-| Bitmap threshold | automatic | `--raster-threshold`, `--invert-image` |
-| Machine profile | custom hoop | `--machine generic\|brother-skitch-pp1` |
+| Thread palette | 12 colours | `--max-colors`, `--single-color` |
+| Material | custom / 40 wt | `--fabric`, `--thread-weight`, `--stabilizer` |
+| Fill direction | geometry-driven | `--fill-angle` overrides it |
+| Bitmap silhouette | automatic | `--raster-threshold`, `--invert-image` |
 
-`--wide-mode split|fill` explicitly switches to manual per-rail selection.
-`--spacing`, `--density` and `--auto-optimize` control **direction guides**,
-independently of machine stitch density. `--debug` saves geometry diagnostics;
-`--preview` optionally opens Inkscape. `--no-preview` remains accepted.
+`stable`, `stretch` and `textured` presets propose density and support for 30,
+40 or 60 wt thread. They are starting points, not calibrated fabric models.
 
 ## Library
 
 ```python
 from embroidery_rungs import GenerationParams, StitchParams, generate
 
-settings = StitchParams.for_fabric(
-    "stretch", thread_weight=40, stabilizer="cutaway",
-    machine="brother-skitch-pp1",
-    hoop_width_mm=100, hoop_height_mm=100,
-)
 result = generate(
-    "logo.png", "output/logo",
-    GenerationParams(auto_optimize=True, design_width_mm=70, fit_to_hoop=True),
-    method="direct",  # "inkstitch" (existing default), "direct", or "both"
-    stitch_params=settings,
+    "logo.png",
+    "output/logo",
+    GenerationParams(design_width_mm=70, fit_to_hoop=True),
+    stitch_params=StitchParams.for_fabric(
+        "stretch", thread_weight=40, stabilizer="cutaway",
+        machine="brother-skitch-pp1",
+    ),
 )
 print(result.direct.pes_path, result.direct.dst_path)
 print(result.artwork_size_mm, result.direct.stats)
-print(result.direct.decisions, result.warnings)
-print(result.direct.threads)  # ordered RGB palette; PES contains color changes
+print(result.direct.params, result.direct.adjustments)
+print(result.direct.decisions, result.direct.threads)
 ```
 
-Set `preserve_colors=False, thread_color="#176d9c"` on `StitchParams` for a
-monochrome direct plan. `max_colors` bounds the palette from 1 to 32.
+`generate(input, output, params)` keeps its three positional arguments.
+`GenerationParams` contains only `design_width_mm`, `fit_to_hoop`,
+`raster_threshold` and `raster_invert`. `GenerationResult.direct` is mandatory;
+`input_path` identifies the untouched source and `original_path` the interpreted
+SVG. Results also contain physical dimensions, input settings, warnings and
+stage timings. Missing files raise `FileNotFoundError`, invalid inputs/settings
+raise `ValueError`, and file errors raise `OSError`. Failed generation preserves
+previous outputs.
 
-Presets `custom`, `stable`, `stretch` and `textured`, plus thread weights 30/40/60,
-propose editable density, compensation and underlay. The server owns these values;
-the UI uses the same presets. Explicit numeric overrides take precedence.
-Stabilizer selection is recorded; it is not a calibrated mechanical model.
-Fill pull compensation extends along the sewn rows, retaining intentional holes.
-Its underlay is inset, with edge support and sparse cross rows; unstable fabrics
-receive closer support. Auto satin reserves room for compensation and rounding
-before the maximum stitch length, avoiding split penetrations across its face.
+**Migration from 0.3:** editable rail/rung exports and external embroidery
+workflows have been removed. The API accepts only `method="direct"`, which is
+the default. CLI `--method`, rung `--spacing`/`--density`/`--dpi`, optimizer/debug
+options, external-preview controls and manual gap-fill switches are removed.
+Use `result.direct.stats` instead of the old rung/column counts or coverage
+fields. `StitchParams.auto_select`/`fill_gaps` are replaced by the unified engine
+and `auto_adjust`. A lower-level `build_stitch_plan()` remains available for
+explicit physical paths; it does not interpret SVGs.
 
-The Skitch factory preset proposes six thread colors and a 7 mm satin width;
-these are editable recommendations. Its **100 × 100 mm** hoop limit is validated
-even with manual overrides, following the [Brother specifications](https://www.brother-usa.com/p/sewing-embroidery/PP1).
-The Skitch uses Artspira: import the generated **PES** (or DST), rather than the
-source SVG. [Artspira supports these embroidery formats](https://support.brother.com/g/s/hf/mobileapp_info/artspira/plan/func1/en.html);
-import availability depends on the account/region. Enable Jump Stitch Trimming
-in the machine settings; PES trim commands alone do not prove physical cutting.
-See the [sew-out protocol](docs/SEWOUT.md) and the reproducible three-color coupon.
+## Outputs and machine playback
 
-The original positional API and result fields remain available. `direct` is
-`None` for original-only calls. Added fields include warnings, stage timings and
-prepared document dimensions. Missing files raise `FileNotFoundError`, invalid
-inputs/settings raise `ValueError`, and file failures raise `OSError`.
-Generation validates and stages outputs before publication.
+Each successful generation produces:
 
-## Outputs
+- `design_artwork.svg`: interpreted artwork at the requested physical size.
+- `design_direct.pes`: PES v6, with thread colours and colour changes.
+- `design_direct.dst`: extended DST.
+- `design_direct.svg` and `.png`: stitch previews.
+- `design_direct.json`: exact commands, decisions, diagnostics and settings.
 
-Every method retains the existing SVG outputs:
+JSON **schema 3** stores integer coordinates in **0.1 mm**, centred in the hoop.
+It declares command codes, hoop/machine bounds, first stitch, colour changes,
+and command ranges for top stitches, underlay and travel. Machine files are
+encoded with [pyembroidery](https://github.com/EmbroidePy/pyembroidery); round-trip
+tests verify sewn coordinates. Playback follows these commands and displays
+needle-up travel. Its timing counts needle cycles only, excluding manual thread
+changes, machine acceleration and cutting.
 
-- `design.svg`: original SVG copy, or the prepared bitmap regions. If an input already
-  occupies this output path and is resized, `design_prepared.svg` preserves it.
-- `design_rungs.svg`: direction guides.
-- `design_ready.svg`: artwork with editable guides.
-- `design_satin.svg`: ordered paired-node satin columns and running paths.
+Brother specifies the [Skitch PP1](https://www.brother-usa.com/p/sewing-embroidery/PP1)
+for **100 × 100 mm** embroidery at **400 stitches/minute**, through Artspira.
+The preset validates this hoop limit; its six-colour palette and 7 mm satin width
+are project recommendations. [Artspira imports PES and DST](https://support.brother.com/g/s/hf/mobileapp_info/artspira/plan/func1/en.html);
+availability depends on the account and region. Use PES for its thread metadata.
+Follow the [physical sew-out protocol](docs/SEWOUT.md) before using a new material.
 
-Direct generation adds `design_direct.pes`, `.dst`, `.json`, `.svg` and `.png`.
-JSON schema 2 stores exact integer positions in **0.1 mm**, commands, ordered
-threads, per-color diagnostics, effective parameters, region decisions and warnings.
-`top_layer_runs` identifies the exported top stitches independently of underlay
-and travel. PES v6 and extended DST are encoded with
-[pyembroidery](https://github.com/EmbroidePy/pyembroidery). The preview uses the
-source thread colors with gray underlay; dotted lines indicate needle-up travel.
-Sewn coordinates round-trip exactly through both machine formats in tests.
+## Engine and validation
 
-The application calculates its own points with NumPy and geometric checks.
-It does not delegate direct generation to another stitch calculator.
-See [direct algorithm details](docs/DIRECT_STITCHES.md).
+Each connected colour region uses one coherent top strategy. Satin candidates
+must fit the float limit and pass coverage/crowding checks on the final machine
+grid; broad or unsuitable regions receive clipped tatami. Fine details use
+running stitches where they retain coverage. Rigidly equivalent regions share
+strategy, density, direction, compensation and underlay policy, while retaining
+their original outlines. Unsewable details are reported rather than silently
+removed from quality measurements.
 
-## Optional Ink/Stitch
+Audits measure exported **top stitches only**. The reference model uses a 0.3 mm
+thread and 0.25 mm structural tolerance; near-complete geometric coverage does
+not demonstrate sewn opacity or simulate fabric deformation. Stitch playback
+is a preview of machine commands, not a fabric simulation. No physical sew-out
+has yet validated these presets.
 
-Open `design_satin.svg` in Inkscape and adjust it with Ink/Stitch. Paired rails
-use its documented [node method](https://inkstitch.org/docs/stitches/satin-column/).
-Explicit guides remain in the other SVGs. Native export in the comparison UI
-applies the selected material settings, top/underlay length controls and trims.
-The configured SVG is also downloadable.
-
-Set `INKSCAPE_BIN` / `INKSTITCH_BIN`, or put the executables on `PATH`. Standard
-macOS installation paths are detected. Helper scripts remain available:
-
-```bash
-uv run bash scripts/inkstitch_preview.sh output/rails/satin-demo_satin.svg
-uv run bash scripts/run_inkstitch.sh output/rails/satin-demo_satin.svg output/rails/design.zip
-```
-
-A native export failure leaves the editable SVGs available with a clear warning.
-The app reads native PES statistics and flags excessive actual stitch lengths.
-
-## Web and API
-
-Next.js owns the interface in `frontend/`; Flask remains a standalone Python
-API, served by Waitress without debug mode on localhost by default. The Python
-wheel contains the library, CLI and API. Run the interface from the repository:
-
-```bash
-pnpm dev
-# API only, for library integrations or a separately managed frontend:
-uv run embroidery-rungs-web --host 127.0.0.1 --port 8000
-```
-
-Limits: 10 MiB uploads, 16 MP bitmaps, two simultaneous jobs, persistent UUID
-folders under `output/web/`. `EMBROIDERY_OUTPUT_DIR` changes storage.
-For public deployment, provide access control in front of the local application.
-
-`POST /api/convert` accepts multipart `file`, `method`, `design_width`,
-`fit_to_hoop`, `fabric`, `thread_weight`, `stabilizer` and generation settings.
-API default remains `method=inkstitch`; boolean values use `true` / `false`.
-Responses retain `files`, `preview`, `stats`, `params`, `warnings` and `logs`,
-and add `artwork_preview`, `artwork_svg`, `artwork_size_mm` and optional `direct`.
-Invalid inputs return 400, oversized uploads 413, busy workers 503.
-`GET /api/capabilities` exposes optional tools and shared material presets.
-Next.js proxies these endpoints and downloads on the same origin; no public API
-URL or CORS configuration is needed. The API root returns service metadata.
-
-## Quality evidence and development
-
-The reproducible corpus contains **29 SVGs**: curves, corners, tapers, rings,
-holes, junctions, tiny islands, multicolor artwork and complex logos. At a common
-document width of 80 mm, the new direct engine improves mean top-layer structural
-coverage from **99.966% to 99.999%**, with the largest missing component falling
-from **0.20 to 0.01 mm²**. Underlay, locks and travel cannot hide missing top stitches.
-
-Structural coverage uses a 0.3 mm reference thread and **0.25 mm tolerance**;
-it does not mean pixel-perfect coverage or a validated physical sew-out. Coherent
-tatami selection lowers raw IoU in some cases and increases cuts. The report
-includes those tradeoffs, per-color audits and a separate native Ink/Stitch
-comparison on our generated rails. Significant remaining issues produce warnings.
-
-See the [quality report](docs/QUALITY_REPORT.md), [raw measurements](docs/quality-comparison.json),
-[architecture](docs/ARCHITECTURE.md) and [initial engineering audit](docs/AUDIT.md).
+See [algorithm rules](docs/DIRECT_STITCHES.md), [architecture](docs/ARCHITECTURE.md)
+and the [current quality report](docs/QUALITY_REPORT.md). The `/quality` gallery
+reads reproducible artifacts from `output/quality`.
 
 ```bash
 uv run pytest -q
@@ -267,19 +181,15 @@ uv run ruff format --check src tests scripts
 pnpm check
 pnpm test:frontend
 pnpm build
-uv run python scripts/compare_quality.py --inkstitch /path/to/inkstitch
-uv run python scripts/compare_quality.py --reuse
-uv run python scripts/compare_quality.py --output output/quality-80mm --design-width-mm 80 --modes direct-auto
-uv run python scripts/benchmark_direct.py --baseline-ref 6b6c756 --design-width-mm 80
+uv run python scripts/compare_quality.py --design-width-mm 80
+uv run python scripts/benchmark_direct.py --design-width-mm 80
 uv build
 ```
 
-Generated previews and plans live in `output/`, outside source control. The
-application comparison gallery is at `/quality`, reading generated JSON and previews.
-Historical MAT timing snapshots are in `docs/benchmarks/`.
-
-Tiny details, sharp branch transitions and dense motifs can still require
-finishing. Geometric checks and valid machine files do not simulate tension,
-fabric deformation or thread spread. A sew-out on the chosen material remains
-necessary to establish physical rendition; arbitrary photos cannot be promised
-perfect automatic embroidery.
+The Flask API runs independently with `uv run embroidery-rungs-web --host
+127.0.0.1 --port 8000`. `POST /api/convert` accepts multipart artwork and direct
+settings; `GET /api/capabilities` supplies formats, machine profiles and material
+presets. The API bounds uploads to 10 MiB, bitmaps to 16 MP and simultaneous jobs
+to two. Jobs live under `output/web`; `EMBROIDERY_OUTPUT_DIR` overrides storage.
+Next.js proxies API/download requests on the same origin. Public deployments
+need access control and a storage-retention policy.

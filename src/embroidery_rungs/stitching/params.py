@@ -13,6 +13,7 @@ MACHINE_PROFILES = {
         "max_colors": 12,
         "max_satin_width": 8.0,
         "max_area_mm": None,
+        "stitches_per_minute": 400,
     },
     "brother-skitch-pp1": {
         "label": "Brother Skitch PP1 · 100 × 100 mm",
@@ -23,6 +24,7 @@ MACHINE_PROFILES = {
         "max_colors": 6,
         "max_satin_width": 7.0,
         "max_area_mm": 100.0,
+        "stitches_per_minute": 400,
     },
 }
 
@@ -40,13 +42,12 @@ class StitchParams:
     underlay: bool = True
     trim_distance_mm: float = 3.0
     wide_mode: str = "fill"
-    fill_gaps: bool = True
     max_satin_width_mm: float = 8.0
     hoop_width_mm: float = 100.0
     hoop_height_mm: float = 100.0
     thread_color: str = "#176d9c"
     max_stitches: int = 500_000
-    auto_select: bool = True
+    auto_adjust: bool = True
     auto_fill_angle: bool = True
     fabric: str = "custom"
     thread_weight: int = 40
@@ -157,13 +158,12 @@ class StitchParams:
             isinstance(v, bool)
             for v in (
                 self.underlay,
-                self.fill_gaps,
-                self.auto_select,
+                self.auto_adjust,
                 self.auto_fill_angle,
                 self.preserve_colors,
             )
         ):
-            raise ValueError("underlay, fill_gaps and auto_select must be booleans.")
+            raise ValueError("underlay, auto_adjust and auto_fill_angle must be booleans.")
         if self.fabric not in ("custom", "stable", "stretch", "textured"):
             raise ValueError("Unknown fabric preset.")
         if self.thread_weight not in (30, 40, 60) or isinstance(self.thread_weight, bool):

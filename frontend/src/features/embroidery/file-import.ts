@@ -1,4 +1,4 @@
-export const ACCEPTED_FILES = ".svg,.png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff,.pdf,.eps,.ps,.ai";
+export const ACCEPTED_FILES = ".svg,.png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff";
 
 const IMAGE_EXTENSIONS: Record<string, string> = {
   "image/svg+xml": "svg", "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp",

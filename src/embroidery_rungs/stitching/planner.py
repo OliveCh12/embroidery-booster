@@ -83,6 +83,10 @@ class StitchPlan:
     warnings: list[str] = field(default_factory=list)
     decisions: list[dict] = field(default_factory=list)
     threads: list[str] = field(default_factory=list)
+    params: StitchParams | None = None
+    analysis: dict = field(default_factory=dict)
+    requested_params: dict = field(default_factory=dict)
+    adjustments: list[dict] = field(default_factory=list)
 
 
 def _make_blocks(elements, params):
@@ -353,6 +357,10 @@ def build_stitch_plan(
     size = np.ptp(stitched_coordinates, axis=0) / 10
     if np.any(size > [params.hoop_width_mm, params.hoop_height_mm]):
         raise ValueError("Quantized stitch dimensions exceed the configured hoop.")
+    if origin_mm is None:
+        half_hoop = np.array([params.hoop_width_mm, params.hoop_height_mm]) / 2
+        if np.any(np.abs(array[:, :2] / 10) > half_hoop + 1e-9):
+            raise ValueError("Centered machine coordinates exceed the configured hoop.")
     # Consecutive STITCH commands are sew segments; JUMP→STITCH is a first penetration.
     lengths = np.linalg.norm(np.diff(array[:, :2], axis=0), axis=1) / 10
     sewn = (array[1:, 2] == pe.STITCH) & (array[:-1, 2] == pe.STITCH)

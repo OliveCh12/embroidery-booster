@@ -7,15 +7,16 @@ from collections import defaultdict
 from dataclasses import dataclass, field, replace
 
 import numpy as np
+from scipy.ndimage import distance_transform_edt
 from shapely.geometry import Polygon
 from svgelements import Matrix
 
 from ..image_processor import compute_medial_axis
-from ..rung_generator import generate_rungs
 from ..svg_manager import UNITS_PER_MM
 from .params import StitchParams
 from .planner import UnstitchableRegion, build_stitch_plan
 from .quality import measure_plan, satin_crowding
+from .rails import generate_columns
 from .regions import Region, canonical_regions, physical_elements, route_region_groups
 from .selection import _fill_angle, fill_elements, mask_polygons, select_stitch_types
 
@@ -144,15 +145,25 @@ def select_consistent_regions(mask, transform, params: StitchParams, origin, sym
             if params.auto_fill_angle
             else region.frame.angle_to_local(params.fill_angle_deg),
         )
-        skeleton, distance = compute_medial_axis(local_mask)
-        _, _, elements = generate_rungs(
-            skeleton,
-            distance,
-            3 * scale,
-            local_mask,
-            min_satin_width_px=0.5 * scale,
-            pixels_per_mm=scale,
+        safe_width = min(
+            params.max_satin_width_mm,
+            params.max_stitch_mm - 0.2 - 2 * params.pull_compensation_mm,
         )
+        diameter = 2 * distance_transform_edt(local_mask).max() / scale
+        # A clearly broad interior needs fill regardless of its MAT branches.
+        # Two raster pixels of margin leave borderline counterparts to the full
+        # satin gate and cohort consensus rather than treating edge noise as proof.
+        broad = diameter > safe_width + 2 / scale
+        elements = []
+        if not broad:
+            skeleton, distance = compute_medial_axis(local_mask)
+            elements = generate_columns(
+                skeleton,
+                distance,
+                local_mask,
+                min_satin_width_px=0.5 * scale,
+                pixels_per_mm=scale,
+            )
         selected, decisions = select_stitch_types(
             physical_elements(elements, local_transform),
             local_mask,
@@ -161,6 +172,9 @@ def select_consistent_regions(mask, transform, params: StitchParams, origin, sym
             origin_mm=local_origin,
         )
         if decisions:
+            decisions[0]["mat_evaluated"] = not broad
+            if broad:
+                decisions[0]["reason"] = "exceeds_safe_satin_width"
             groups[region.group].append(
                 RegionCandidate(
                     region,

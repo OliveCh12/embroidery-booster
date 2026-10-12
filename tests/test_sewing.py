@@ -104,7 +104,7 @@ def test_tiny_component_is_explicitly_omitted_without_aborting_other_regions(tmp
     source.write_text(
         '<svg xmlns="http://www.w3.org/2000/svg" width="80mm" height="70mm" viewBox="0 0 80 70"><rect x="10" y="30" width="40" height="4"/><rect x="65" y="20" width=".08" height=".08"/></svg>'
     )
-    result = generate(source, tmp_path / "out", method="direct").direct
+    result = generate(source, tmp_path / "out").direct
     assert any(d["method"] == "omitted" for d in result.decisions)
     assert result.stats["omitted_regions"] == 1
     assert any("omitted" in w for w in result.warnings)
@@ -130,8 +130,6 @@ def test_machine_profile_is_available_via_cli(tmp_path, capsys):
         main(
             [
                 str(EXAMPLES / "straight.svg"),
-                "--method",
-                "direct",
                 "--machine",
                 "brother-skitch-pp1",
                 "--output-dir",
@@ -152,7 +150,7 @@ def test_automatic_satin_reserves_compensation_before_the_length_cap(tmp_path):
     source.write_text(
         '<svg xmlns="http://www.w3.org/2000/svg" width="80mm" height="70mm" viewBox="0 0 80 70"><rect x="10" y="30" width="60" height="7.8"/></svg>'
     )
-    result = generate(source, tmp_path / "out", method="direct").direct
+    result = generate(source, tmp_path / "out").direct
     assert {d["method"] for d in result.decisions} == {"fill"}
     assert result.stats["satin_regions"] == 0
     assert result.stats["max_stitch_mm"] <= 8
@@ -170,7 +168,6 @@ def test_machine_profile_api_validation_and_defaults(tmp_path):
     )
     data = {
         "machine": "brother-skitch-pp1",
-        "method": "direct",
         "file": (io.BytesIO((EXAMPLES / "straight.svg").read_bytes()), "logo.svg"),
     }
     result = client.post("/api/convert", data=data)
@@ -195,7 +192,6 @@ def test_sewout_coupon_has_safe_multicolor_machine_commands(tmp_path, fabric, we
         EXAMPLES / "sewout.svg",
         tmp_path,
         GenerationParams(fit_to_hoop=True),
-        method="direct",
         stitch_params=settings,
     ).direct
     assert result.stats["colors"] == 3

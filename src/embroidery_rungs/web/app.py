@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import threading
+from dataclasses import asdict
 from pathlib import Path
 from uuid import uuid4
 
@@ -17,8 +18,6 @@ from werkzeug.utils import secure_filename
 from embroidery_rungs import GenerationParams, StitchParams, generate
 from embroidery_rungs.image_processor import render_preview
 from embroidery_rungs.stitching.params import MACHINE_PROFILES
-
-from . import services
 
 
 class _RequestLogs(logging.Filter):
@@ -36,7 +35,7 @@ def create_app(config=None):
         MAX_CONTENT_LENGTH=10 * 1024 * 1024,
         MAX_JOBS=2,
         OUTPUT_ROOT=os.environ.get("EMBROIDERY_OUTPUT_DIR", str(Path.cwd() / "output/web")),
-        QUALITY_REPORT_DIR=Path.cwd() / "output/quality-comparison",
+        QUALITY_REPORT_DIR=Path.cwd() / "output/quality",
     )
     if config:
         app.config.update(config)
@@ -57,12 +56,11 @@ def create_app(config=None):
     @app.get("/api/capabilities")
     def capabilities():
         return jsonify(
-            inkscape=services.has_inkscape(),
-            inkstitch=services.has_inkstitch(),
+            engine="direct",
+            accepted_formats=["svg", "png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff", "gif"],
             direct=True,
             direct_formats=["pes", "dst"],
             quality_report=(Path(app.config["QUALITY_REPORT_DIR"]) / "comparison.json").is_file(),
-            recommended_method="direct",
             machine_profiles=MACHINE_PROFILES,
             material_presets={
                 fabric: {
@@ -98,23 +96,39 @@ def create_app(config=None):
         if not upload or not upload.filename:
             return jsonify(error="Aucun fichier fourni."), 400
         try:
-            method = request.form.get("method", "inkstitch")
-            if method not in ("inkstitch", "direct", "both"):
-                raise ValueError("Unknown generation method.")
+            if request.form.get("method", "direct") != "direct":
+                raise ValueError("Only the direct stitch engine is supported.")
+            retired = {
+                "spacing",
+                "density",
+                "dpi",
+                "auto_optimize",
+                "debug",
+                "export",
+                "wide_mode",
+                "fill_gaps",
+                "auto_select",
+            } & request.form.keys()
+            if retired:
+                raise ValueError("Unsupported settings: " + ", ".join(sorted(retired)))
+
+            def boolean(name, default):
+                value = request.form.get(name)
+                if value is None:
+                    return default
+                if value not in ("true", "false"):
+                    raise ValueError(f"{name} must be true or false.")
+                return value == "true"
+
             params = GenerationParams(
-                spacing=float(request.form.get("spacing", 3)),
-                density=float(request.form.get("density", 1)),
-                dpi=int(request.form.get("dpi", 150)),
-                auto_optimize=request.form.get("auto_optimize", "false") == "true",
-                debug=request.form.get("debug", "false") == "true",
                 design_width_mm=float(request.form["design_width"])
                 if request.form.get("design_width")
                 else None,
-                fit_to_hoop=request.form.get("fit_to_hoop", "false") == "true",
+                fit_to_hoop=boolean("fit_to_hoop", False),
                 raster_threshold=int(request.form["raster_threshold"])
                 if request.form.get("raster_threshold")
                 else None,
-                raster_invert=request.form.get("raster_invert", "false") == "true",
+                raster_invert=boolean("raster_invert", False),
             )
             params.validate()
             stitch_params = StitchParams.for_fabric(
@@ -123,37 +137,26 @@ def create_app(config=None):
                 stabilizer=request.form.get("stabilizer", "unspecified"),
                 machine=request.form.get("machine", "generic"),
             )
-            stitch_params.hoop_width_mm = float(request.form.get("hoop_width", 100))
-            stitch_params.hoop_height_mm = float(request.form.get("hoop_height", 100))
-            if method != "inkstitch":
-                stitch_params.max_colors = int(
-                    request.form.get("max_colors", stitch_params.max_colors)
-                )
-                stitch_params.preserve_colors = (
-                    request.form.get("preserve_colors", "true") == "true"
-                )
-                for field, name in (
-                    ("stitch_spacing", "satin_spacing_mm"),
-                    ("running_length", "running_length_mm"),
-                    ("fill_spacing", "fill_spacing_mm"),
-                    ("fill_angle", "fill_angle_deg"),
-                    ("max_stitch", "max_stitch_mm"),
-                    ("max_satin_width", "max_satin_width_mm"),
-                    ("pull_compensation", "pull_compensation_mm"),
-                ):
-                    setattr(
-                        stitch_params,
-                        name,
-                        float(request.form.get(field, getattr(stitch_params, name))),
-                    )
-                stitch_params.underlay = request.form.get("underlay", "true") == "true"
-                stitch_params.wide_mode = request.form.get("wide_mode", "fill")
-                stitch_params.fill_gaps = request.form.get("fill_gaps", "true") == "true"
-                stitch_params.auto_select = request.form.get("auto_select", "true") == "true"
-                stitch_params.auto_fill_angle = (
-                    request.form.get("auto_fill_angle", "true") == "true"
-                )
-                stitch_params.thread_color = request.form.get("thread_color", "#176d9c")
+            for field, name in (
+                ("hoop_width", "hoop_width_mm"),
+                ("hoop_height", "hoop_height_mm"),
+                ("stitch_spacing", "satin_spacing_mm"),
+                ("running_length", "running_length_mm"),
+                ("fill_spacing", "fill_spacing_mm"),
+                ("fill_angle", "fill_angle_deg"),
+                ("max_stitch", "max_stitch_mm"),
+                ("max_satin_width", "max_satin_width_mm"),
+                ("pull_compensation", "pull_compensation_mm"),
+            ):
+                if field in request.form:
+                    setattr(stitch_params, name, float(request.form[field]))
+            if "max_colors" in request.form:
+                stitch_params.max_colors = int(request.form["max_colors"])
+            for name in ("preserve_colors", "underlay", "auto_adjust", "auto_fill_angle"):
+                setattr(stitch_params, name, boolean(name, getattr(stitch_params, name)))
+            stitch_params.thread_color = request.form.get(
+                "thread_color", stitch_params.thread_color
+            )
             stitch_params.validate()
         except ValueError as exc:
             return jsonify(error=str(exc)), 400
@@ -172,121 +175,45 @@ def create_app(config=None):
                 raise ValueError("Nom de fichier invalide.")
             source = directory / filename
             upload.save(source)
-            # Keep legacy calls unchanged; comparison shares the same geometry.
-            result = (
-                generate(source, directory, params)
-                if method == "inkstitch" and not params.fit_to_hoop
-                else generate(source, directory, params, method=method, stitch_params=stitch_params)
-            )
+            result = generate(source, directory, params, stitch_params=stitch_params)
             job = directory.name
 
             def url(path):
                 return f"/api/file/{job}/{Path(path).relative_to(directory).as_posix()}"
 
-            files = {
-                "Satin (Ink/Stitch)": url(result.satin_path),
-                "Combiné (éditable)": url(result.ready_path),
-                "Rungs seuls": url(result.rungs_path),
-            }
-            preview = directory / "preview.png"
-            preview.write_bytes(
-                render_preview(result.satin_path, *result.artwork_size_mm, max_dimension=1000)
-            )
             artwork_preview = directory / "artwork.png"
             artwork_preview.write_bytes(
                 render_preview(result.original_path, *result.artwork_size_mm, max_dimension=1000)
             )
-            warnings = list(result.warnings)
-            stitch_preview = None
-            native_stats = None
-            if method != "direct" and request.form.get("export", "false") == "true":
-                try:
-                    zipped = services.export_embroidery(
-                        result.satin_path, directory / "embroidery.zip", stitch_params=stitch_params
-                    )
-                    files["Broderie (.dst/.pes)"] = url(zipped)
-                    native_stats = services.native_export_stats(zipped)
-                    if native_stats["max_stitch_mm"] > stitch_params.max_stitch_mm + 0.15:
-                        warnings.append(
-                            f"Ink/Stitch : point exporté maximal de {native_stats['max_stitch_mm']} mm malgré la limite demandée ; inspectez ce plan avant de broder."
-                        )
-                    stitch_preview = url(
-                        services.render_stitch_preview(
-                            result.satin_path,
-                            directory / "stitches.png",
-                            stitch_params=stitch_params,
-                            align_source=True,
-                        )
-                    )
-                    configured = services.configure_native_svg(
-                        result.satin_path, directory / "inkstitch_configured.svg", stitch_params
-                    )
-                    files["Ink/Stitch · réglages tissu / fil"] = url(configured)
-                except (RuntimeError, ValueError, OSError) as exc:
-                    warnings.append(str(exc))
-            direct = None
-            if result.direct:
-                warnings.extend(result.direct.warnings)
-                direct = {
-                    "files": {
-                        "Direct · PES (Brother)": url(result.direct.pes_path),
-                        "Direct · DST": url(result.direct.dst_path),
-                        "Plan des points · SVG": url(result.direct.svg_path),
-                        "Plan des points · JSON": url(result.direct.plan_path),
-                    },
-                    "preview": url(result.direct.preview_path),
-                    "stats": result.direct.stats,
-                    "decisions": result.direct.decisions,
-                    "threads": result.direct.threads,
-                    "coverage_basis": "quantized_top_layer"
-                    if result.direct.params.auto_select
-                    else "all_sewn_stitches",
-                    "params": {
-                        "spacing_mm": result.direct.params.satin_spacing_mm,
-                        "underlay": result.direct.params.underlay,
-                        "pull_compensation_mm": result.direct.params.pull_compensation_mm,
-                        "fill_spacing_mm": result.direct.params.fill_spacing_mm,
-                        "fabric": result.direct.params.fabric,
-                        "thread_weight": result.direct.params.thread_weight,
-                        "stabilizer": result.direct.params.stabilizer,
-                        "machine": result.direct.params.machine,
-                        "max_satin_width_mm": result.direct.params.max_satin_width_mm,
-                    },
-                }
-            debug = {p.name: url(p) for p in (directory / "debug").glob("*.png")}
+            direct = result.direct
             succeeded = True
             return jsonify(
                 success=True,
                 job=job,
-                method=method,
-                direct=direct,
-                native_stats=native_stats,
-                files=files,
-                warnings=warnings,
-                preview=url(preview),
+                direct={
+                    "files": {
+                        "pes": url(direct.pes_path),
+                        "dst": url(direct.dst_path),
+                        "preview_svg": url(direct.svg_path),
+                        "plan_json": url(direct.plan_path),
+                    },
+                    "preview": url(direct.preview_path),
+                    "stats": direct.stats,
+                    "decisions": direct.decisions,
+                    "threads": direct.threads,
+                    "params": asdict(direct.params),
+                    "requested_params": direct.requested_params,
+                    "adjustments": direct.adjustments,
+                    "analysis": direct.analysis,
+                },
+                warnings=list(dict.fromkeys([*result.warnings, *direct.warnings])),
                 artwork_preview=url(artwork_preview),
                 artwork_svg=url(result.original_path),
                 artwork_size_mm=result.artwork_size_mm,
-                satin_preview=stitch_preview,
-                debug_images=debug,
-                converted_from=source.suffix[1:] if source.suffix.lower() != ".svg" else None,
-                stats={
-                    "rungs": result.rungs_count,
-                    "columns": result.columns_count,
-                    "running": result.running_count,
-                    "coverage": round(result.coverage * 100, 1),
-                    "seconds": round(
-                        result.timings["total"]
-                        - (result.direct.stats["seconds"] if result.direct else 0),
-                        3,
-                    ),
-                    "total_seconds": round(result.timings["total"], 3),
-                },
-                params={
-                    "spacing": result.params.spacing,
-                    "density": result.params.density,
-                    "dpi": result.params.dpi,
-                },
+                converted_from=source.suffix.lower()[1:]
+                if source.suffix.lower() != ".svg"
+                else None,
+                stats={"total_seconds": round(result.timings["total"], 3)},
                 logs=stream.getvalue()[-4000:],
             )
         except ValueError as exc:
@@ -311,7 +238,7 @@ def create_app(config=None):
         return send_from_directory(
             Path(app.config["OUTPUT_ROOT"]) / job,
             filename,
-            as_attachment=filename.lower().endswith((".svg", ".zip", ".pes", ".dst", ".json")),
+            as_attachment=filename.lower().endswith((".svg", ".pes", ".dst", ".json")),
         )
 
     return app

@@ -33,7 +33,7 @@ def exported_top(data, color):
 
 
 def test_visible_color_layers_export_exact_palette_and_commands(tmp_path):
-    result = generate(SOURCE, tmp_path, method="both")
+    result = generate(SOURCE, tmp_path, method="direct")
     data = data_for(result)
     assert set(result.direct.threads) == {"#1267c9", "#e83546", "#f3bb27"}
     assert data["coverage_basis"] == "quantized_top_layer"
@@ -237,7 +237,7 @@ def test_color_web_upload_exposes_ordered_palette_and_machine_downloads(tmp_path
     direct = response.get_json()["direct"]
     assert set(direct["threads"]) == {"#1267c9", "#e83546", "#f3bb27"}
     assert direct["stats"]["color_changes"] == 2
-    assert client.get(direct["files"]["Direct · PES (Brother)"]).data.startswith(b"#PES0060")
+    assert client.get(direct["files"]["pes"]).data.startswith(b"#PES0060")
     bad = client.post(
         "/api/convert",
         data={

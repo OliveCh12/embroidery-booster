@@ -11,11 +11,9 @@ from skimage.filters import threshold_otsu
 from skimage.measure import approximate_polygon, find_contours
 
 from .colors import bitmap_foreground, separate_colors
-from .external import _run, _tool
 from .svg_manager import MAX_INPUT_BYTES, UNITS_PER_MM, load_svg_paths
 
 RASTER_EXT = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
-VECTOR_EXT = {".pdf", ".eps", ".ps", ".ai"}
 MAX_RASTER_PIXELS = 16_000_000
 
 
@@ -114,6 +112,7 @@ def _color_bitmap_svg(image, svg_path, width_mm, max_colors):
 
 
 def convert_to_svg(input_path, work_dir):
+    """Return SVG artwork or trace a supported bitmap without external tools."""
     file = Path(input_path)
     ext = file.suffix.lower()
     if ext == ".svg":
@@ -121,23 +120,14 @@ def convert_to_svg(input_path, work_dir):
     destination = Path(work_dir) / (file.stem + ".svg")
     if ext in RASTER_EXT:
         return raster_to_svg(file, destination)
-    if ext in VECTOR_EXT:
-        executable = _tool("inkscape")
-        if not executable:
-            raise ValueError("Inkscape is required to convert PDF/EPS/PS/AI.")
-        _run(
-            [
-                executable,
-                str(file),
-                "--export-type=svg",
-                "--export-plain-svg",
-                f"--export-filename={destination}",
-            ]
-        )
-        if not destination.is_file():
-            raise RuntimeError("Conversion to SVG failed.")
-        return str(destination)
-    raise ValueError(f"Unsupported file type: {ext or 'unknown'}")
+    raise ValueError(_unsupported_format(ext))
+
+
+def _unsupported_format(extension: str) -> str:
+    return (
+        f"Unsupported file type: {extension or 'unknown'}. "
+        "Use SVG, PNG, JPEG, WebP, BMP, GIF or TIFF; export other artwork to SVG first."
+    )
 
 
 def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors=False):
@@ -158,12 +148,10 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
                 max_colors=stitch_params.max_colors,
             )
         )
-    elif source.suffix.lower() in VECTOR_EXT:
-        prepared = Path(convert_to_svg(source, directory))
     elif source.suffix.lower() == ".svg":
         prepared = source
     else:
-        raise ValueError("Expected SVG, bitmap or an Inkscape-supported PDF/EPS/PS/AI file.")
+        raise ValueError(_unsupported_format(source.suffix.lower()))
     warnings = []
     if converted:
         warnings.append(

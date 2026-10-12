@@ -1,25 +1,20 @@
-"""Validated SVG input and namespace-aware, physically scaled outputs."""
+"""Validated SVG geometry and its physical coordinate transform."""
 
 from __future__ import annotations
 
-import copy
 import io
 import math
 import re
-import shutil
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path as FilePath
 from xml.etree import ElementTree as ET
 
 from defusedxml import ElementTree as SafeET
 from defusedxml.common import DefusedXmlException
-from svgelements import SVG, Matrix, Path, Point, Shape, Viewbox
+from svgelements import SVG, Matrix, Path, Shape, Viewbox
 
 SVG_NS = "http://www.w3.org/2000/svg"
-INKSTITCH_NS = "http://inkstitch.org/namespace"
 ET.register_namespace("", SVG_NS)
-ET.register_namespace("inkstitch", INKSTITCH_NS)
 UNITS_PER_MM = 96 / 25.4
 MAX_INPUT_BYTES = 10 * 1024 * 1024
 
@@ -49,7 +44,7 @@ def load_svg_paths(svg_path):
     for element in root.iter():
         tag = element.tag.rsplit("}", 1)[-1]
         if tag in {"script", "foreignObject", "image", "text"}:
-            raise ValueError(f"Unsupported SVG element <{tag}>; convert it to paths in Inkscape.")
+            raise ValueError(f"Unsupported SVG element <{tag}>; convert it to vector paths first.")
         for key, value in element.attrib.items():
             if key.rsplit("}", 1)[-1] == "href" and not value.startswith("#"):
                 raise ValueError("External SVG resources are not supported.")
@@ -100,112 +95,3 @@ def load_svg_paths(svg_path):
         p if isinstance(p, Path) else Path(p) for p in parsed.elements() if isinstance(p, Shape)
     ]
     return SVGDocument(root, width, height, matrix), paths
-
-
-def _root(svg: SVGDocument) -> ET.Element:
-    return ET.Element(
-        f"{{{SVG_NS}}}svg",
-        {
-            "width": f"{svg.width / UNITS_PER_MM:.6f}mm",
-            "height": f"{svg.height / UNITS_PER_MM:.6f}mm",
-            "viewBox": f"0 0 {svg.width:.6f} {svg.height:.6f}",
-            "version": "1.1",
-        },
-    )
-
-
-def _point(p, transform):
-    q = Point(*p) * transform
-    return f"{q.x:.5f},{q.y:.5f}"
-
-
-def _polyline(points, transform):
-    return "M " + " L ".join(_point(p, transform) for p in points)
-
-
-def _satin_rail_paths(element, transform):
-    rails = [[Point(*p) * transform for p in element[key]] for key in ("rail_a", "rail_b")]
-    for index in (0, 1):
-        length = sum(
-            math.hypot(b.x - a.x, b.y - a.y)
-            for a, b in zip(rails[index][:-1], rails[index][1:], strict=True)
-        )
-        if length > 0.0001:
-            continue
-        # A fan's point rail is valid geometry, but Ink/Stitch requires two polylines.
-        other = rails[1 - index]
-        other_length = sum(
-            math.hypot(b.x - a.x, b.y - a.y) for a, b in zip(other[:-1], other[1:], strict=True)
-        )
-        fraction = min(0.05, 0.02 * UNITS_PER_MM / max(other_length, 1e-8))
-        rails[index] = [
-            Point(a.x + (b.x - a.x) * fraction, a.y + (b.y - a.y) * fraction)
-            for a, b in zip(rails[index], other, strict=True)
-        ]
-    return ["M " + " L ".join(f"{p.x:.5f},{p.y:.5f}" for p in rail) for rail in rails]
-
-
-def _guides(root, rungs, bridges, transform):
-    group = ET.SubElement(root, f"{{{SVG_NS}}}g", {"id": "generated_rungs", "fill": "none"})
-    for name, lines, color in (("rungs", rungs, "#e02020"), ("bridges", bridges, "#1466c8")):
-        g = ET.SubElement(
-            group, f"{{{SVG_NS}}}g", {"id": name, "stroke": color, "stroke-width": ".3"}
-        )
-        for a, b in lines:
-            ET.SubElement(g, f"{{{SVG_NS}}}path", {"d": _polyline((a, b), transform)})
-
-
-def _write(root, path):
-    ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
-
-
-def save_rungs_svg(output_path, rungs, bridges, transform, svg):
-    root = _root(svg)
-    _guides(root, rungs, bridges, ~transform)
-    _write(root, output_path)
-
-
-def save_combined_svg(output_path, rungs, bridges, transform, svg):
-    root = copy.deepcopy(svg.root)
-    # Image -> viewport CSS coordinates -> source viewBox coordinates.
-    _guides(root, rungs, bridges, ~transform * ~svg.user_to_world)
-    _write(root, output_path)
-
-
-def save_satin_svg(output_path, elements, transform, svg):
-    root = _root(svg)
-    metadata = ET.SubElement(root, f"{{{SVG_NS}}}metadata")
-    ET.SubElement(metadata, f"{{{INKSTITCH_NS}}}inkstitch_svg_version").text = "3"
-    group = ET.SubElement(root, f"{{{SVG_NS}}}g", {"id": "embroidery"})
-    inv = ~transform
-    for i, element in enumerate(elements):
-        attrs = {
-            "id": f"{element['type']}_{i}",
-            "style": "fill:none;stroke:#e02020;stroke-width:.5",
-        }
-        if element["type"] == "running":
-            attrs["style"] = "fill:none;stroke:#1466c8;stroke-width:.5;stroke-dasharray:1.5,1"
-            attrs[f"{{{INKSTITCH_NS}}}stroke_method"] = "running_stitch"
-            attrs[f"{{{INKSTITCH_NS}}}running_stitch_length_mm"] = "2.5"
-            attrs["d"] = _polyline(element["points"], inv)
-        else:
-            attrs[f"{{{INKSTITCH_NS}}}satin_column"] = "true"
-            parts = _satin_rail_paths(element, inv)
-            # Paired-node satin avoids ambiguous rail detection at shared inner
-            # corners. Explicit direction guides live in the other SVG outputs.
-            attrs["d"] = " ".join(parts)
-        ET.SubElement(group, f"{{{SVG_NS}}}path", attrs)
-    _write(root, output_path)
-
-
-def open_in_inkscape(filepath):
-    executable = shutil.which("inkscape")
-    if executable:
-        subprocess.Popen(
-            [executable, str(filepath)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-        return
-    import sys
-
-    if sys.platform == "darwin":
-        subprocess.run(["open", "-a", "Inkscape", str(filepath)], check=False)

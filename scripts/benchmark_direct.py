@@ -31,7 +31,7 @@ def worker(source_root, width):
     preview = export._preview_svg
 
     def capture(plan, *args):
-        captured.append(plan)
+        captured[:] = [plan]
         return preview(plan, *args)
 
     export._preview_svg = capture
@@ -62,9 +62,11 @@ def worker(source_root, width):
                         "methods": sorted({d["method"] for d in plan.decisions}),
                         "seconds": round(time.perf_counter() - started, 4),
                         "warnings": result.direct.warnings,
+                        "analysis": getattr(plan, "analysis", {}),
+                        "adjustments": getattr(plan, "adjustments", []),
                     }
                 )
-            except (ValueError, OSError) as exc:
+            except (ValueError, RuntimeError, OSError) as exc:
                 rows.append(
                     {"file": source.relative_to(ROOT / "examples").as_posix(), "error": str(exc)}
                 )

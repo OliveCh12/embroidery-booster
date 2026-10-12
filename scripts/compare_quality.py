@@ -1,4 +1,4 @@
-"""Reproducible stitch-footprint comparison, with optional real Ink/Stitch exports."""
+"""Reproducible direct-stitch corpus, source previews and quantized top-layer audits."""
 
 from __future__ import annotations
 
@@ -7,25 +7,16 @@ import io
 import json
 import math
 import platform
-import subprocess
-import time
-import zipfile
-from dataclasses import replace
 from pathlib import Path
-from xml.etree import ElementTree as ET
 
 import numpy as np
 import pyembroidery as pe
 import resvg_py
 from PIL import Image
-from svgelements import Move
-from svgelements import Path as SVGPath
 
 from embroidery_rungs import GenerationParams, StitchParams, generate
-from embroidery_rungs.inputs import prepare_artwork
 from embroidery_rungs.stitching.quality import measure_stitches
-from embroidery_rungs.svg_manager import INKSTITCH_NS, UNITS_PER_MM, load_svg_paths
-from embroidery_rungs.web.services import configure_native_svg
+from embroidery_rungs.svg_manager import UNITS_PER_MM, load_svg_paths
 
 ROOT = Path(__file__).resolve().parents[1]
 PIXELS_PER_MM = 12
@@ -82,224 +73,94 @@ def target_mask(source):
     return padded, (scale, np.array([12, 12])), png
 
 
-def native_plan(satin_path, directory, executable, params, safe=False):
-    root = ET.parse(satin_path).getroot()
-    for element in root.iter():
-        if element.get(f"{{{INKSTITCH_NS}}}satin_column"):
-            for name, value in {
-                "zigzag_spacing_mm": params.satin_spacing_mm,
-                "max_stitch_length_mm": params.max_stitch_mm,
-                "pull_compensation_mm": params.pull_compensation_mm,
-                "center_walk_underlay": params.underlay,
-                "zigzag_underlay": params.underlay,
-            }.items():
-                element.set(f"{{{INKSTITCH_NS}}}{name}", str(value).lower())
-        # Compare monochrome designs with identical ordering, avoiding color-change bias.
-        if element.tag.endswith("}path"):
-            element.set("style", element.get("style", "").replace("#1466c8", "#e02020"))
-            if safe:
-                element.set(f"{{{INKSTITCH_NS}}}trim_after", "true")
-    prefix = "native-safe" if safe else "native"
-    prepared = directory / "native-input.svg"
-    ET.ElementTree(root).write(prepared, encoding="utf-8")
-    if safe:
-        configure_native_svg(prepared, prepared, params)
-    started = time.perf_counter()
-    preview = subprocess.run(
-        [str(executable), "--extension=stitch_plan_preview", "--move-to-side=False", str(prepared)],
-        capture_output=True,
-        check=True,
-        timeout=180,
-    )
-    if not preview.stdout:
-        raise RuntimeError(preview.stderr.decode(errors="replace")[-1200:])
-    svg = ET.fromstring(preview.stdout)
-    group = next(e for e in svg if e.get("id") == "__inkstitch_stitch_plan__")
-    first_path = next(e for e in group.iter() if e.tag.endswith("}path"))
-    first = next(s.end for s in SVGPath(first_path.get("d")) if isinstance(s, Move))
-    for element in list(svg):
-        if element is not group:
-            svg.remove(element)
-    (directory / f"{prefix}.svg").write_bytes(ET.tostring(svg))
-    (directory / f"{prefix}.png").write_bytes(
-        resvg_py.svg_to_bytes(svg_string=ET.tostring(svg, encoding="unicode"), width=1000, dpi=96)
-    )
-    archive = subprocess.run(
-        [
-            str(executable),
-            "--extension=zip",
-            "--format-pes=True",
-            "--format-dst=True",
-            str(prepared),
-        ],
-        capture_output=True,
-        check=True,
-        timeout=180,
-    )
-    with zipfile.ZipFile(io.BytesIO(archive.stdout)) as bundle:
-        pes = next(name for name in bundle.namelist() if name.endswith(".pes"))
-        (directory / f"{prefix}.pes").write_bytes(bundle.read(pes))
-    pattern = pe.read(str(directory / f"{prefix}.pes"))
-    commands = np.asarray(pattern.stitches)
-    first_stitch = commands[(commands[:, 2].astype(int) & pe.COMMAND_MASK) == pe.STITCH][0, :2]
-    origin = np.array([first.x, first.y]) / UNITS_PER_MM - first_stitch / 10
-    data = {
-        "commands": commands.tolist(),
-        "origin_mm": origin.tolist(),
-        "threads": [thread.hex_color() for thread in pattern.threadlist],
-    }
-    (directory / f"{prefix}.json").write_text(json.dumps(data))
-    return data, time.perf_counter() - started
+def top_commands(data):
+    commands = []
+    for run in data["top_layer_runs"]:
+        points = data["commands"][run["start"] : run["end"]]
+        if points:
+            commands.append([*points[0][:2], pe.JUMP])
+            commands.extend(points)
+    if not commands:
+        raise ValueError("No top-layer stitches to measure.")
+    return commands
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=ROOT / "output/quality-comparison")
-    parser.add_argument("--inkstitch", type=Path)
-    parser.add_argument(
-        "--modes",
-        nargs="+",
-        choices=("direct-fill", "direct-split", "direct-auto", "inkstitch", "inkstitch-safe"),
-        default=["direct-fill", "direct-split", "direct-auto", "inkstitch-safe"],
-    )
-    parser.add_argument(
-        "--reuse", action="store_true", help="Remeasure saved plans without regeneration"
-    )
+    parser.add_argument("--output", type=Path, default=ROOT / "output/quality")
     parser.add_argument("--synthetic-only", action="store_true")
-    parser.add_argument("--design-width-mm", type=float, help="Resize each SVG before comparison")
+    parser.add_argument("--design-width-mm", type=float)
+    parser.add_argument("--input", type=Path, nargs="+", help="Optional SVG or bitmap corpus")
+    parser.add_argument("--machine", choices=("generic", "brother-skitch-pp1"), default="generic")
     args = parser.parse_args()
     args.output = args.output.resolve()
     args.output.mkdir(parents=True, exist_ok=True)
-    sources = make_corpus(ROOT / "examples/quality")
-    if not args.synthetic_only:
+    sources = args.input or make_corpus(ROOT / "examples/quality")
+    if not args.input and not args.synthetic_only:
         sources += [p for p in sorted((ROOT / "examples").rglob("*.svg")) if p not in sources]
-    report_path = args.output / "comparison.json"
-    previous = json.loads(report_path.read_text()) if report_path.exists() else {"results": []}
-    if (
-        previous["results"]
-        and previous.get("measurement", {}).get("design_width_mm") != args.design_width_mm
-    ):
-        parser.error(
-            "This output contains another design size; choose a separate --output directory."
-        )
-    rows = {r["file"]: r for r in previous["results"]}
-    if "inkstitch" not in args.modes:
-        for row in rows.values():
-            row["methods"].pop("inkstitch", None)
-    params = StitchParams(hoop_width_mm=500, hoop_height_mm=500, auto_select=False)
+    report = {
+        "schema_version": 3,
+        "engine": "direct",
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+        "measurement": {
+            "basis": "quantized_top_layer",
+            "pixels_per_mm": PIXELS_PER_MM,
+            "thread_mm": THREAD_MM,
+            "structural_tolerance_mm": 0.25,
+            "design_width_mm": args.design_width_mm,
+        },
+        "results": [],
+    }
     for source in sources:
-        name = source.relative_to(ROOT / "examples").as_posix()
-        directory = args.output / source.relative_to(ROOT / "examples").with_suffix("")
-        directory.mkdir(parents=True, exist_ok=True)
-        if args.design_width_mm is not None:
-            input_dir = directory / "input"
-            input_dir.mkdir(exist_ok=True)
-            source, _ = prepare_artwork(
-                source, input_dir, GenerationParams(design_width_mm=args.design_width_mm), params
+        source = source.resolve()
+        name = (
+            source.relative_to(ROOT / "examples").as_posix()
+            if source.is_relative_to(ROOT / "examples")
+            else source.name
+        )
+        directory = args.output / Path(name).with_suffix("")
+        row = {"file": name}
+        report["results"].append(row)
+        try:
+            result = generate(
+                source,
+                directory,
+                GenerationParams(design_width_mm=args.design_width_mm, fit_to_hoop=True),
+                stitch_params=StitchParams.for_fabric("stable", machine=args.machine),
             )
-            source = Path(source)
-        target, transform, png = target_mask(source)
-        (directory / "source.png").write_bytes(png)
-        row = rows.setdefault(name, {"file": name, "methods": {}})
-        row["source_preview"] = (directory / "source.png").relative_to(args.output).as_posix()
-        # A preparation pass also ensures native-only runs have current MAT rails.
-        if not args.reuse:
-            geometry = generate(source, directory, GenerationParams(auto_optimize=True))
-            row["rails_coverage"] = round(geometry.coverage, 4)
-        for mode in args.modes:
-            try:
-                if args.reuse:
-                    if mode in ("inkstitch", "inkstitch-safe"):
-                        prefix = "native-safe" if mode == "inkstitch-safe" else "native"
-                        plan_path, preview_path = (
-                            directory / f"{prefix}.json",
-                            directory / f"{prefix}.png",
-                        )
-                    else:
-                        plan_path = directory / mode / f"{source.stem}_direct.json"
-                        preview_path = plan_path.with_suffix(".png")
-                    if not plan_path.exists():
-                        continue
-                    data = json.loads(plan_path.read_text())
-                    seconds = row["methods"].get(mode, {}).get("seconds", 0)
-                elif mode in ("inkstitch", "inkstitch-safe"):
-                    if not args.inkstitch:
-                        continue
-                    safe = mode == "inkstitch-safe"
-                    data, seconds = native_plan(
-                        geometry.satin_path, directory, args.inkstitch, params, safe=safe
-                    )
-                    preview_path = directory / ("native-safe.png" if safe else "native.png")
-                else:
-                    mode_params = (
-                        replace(params, auto_select=True)
-                        if mode == "direct-auto"
-                        else replace(params, wide_mode=mode.removeprefix("direct-"))
-                    )
-                    result = generate(
-                        source,
-                        directory / mode,
-                        GenerationParams(auto_optimize=True),
-                        method="both",
-                        stitch_params=mode_params,
-                    )
-                    data = json.loads(Path(result.direct.plan_path).read_text())
-                    seconds = result.timings["total"]
-                    preview_path = Path(result.direct.preview_path)
-                metrics, image = footprint(data["commands"], data["origin_mm"], target, transform)
-                footprint_path = directory / f"{mode}-footprint.png"
-                image.convert("RGB").save(footprint_path)
-                row["methods"][mode] = {
-                    "metrics": metrics,
-                    "seconds": round(seconds, 4),
-                    "preview": preview_path.relative_to(args.output).as_posix(),
-                    "footprint": footprint_path.relative_to(args.output).as_posix(),
-                    "stats": data.get("stats", {}),
-                    "decisions": data.get("decisions", []),
-                    "threads": data.get("threads", []),
-                }
-                if "top_layer_runs" in data and data.get("coverage_basis") == "quantized_top_layer":
-                    top = []
-                    for run in data["top_layer_runs"]:
-                        points = data["commands"][run["start"] : run["end"]]
-                        top.append([*points[0][:2], pe.JUMP])
-                        top.extend(points)
-                    top_metrics, _ = footprint(top, data["origin_mm"], target, transform)
-                    row["methods"][mode]["top_metrics"] = top_metrics
-                    row["methods"][mode]["color_layers"] = data.get("layers", [])
-                print(
-                    f"{name:30} {mode:13} {metrics['coverage']:6.1%} IoU {metrics['iou']:6.1%} "
-                    f"{metrics['trims']:4} trims {seconds:6.2f}s",
-                    flush=True,
-                )
-            except (
-                ValueError,
-                RuntimeError,
-                subprocess.SubprocessError,
-                StopIteration,
-                ET.ParseError,
-                zipfile.BadZipFile,
-            ) as exc:
-                row["methods"][mode] = {"error": str(exc) or type(exc).__name__}
-                print(f"{name}: {mode} failed: {exc}", flush=True)
-        report = {
-            "python": platform.python_version(),
-            "platform": platform.platform(),
-            "measurement": {
-                "pixels_per_mm": PIXELS_PER_MM,
-                "thread_mm": THREAD_MM,
-                "includes_underlay": True,
-                "structural_tolerance_mm": 0.25,
-                "design_width_mm": args.design_width_mm,
-                "inkstitch_version": "3.3.0"
-                if args.inkstitch
-                else previous.get("measurement", {}).get("inkstitch_version"),
-            },
-            "results": list(rows.values()),
-        }
-        temporary_report = report_path.with_suffix(".json.tmp")
-        temporary_report.write_text(json.dumps(report, indent=2) + "\n")
-        temporary_report.replace(report_path)
+            data = json.loads(Path(result.direct.plan_path).read_text())
+            target, transform, png = target_mask(result.original_path)
+            directory.joinpath("source.png").write_bytes(png)
+            metrics, image = footprint(top_commands(data), data["origin_mm"], target, transform)
+            footprint_path = directory / "footprint.png"
+            image.convert("RGB").save(footprint_path)
+            row.update(
+                source_preview=(directory / "source.png").relative_to(args.output).as_posix(),
+                preview=Path(result.direct.preview_path).relative_to(args.output).as_posix(),
+                footprint=footprint_path.relative_to(args.output).as_posix(),
+                seconds=round(result.timings["total"], 4),
+                metrics=metrics,
+                stats=result.direct.stats,
+                decisions=result.direct.decisions,
+                threads=result.direct.threads,
+                analysis=result.direct.analysis,
+                adjustments=result.direct.adjustments,
+                warnings=list(dict.fromkeys([*result.warnings, *result.direct.warnings])),
+            )
+            print(
+                f"{name:32} coverage {metrics['structural_coverage']:.2%} gap {metrics['largest_gap_mm2']:g} mm² {result.timings['total']:.2f}s",
+                flush=True,
+            )
+        except (ValueError, RuntimeError, OSError) as exc:
+            row["error"] = str(exc)
+            print(f"{name}: {exc}", flush=True)
+        report_path = args.output / "comparison.json"
+        temporary = report_path.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(report, indent=2) + "\n")
+        temporary.replace(report_path)
+    if any("error" in row for row in report["results"]):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

@@ -5,9 +5,9 @@ import { CheckCircle2, ImagePlus, Upload, X } from "lucide-react";
 import { useId, useRef, useState, type ReactNode } from "react";
 import { ACCEPTED_FILES, clipboardFile } from "./file-import";
 
-export function FileUpload({ file, onSelect, onClear, disabled, error, headerContent, children }: {
+export function FileUpload({ file, onSelect, onClear, disabled, error, headerContent, children, showHint = true }: {
   file: File | null; onSelect: (file: File) => void; onClear: () => void; disabled: boolean;
-  error: string | null; headerContent?: ReactNode; children: ReactNode;
+  error: string | null; headerContent?: ReactNode; children: ReactNode; showHint?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
@@ -22,9 +22,9 @@ export function FileUpload({ file, onSelect, onClear, disabled, error, headerCon
   }
 
   return (
-    <div role="region" aria-label="Import et aperçu du dessin" aria-describedby={hintId} aria-keyshortcuts="Control+V Meta+V"
+    <div role="region" aria-label="Import et aperçu du dessin" aria-describedby={!file || showHint ? hintId : undefined} aria-keyshortcuts="Control+V Meta+V"
       tabIndex={0} className="relative flex min-h-0 flex-1 flex-col rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-      onClick={event => { if (!(event.target as HTMLElement).closest("button, a, input, [role=tab]")) event.currentTarget.focus({ preventScroll: true }); }}
+      onClick={event => { if (!(event.target as HTMLElement).closest("button, a, input, label, [role=tab], [role=slider], [data-slot=slider], [role=switch], [role=combobox]")) event.currentTarget.focus({ preventScroll: true }); }}
       onKeyDown={event => { if (event.target === event.currentTarget && !disabled && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); input.current?.click(); } }}
       onPaste={event => {
         if (disabled) return;
@@ -69,7 +69,7 @@ export function FileUpload({ file, onSelect, onClear, disabled, error, headerCon
             <Button variant="primary" isDisabled={disabled} onPress={() => input.current?.click()}><Upload size={16} />Choisir un fichier</Button>
             <p id={hintId} className="max-w-sm text-xs leading-relaxed text-muted">Ou cliquez ici et collez une image avec <kbd className="font-medium text-foreground">Ctrl+V</kbd> / <kbd className="font-medium text-foreground">⌘V</kbd>.</p>
           </div>}
-          {file && <p id={hintId} className="shrink-0 text-xs text-muted">Déposez un autre fichier ou cliquez dans l’aperçu pour coller une image · {Math.ceil(file.size / 1024)} Ko.</p>}
+          {file && showHint && <p id={hintId} className="shrink-0 text-xs text-muted">Déposez un autre fichier ou cliquez dans l’aperçu pour coller une image · {Math.ceil(file.size / 1024)} Ko.</p>}
         </Card.Content>
       </Card>
       {dragging && !disabled && <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-accent bg-surface/95 p-4 text-center text-accent" role="status">

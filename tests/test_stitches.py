@@ -8,8 +8,7 @@ import pytest
 from shapely import covered_by, linestrings
 from shapely.geometry import LineString, Polygon
 
-from embroidery_rungs import GenerationParams, StitchParams, generate
-from embroidery_rungs.stitching.export import _gap_fills
+from embroidery_rungs import StitchParams, generate
 from embroidery_rungs.stitching.paths import fill_paths, resample_running, satin_points
 from embroidery_rungs.stitching.planner import build_stitch_plan
 
@@ -140,23 +139,6 @@ def test_hoop_and_budget_fail_without_silent_scaling():
         build_stitch_plan([column(length=80)], StitchParams(max_stitches=100))
 
 
-def test_residual_fill_preserves_holes_and_ignores_thin_strokes():
-    from svgelements import Matrix
-
-    residual = np.zeros((100, 150), dtype=bool)
-    residual[10:80, 10:80] = True
-    residual[30:60, 30:60] = False
-    residual[90:92, 10:140] = True
-    fills = _gap_fills(residual, Matrix.scale(2))
-    assert len(fills) == 1
-    assert len(fills[0]["polygon"].interiors) == 1
-    plan = build_stitch_plan(fills)
-    assert plan.stats["fill_regions"] == 1
-    assert plan.stats["unsafe_connections"] == 0
-    area = fills[0]["polygon"].buffer(0.1)
-    assert covered_by(linestrings(sew_segments(plan)), area).all()
-
-
 def test_direct_cli_and_invalid_method(tmp_path):
     from embroidery_rungs.cli import main
 
@@ -164,8 +146,6 @@ def test_direct_cli_and_invalid_method(tmp_path):
         main(
             [
                 str(EXAMPLES / "satin-demo.svg"),
-                "--method",
-                "direct",
                 "--output-dir",
                 str(tmp_path),
                 "--json",
@@ -187,7 +167,6 @@ def test_real_machine_exports_roundtrip_and_match_plan(tmp_path, source):
     result = generate(
         source,
         tmp_path,
-        method="both",
         stitch_params=StitchParams(hoop_width_mm=500, hoop_height_mm=500),
     )
     direct = result.direct
@@ -210,25 +189,27 @@ def test_real_machine_exports_roundtrip_and_match_plan(tmp_path, source):
     assert direct.stats["height_mm"] == np.ptp(planned[:, 1]) / 10
 
 
-def test_old_outputs_unchanged_and_direct_failure_preserves_them(tmp_path, monkeypatch):
+def test_machine_writer_failure_preserves_previous_outputs(tmp_path, monkeypatch):
     source = EXAMPLES / "satin-demo.svg"
-    old = generate(source, tmp_path, GenerationParams(auto_optimize=True))
-    assert old.direct is None
-    paths = [Path(old.rungs_path), Path(old.satin_path), Path(old.ready_path)]
-    originals = [p.read_bytes() for p in paths]
-    both = generate(source, tmp_path, GenerationParams(auto_optimize=True), method="both")
-    assert [p.read_bytes() for p in paths] == originals
-    old_pes = Path(both.direct.pes_path).read_bytes()
+    first = generate(source, tmp_path)
+    paths = [
+        Path(first.original_path),
+        Path(first.direct.pes_path),
+        Path(first.direct.dst_path),
+        Path(first.direct.plan_path),
+        Path(first.direct.svg_path),
+        Path(first.direct.preview_path),
+    ]
+    originals = {p.name: p.read_bytes() for p in paths}
 
     def failed_writer(*args, **kwargs):
         raise OSError("writer failed")
 
     monkeypatch.setattr(pe, "write_dst", failed_writer)
     with pytest.raises(OSError, match="writer failed"):
-        generate(source, tmp_path, method="both")
-    assert [p.read_bytes() for p in paths] == originals
-    assert Path(both.direct.pes_path).read_bytes() == old_pes
-    assert not list(tmp_path.glob(".rungs-*"))
+        generate(source, tmp_path)
+    assert {p.name: p.read_bytes() for p in paths} == originals
+    assert not list(tmp_path.glob(".embroidery-*"))
 
 
 def test_satin_outer_pitch_and_inner_penetrations_remain_regular_after_quantization():

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import asdict
 
 import numpy as np
 import pyembroidery as pe
@@ -10,11 +11,14 @@ import pyembroidery as pe
 from ..colors import separate_colors
 from ..image_processor import rasterize_rgba
 from ..svg_manager import UNITS_PER_MM, SVGDocument
+from .analysis import adjust_for_sewing, analyze_regions
 from .consistency import select_consistent_regions
 from .params import StitchParams
 from .planner import StitchPlan, UnstitchableRegion, build_stitch_plan
-from .quality import measure_plan, satin_crowding
+from .quality import coverage_needs_review, measure_plan, satin_crowding
 from .regions import design_symmetries
+
+MAX_VISIBLE_REGIONS = 4096
 
 
 def _combine(plans, colors, params, origin):
@@ -89,6 +93,11 @@ def _combine(plans, colors, params, origin):
     size = np.ptp(array[array[:, 2] == pe.STITCH, :2], axis=0) / 10
     if np.any(size > [params.hoop_width_mm, params.hoop_height_mm]):
         raise ValueError("Combined colour layers exceed the configured hoop.")
+    half_hoop = np.array([params.hoop_width_mm, params.hoop_height_mm]) / 2
+    if np.any(np.abs(array[:, :2] / 10) > half_hoop + 1e-9):
+        raise ValueError(
+            "Centered machine coordinates exceed the configured hoop; enlarge the hoop or reduce the design slightly."
+        )
     stats.update(
         stitches=int(np.count_nonzero(array[:, 2] == pe.STITCH)),
         trims=int(np.count_nonzero(array[:, 2] == pe.TRIM)),
@@ -108,6 +117,8 @@ def _combine(plans, colors, params, origin):
 
 
 def digitize(svg: SVGDocument, params: StitchParams) -> tuple[StitchPlan, list[dict]]:
+    requested_params = asdict(params)
+    params, adjustments = adjust_for_sewing(params)
     rgba, transform = rasterize_rgba(svg, dpi=305)
     if params.preserve_colors:
         labels, colors, reduced = separate_colors(rgba, params.max_colors)
@@ -118,6 +129,11 @@ def digitize(svg: SVGDocument, params: StitchParams) -> tuple[StitchPlan, list[d
             False,
         )
     scale = UNITS_PER_MM * np.sqrt(abs(transform.a * transform.d - transform.b * transform.c))
+    analysis = analyze_regions(labels, scale, params, palette_reduced=reduced)
+    if analysis["region_count"] > MAX_VISIBLE_REGIONS:
+        raise ValueError(
+            f"Artwork contains {analysis['region_count']} visible regions; the limit is {MAX_VISIBLE_REGIONS}. Simplify the artwork, remove image noise, or reduce the number of colours."
+        )
     # Shared grid/origin: no independent per-colour centering or second rounding.
     rows, cols = np.nonzero(labels)
     inverse = ~transform
@@ -160,11 +176,7 @@ def digitize(svg: SVGDocument, params: StitchParams) -> tuple[StitchPlan, list[d
             )
         plan.stats["crowded_satin_penetrations"] = satin_crowding(plan, params.min_stitch_mm)
         metrics, _ = measure_plan(plan, mask, scale, [transform.e, transform.f])
-        if (
-            metrics["structural_coverage"] < 0.999
-            or metrics["largest_gap_mm2"] > 0.05
-            or metrics["uncovered_max_mm"] > 0.5
-        ):
+        if coverage_needs_review(metrics):
             plan.warnings.append(
                 f"Top-layer coverage is {metrics['structural_coverage']:.2%}; largest unfilled area {metrics['largest_gap_mm2']:g} mm², maximum distance from thread {metrics['uncovered_max_mm']:g} mm. Enlarge fine details or inspect before sewing."
             )
@@ -187,6 +199,14 @@ def digitize(svg: SVGDocument, params: StitchParams) -> tuple[StitchPlan, list[d
     result.stats["crowded_satin_penetrations"] = sum(
         p.stats["crowded_satin_penetrations"] for p in plans
     )
+    if result.stats["short_stitches"]:
+        result.warnings.append(
+            f"{result.stats['short_stitches']} stitches are below the machine minimum after quantization; inspect before sewing."
+        )
+    if result.stats["crowded_satin_penetrations"]:
+        result.warnings.append(
+            f"{result.stats['crowded_satin_penetrations']} satin penetrations are crowded; inspect sharp curves before sewing."
+        )
     if enlarged:
         result.warnings.append(
             f"{enlarged} compact details were extended by at most 0.08 mm per end to retain the minimum stitch length; enlarge the design for finer fidelity."
@@ -204,6 +224,24 @@ def digitize(svg: SVGDocument, params: StitchParams) -> tuple[StitchPlan, list[d
     result.stats["symmetry_operations"] = len(symmetries)
     result.stats["equivalent_regions"] = sum(d["equivalent_regions"] > 1 for d in result.decisions)
     result.stats["omitted_colors"] = len(colors) - len(sewn_colors)
+    result.stats["adjusted_parameters"] = len(adjustments)
+    result.params = params
+    result.requested_params = requested_params
+    result.adjustments = adjustments
+    result.analysis = {
+        **analysis,
+        "strategy_counts": {
+            method: sum(d["method"] == method for d in result.decisions)
+            for method in ("satin", "fill", "running", "omitted")
+        },
+        "quality_status": "needs_review"
+        if result.stats["omitted_regions"]
+        or result.stats["unsafe_connections"]
+        or result.stats["short_stitches"]
+        or result.stats["crowded_satin_penetrations"]
+        or any(coverage_needs_review(d) for d in diagnostics)
+        else "geometric_checks_passed",
+    }
     if reduced:
         result.warnings.append(
             f"Artwork gradients/colours were quantized to {len(colors)} thread colours; inspect the interpreted palette."

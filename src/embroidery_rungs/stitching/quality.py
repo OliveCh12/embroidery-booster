@@ -8,6 +8,15 @@ from PIL import Image, ImageDraw
 from scipy.ndimage import distance_transform_edt, label
 
 
+def coverage_needs_review(metrics):
+    """Apply the same per-colour coverage limits to warnings and design status."""
+    return (
+        metrics["structural_coverage"] < 0.999
+        or metrics["largest_gap_mm2"] > 0.05
+        or metrics["uncovered_max_mm"] > 0.5
+    )
+
+
 def satin_crowding(plan, minimum_mm):
     """Count nearby repeated top penetrations in the local satin fan, excluding locks."""
     count = 0

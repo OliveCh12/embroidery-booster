@@ -1,192 +1,143 @@
-# Direct digitizing
+# Direct stitch generation
 
-`generate(input, output, params, *, method="inkstitch", stitch_params=None)`
-remains the public entry point. Default library/CLI calls preserve the original
-SVG workflow. `direct` and `both` add machine points without desktop dependencies.
-Python 3.10 is the packaging minimum required by the native SVG renderer.
+The automatic engine converts interpreted SVG geometry into physical paths,
+then machine commands. No external digitizer calculates the stitches. The
+library, CLI and web application all call `generate()` and the same direct
+export. Internal rails are geometry candidates, not editable output artifacts.
 
-## Colors and source geometry
+## Physical interpretation and colours
 
-`colors.py` assigns disjoint visible pixels to ordered thread colors. Flat interior
-paints retain exact RGB values, including similar colors and small accents.
-Antialiased edges are assigned in Lab space. Photos/gradients use bounded
-median-cut quantization from weighted quantiles of the complete RGB histogram.
-Palette discovery is invariant under pixel order, flips and quarter turns;
-thin isolated accents are retained without turning blended edges into threads. Palette discovery and nearest-color assignment are
-bounded/chunked; the default maximum is 12, configurable from 1 to 32.
+SVGs render through resvg at 305 DPI, subject to a bounded raster budget. SVG
+transforms, clipping and overlap determine the visible colour regions. The
+palette preserves flat colours or quantizes gradients/photos through a stable
+RGB histogram and Lab assignment; it does not recognize objects in a photo.
+Colour areas are processed largest first, then their connected regions are
+routed locally. Each colour is stitched once with explicit colour changes.
 
-Automatic bitmap preparation preserves alpha, removes a uniform opaque perimeter
-background, crops margins and traces separate even-odd color contours.
-Manual threshold/inversion and explicit monochrome mode retain silhouette tracing.
-SVG white paint is a real thread color, not an implicit transparent background.
-Rendered visible colors respect SVG compositing: covered paint is not embroidered
-again as a full hidden layer. Large visible regions sew first, small accents last.
+Inputs with more than 4096 visible connected regions fail before costly geometry
+work. The error asks for simplification or colour reduction; no region is silently
+dropped to meet this budget.
 
-`digitizer.py` renders the prepared SVG at approximately 305 DPI, bounded by
-4 MP/4096 pixels. Each color has its own deterministic MAT and source mask.
-Regions are planned in canonical local frames, then mapped back to the **shared
-physical machine frame** for a single quantization. Local row/stagger origins
-follow the region, so moving it does not change its sewing pattern.
-The original Ink/Stitch rails are still generated separately with their historical
-settings. Color-aware MAT work is necessary; it is not reused from a merged mask.
+Bitmap tracing precedes this step. Explicit alpha takes priority; a sufficiently
+uniform opaque perimeter background can be removed. The first GIF/TIFF frame is
+used. Cropping and contour simplification have physical bounds. The interpreted
+SVG is exported for inspection, since background removal and palette reduction
+can change the intended artwork.
 
-## One top strategy per region
+## Predictable region decisions
 
-`selection.py` chooses on complete connected source/color components:
+Foreground uses four-connectivity and hole topology uses the dual
+eight-connected background. Each component is placed in a deterministic local
+frame among quarter turns and reflections before medial-axis extraction and
+stitch decisions. Broad regions exceeding the safe satin width plus two raster
+pixels are sent directly to tatami, avoiding unnecessary skeleton work.
+Coordinates and stitch angles are transformed back before
+shared machine quantization; global routing does not reverse an audited satin
+path again.
 
-- Satin uses useful paired rails with sufficient swept coverage and suitable
-  width. Slender almost-convex columns can use clipped parallel cross sections,
-  avoiding raster skeleton fans at straight ends.
-- The widest cross-section must respect the satin width throughout the column,
-  with compensation and rounding headroom below the machine length cap. A width
-  percentile cannot conceal a broad cap. Manual split satin remains available.
-- The quantized candidate must cover at least 99.9% structurally, leave no gap
-  larger than 0.05 mm², contain no unsafe connectors or detected crowded satin
-  penetrations, in the actual sewing direction. Routing preserves that accepted local phase;
-  the final source-frame candidate is checked again after machine rounding.
-- Fine running candidates are also checked for complete source coverage.
-- Failed or unsuitable candidates become **whole-source tatami**, preserving
-  boundaries and holes. There are no residual fill patches mixed into satin.
+Exact rigid equivalents share their policy. Conservative approximate cohorts
+allow at most two raster pixels of boundary discrepancy, 3% area difference and
+6% mask disagreement, with matching hole topology. Regions retain their own
+outlines and actual coverage audits. Detected design symmetry provides an
+alignment cue; it does not impose reflection symmetry on asymmetric artwork
+such as the Union Jack, whose relevant symmetry is a half turn.
 
-Tatami uses a region-local row grid, staggered needle positions, source-clipped
-rows and contour finishing. Its automatic angle comes from analytical moments
-of the filled area, subtracting holes, rounded to 15° bands. Near-isotropic
-regions (principal moment ratio ≤1.2) retain the configured default. This replaces
-a travel-cost search sensitive to row phase and design size. Manual angles remain
-in the original design frame. Compensation is bounded
-by region area/perimeter to avoid bloating thin branched shapes. It sweeps the
-boundary along the chosen stitch direction, without adding perpendicular rows.
-A 0.12 mm inset
-finish is preferred; if it leaves a structural gap, a source-edge finish is used
-with the same fill strategy. Original hole interiors remain excluded even when
-the outer boundary receives compensation.
+The top strategy is coherent per connected colour region:
 
-Compact submillimeter details can use a principal clipped running chord. When
-necessary, its ends extend by at most 0.08 mm each to retain the minimum machine
-stitch length. This bounded fidelity adjustment is recorded and warned about;
-unrepresentable detail is not claimed to be perfectly reconstructed.
-Unsewable connected components are explicitly omitted and warned about, with an
-`omitted_regions` count and an `omitted` decision. A color with no sewn segment
-is omitted with an explicit warning and zero coverage; it is retained in the
-area-weighted quality audit. Generation fails only when no color remains sewable.
-Isolated needle penetrations cannot become successful exports.
+- **Running:** fine details below the useful satin width, only when the actual
+  sewn path retains structural coverage. The starting width threshold is
+  `max(2 × min_stitch_mm, 0.75/0.6/0.45 mm for 30/40/60 wt)`.
+- **Satin:** suitable columns whose rails cover the shape and remain within the
+  physical float limit. The candidate must pass actual top-layer coverage,
+  safe-connection and zero-crowding checks in its emitted direction.
+- **Tatami:** broad, branched or otherwise unsuitable satin regions. Clipped
+  rows cover the whole region while retaining counters and holes. A failing
+  satin candidate is replaced as a region, never patched with another top type.
 
-Manual `auto_select=False` retains the original rail-based split/fill controls
-and optional broad residual fill. It reports its coverage without automatic
-repair. `fill_gaps` controls that manual path only.
+Equivalent counterparts receive a common safe choice, even if one individual
+candidate fails after machine rounding. Automatic fill direction uses filled
+area moments, including holes, rounded to 15° bands. Near-round shapes retain
+the configured direction in their canonical frame. An explicit fill angle stays
+in the global design frame and can override automatic angles.
 
-## Equivalent regions and symmetry
+## Bounded material adjustments
 
-`regions.py` isolates four-connected components: corner contacts alone do not
-join two sewing regions. Each component is normalized under translation,
-quarter turns and reflections before contour simplification, MAT and stitch
-placement. Identical raster silhouettes receive identical local computation.
+`StitchParams.for_fabric()` proposes row pitches of 0.4 mm for custom/stable,
+0.45 mm for stretch and 0.35 mm for textured fabrics. Thread-weight multipliers
+are 1.25 / 1.0 / 0.75 for 30 / 40 / 60 wt. With `auto_adjust=True`,
+`analysis.adjust_for_sewing()` bounds requests consistently across the design:
 
-Near matches must retain hole topology, stay within two pixels in bounding
-size/boundary distance, differ by at most 3% in area and 6% in their aligned
-masks. A ±1 pixel alignment search resolves odd/even raster bounds. Detected
-colored design symmetries (≤2% label disagreement) disambiguate intrinsic
-orientation ties; the Union Jack uses its half-turn, without inventing mirror
-symmetry. Quarter-turn matches are the supported discrete symmetry group;
-arbitrary-angle rotational motifs are not yet explicitly grouped.
+| Parameter | Automatic rule |
+|---|---|
+| Satin / fill row pitch | 0.7–1.5 × reference for custom; 0.8–1.25 × reference for other fabrics; never below 0.2 mm |
+| Underlay | enabled for stretch and textured fabrics |
+| Pull compensation per side | capped at 0.25 mm custom/stable, 0.35 mm stretch, 0.30 mm textured |
+| Maximum satin width | bounded by the machine recommendation and the stitch length remaining after compensation plus 0.2 mm rounding headroom |
 
-`consistency.py` assigns one policy to a cohort of equivalent regions: method,
-local fill angle, spacing, bounded compensation, underlay profile and contour
-finish. Every original outline is retained and audited separately in the shared
-machine frame. If one counterpart fails the strict satin gate, the whole cohort
-uses fill. It does not hide a faulty satin with patches or relax crowding limits.
-Foundations use the conservative common profile; tiny regions avoid added bulk.
-The final decision records `equivalence_group`, `equivalent_regions`,
-`underlay_strategy` and `actual_top_metrics` alongside individual diagnostics.
+Ordinary preset values remain unchanged. Requested parameters, effective
+parameters and each adjustment reason are exported separately. Setting
+`auto_adjust=False` or CLI `--no-auto-adjust` preserves explicit values, while
+validation and candidate safety checks remain active. These bounds are
+conservative project policies, not measured properties of a particular fabric.
+Stabilizer choice is recorded and supports useful warnings; it is not a
+calibrated deformation model.
 
-Whole regions are ordered for travel, preserving their internal sewing direction
-and foundation/top-layer order. Point coordinates/counts need not be exact clones
-when the rasterized outlines differ or the machine grid has a different phase.
-Resizing can legitimately change stitch type at physical safety/width limits;
-matching counterparts still share a method at each size.
+## Satin, tatami and foundations
 
-## Satin, routing and machine invariants
+Satin follows physical cross-sections with row pitch controlled on both rails;
+curvature handling limits crowding of inner penetrations. Straight elongated
+convex regions can use parallel cross-sections to avoid unstable medial-axis
+fans. Pull compensation extends the two sides within bounded allowed geometry.
+The automatic engine reserves compensation/rounding headroom before the maximum
+stitch length so wide columns become tatami rather than split satin.
 
-Satin is sampled by the larger local arc advance of its two rails. Penetrations
-alternate at half the requested same-edge row pitch. Deterministic short-stitch
-inset bands reduce stationary inner-corner crowding. Wide strands are split with
-staggered phases; pull compensation is bounded by local width. Underlay is a
-center walk plus coarse inset zigzag on sufficiently wide columns.
-Stretch and textured fabrics also receive inset edge walks on columns at least
-2.5 mm wide. Sparse zigzag pitch is 3 mm normally, 2.5 mm on stretch and 2 mm on
-textured fabric.
+Tatami rows clip to the region and its holes, stagger penetrations and use
+bounded segment lengths. Edge finishing uses a small inset when its machine-grid
+coverage is sufficient; otherwise the region uses rows reaching the boundary.
+Compensation follows row direction and is reduced for fine or narrow shapes.
 
-`underlay.py` keeps fill foundations 0.3–0.5 mm inside the source according to
-thread weight (0.2 mm fallback if the region vanishes). A contour anchors larger
-pieces; sparse perpendicular rows support the surface at 3 mm pitch, or 2 mm on
-stretch/textured fabrics. Regions below 4 mm² avoid this duplicate foundation.
-These thresholds control edge visibility and bulk; they are conservative starting
-values to calibrate through a sew-out, not a simulated fabric response.
+Satin underlay uses a centre walk, plus sparse zigzag on widths of at least 3 mm.
+Stretch/textured columns add edge support when the lower width quartile is at
+least 2.5 mm. Tatami foundations use sparse cross rows, with edge support on
+sufficiently large inset interiors. Their inset is 0.5 / 0.4 / 0.3 mm for
+30 / 40 / 60 wt, and cross spacing is 2 mm for stretch/textured or 3 mm otherwise.
+Regions below 4 mm² do not receive fill foundations. If a cohort member cannot
+emit actual supporting stitches after rounding, foundation is disabled for the
+whole cohort and metadata reflects this. More penetrations are not assumed to
+improve tiny details.
 
-`planner.py` orders regions and checks connectors against allowed geometry.
-Outside/long travel uses locks, trims and bounded needle-up jumps. Very short
-inter-region travel is also treated explicitly, so a nearby small detail cannot
-silently lose its first stitch. In-region underlay travel may connect before a
-covering top layer. The plan ends with a trim and one END command.
+## Machine plan and output
 
-Each color plan uses the same machine origin. Merging preserves its command
-ranges, retains terminal trims, inserts real `COLOR_CHANGE` commands and routes
-between layers. Actual sewn bounds are centered using an **integer coordinate
-shift**, avoiding a second quantization. Combined hoop and command budgets are
-checked; sewn coordinates are integer tenths of a millimeter before export.
-Existing minimum/maximum length and allowed-region checks remain mandatory.
-After rounding/filtering, every run is checked again for safe geometry. The last
-cap is retained when the preceding short step can be replaced safely; unsafe
-chords split into needle-up moves. Runs with fewer than two penetrations vanish
-before command emission, and their missing regions remain visible in diagnostics.
+Paths return to one physical artwork frame before their coordinates round to
+integer **0.1 mm** positions. All colours share the same origin. Final commands
+are centred in the hoop; compensated and rounded bounds are checked against
+its dimensions. Explicit needle-up jumps, trims, locks, colour changes and END
+commands are encoded by pyembroidery into PES v6 and extended DST without writer
+resampling. Empty or unsewable designs fail clearly.
 
-`pyembroidery` serializes PES v6 and extended DST with stitch resampling disabled.
-Thread lists follow color changes; both formats are read back in regression tests
-and all sewn coordinates must match the JSON plan exactly. PES readers can expose
-additional trims from PEC jumps; DST uses the writer's trim convention.
+Tiny compact details may receive at most 0.08 mm extension per endpoint to keep
+a legal sewn segment. The adjustment is reported. Details or entire colours
+that remain unsewable are marked omitted and remain part of the coverage audit.
 
-## Honest quality diagnostics
+JSON **schema 3** contains `units`, `coordinate_frame`, `origin_mm`, exact
+`commands`, command codes, hoop and machine limits, first stitch, playback
+metadata, threads, settings, decisions and typed command ranges. `top_layer_runs`
+separate satin/fill/running from underlay and travel. Playback follows the
+commands; its duration counts needle cycles only. The Skitch profile uses
+[Brother's 400 SPM and 100 × 100 mm specifications](https://www.brother-usa.com/p/sewing-embroidery/PP1).
+The generic profile's 400 SPM is an explicit simulation assumption.
 
-`quality.py` audits **only actual exported satin/fill/running blocks** for the
-automatic engine. Underlay, locks and sewn travel cannot fill the quality mask.
-JSON schema 2 records `coverage_basis="quantized_top_layer"`, per-color `layers`,
-ordered `threads` and exact `top_layer_runs` command ranges. Empty top layers
-report zero coverage. Manual diagnostics explicitly use `all_sewn_stitches`.
+## Quality evidence and limitations
 
-The reference footprint is 0.3 mm thread. Raw coverage, IoU and spill have no
-structural tolerance. Structural coverage permits source pixels within 0.25 mm
-of the footprint, distinguishing regular row spacing from substantial blanks.
-Per-color checks prevent one thread from hiding a missing region of another.
-Crowding checks inspect repeated local satin penetrations beyond adjacent points,
-with a 0.05 mm rounding tolerance; intentional endpoint tie proximity is excluded.
+`quality.py` audits the actual quantized top-layer runs. Underlay, locks and
+stitched travel cannot conceal missing top stitches. The reference thread is
+0.3 mm wide and structural tolerance is 0.25 mm. Candidate coverage of at least
+99.9%, largest missing component at most 0.05 mm², and zero satin crowding gate
+automatic satin. Final missing regions, unsafe connections and insufficient
+coverage produce diagnostics and a review status.
 
-The preview shows actual thread colors, gray underlay and dashed jumps. The web
-UI exposes color preservation/palette limits, ordered swatches and top-layer
-coverage. The comparison gallery retains a common all-sewn footprint for native
-comparability and also displays the direct engine's separate top-layer audit.
-The machine dropdown uses server-owned profiles. `for_fabric(...,
-machine="brother-skitch-pp1")` proposes six threads/7 mm satin and validates the
-verified 100 × 100 mm area. Generic hoops and explicit recommendations are still
-editable. No undocumented PP1 stitch-count limit is assumed; `max_stitches` is
-the application resource budget. Stretch fabrics without cutaway and unstable
-fabrics without underlay trigger advice before sewing.
-
-## Evidence and limits
-
-See [quality report](QUALITY_REPORT.md), [architecture](ARCHITECTURE.md) and
-[before/after measurements](benchmarks/consistent-digitizing.json). Tests cover colored
-SVG/PNG, transparency, overlaps, intentional holes, pale/similar paints, bounded
-gradients, coherent strategies, curved/narrow tapered satin, quantized density,
-machine limits, budget errors, API/CLI compatibility and PES/DST round trips.
-
-Presets propose editable density, compensation and underlay for fabric/thread;
-stabilizer choice is recorded, not mechanically simulated. Photo semantics,
-thread tension, fabric deformation, thread spread and globally optimal routing
-are not modeled. Tiny designs may require enlargement. A Brother sew-out remains
-necessary to establish physical quality; valid files and near-complete geometric
-coverage cannot prove perfect embroidery for every image.
-Use [SEWOUT.md](SEWOUT.md) for the three-color test coupon, material controls and
-Brother import/cutting workflow.
-
-Reference: [Ink/Stitch satin parameters](https://inkstitch.org/docs/stitches/satin-column/)
-and [pyembroidery serialization](https://github.com/EmbroidePy/pyembroidery/blob/main/README.md).
+These are geometric checks. They do not model tension, bobbin thread, needle,
+acceleration, puckering or thread spread on fabric. Near-complete structural
+coverage is not a promise of opaque sewn coverage. Verify the
+[current measurements](QUALITY_REPORT.md) and use the [sew-out protocol](SEWOUT.md)
+to calibrate a real material before production.

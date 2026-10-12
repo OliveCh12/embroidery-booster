@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import math
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -11,16 +10,12 @@ from xml.etree import ElementTree as ET
 
 import numpy as np
 import pyembroidery as pe
-from scipy.ndimage import distance_transform_edt, label, maximum
 
-from ..image_processor import rasterize_svg, render_preview
+from ..image_processor import render_preview
 from ..svg_manager import UNITS_PER_MM
 from .digitizer import digitize
-from .params import StitchParams
-from .planner import StitchPlan, build_stitch_plan
-from .quality import measure_stitches
-from .regions import physical_elements
-from .selection import mask_polygons
+from .params import MACHINE_PROFILES, StitchParams
+from .planner import StitchPlan
 
 
 @dataclass
@@ -35,24 +30,9 @@ class DirectGenerationResult:
     warnings: list[str]
     decisions: list[dict] = field(default_factory=list)
     threads: list[str] = field(default_factory=list)
-
-
-def _gap_fills(residual, transform):
-    """Fill residual components with a >=1.5 mm interior; keep fine strokes running."""
-    pixels_per_mm = UNITS_PER_MM * math.sqrt(
-        abs(transform.a * transform.d - transform.b * transform.c)
-    )
-    components, count = label(residual)
-    if not count:
-        return []
-    radii = maximum(distance_transform_edt(residual), components, np.arange(1, count + 1))
-    selected = np.flatnonzero(radii >= 0.75 * pixels_per_mm) + 1
-    if not len(selected):
-        return []
-    return [
-        {"type": "fill", "polygon": polygon}
-        for polygon in mask_polygons(np.isin(components, selected), transform)
-    ]
+    analysis: dict = field(default_factory=dict)
+    requested_params: dict = field(default_factory=dict)
+    adjustments: list[dict] = field(default_factory=list)
 
 
 def _preview_svg(plan: StitchPlan, viewport_mm, path):
@@ -109,57 +89,15 @@ def _preview_svg(plan: StitchPlan, viewport_mm, path):
     ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
 
 
-def export_direct(
-    elements, transform, svg, stage: Path, stem: str, params: StitchParams, residual=None, mask=None
-):
+def export_direct(svg, stage: Path, stem: str, params: StitchParams):
     started = time.perf_counter()
-    layers = []
-    if params.auto_select:
-        plan, layers = digitize(svg, params)
-    else:
-        physical = physical_elements(elements, transform)
-        gap_fills = (
-            _gap_fills(residual, transform) if params.fill_gaps and residual is not None else []
-        )
-        stitched_elements = gap_fills + physical
-        plan = build_stitch_plan(stitched_elements, params)
-        if mask is not None:
-            audit_mask, audit_transform = rasterize_svg(svg, dpi=305)
-            scale = UNITS_PER_MM * audit_transform.a
-            metrics, _ = measure_stitches(
-                plan.commands,
-                plan.origin_mm,
-                audit_mask,
-                scale,
-                [audit_transform.e, audit_transform.f],
-            )
-            plan.stats.update(
-                {
-                    key: value
-                    for key, value in metrics.items()
-                    if key
-                    not in (
-                        "stitches",
-                        "trims",
-                        "jumps",
-                        "jump_length_mm",
-                        "max_stitch_mm",
-                        "short_stitches",
-                    )
-                }
-            )
-            if metrics["structural_coverage"] < 0.999 or metrics["largest_gap_mm2"] > 0.05:
-                plan.warnings.append(
-                    "Manual stitch coverage leaves gaps in the artwork; enable automatic region selection or inspect the preview."
-                )
-        plan.stats["gap_fill_regions"] = len(gap_fills)
-        plan.stats["coverage_repairs"] = 0
-        plan.threads = [params.thread_color]
+    plan, layers = digitize(svg, params)
+    params = plan.params
     pattern = pe.EmbPattern()
     for color in plan.threads:
         pattern.add_thread(color)
     pattern.extras["name"] = stem[:16]
-    pattern.extras["comments"] = "Embroidery Booster direct MAT stitch plan"
+    pattern.extras["comments"] = "Embroidery Booster automatic direct stitch plan"
     for x, y, command in plan.commands:
         pattern.add_stitch_absolute(command, x, y)
     names = [f"{stem}_direct.{ext}" for ext in ("pes", "dst", "png", "svg", "json")]
@@ -174,42 +112,84 @@ def export_direct(
     _preview_svg(plan, (svg.width / UNITS_PER_MM, svg.height / UNITS_PER_MM), stage / names[3])
     (stage / names[2]).write_bytes(render_preview(stage / names[3], svg.width, svg.height))
     plan.stats["seconds"] = round(time.perf_counter() - started, 4)
+    coordinates = np.asarray(plan.commands)
+    sewn = coordinates[coordinates[:, 2] == pe.STITCH, :2]
+    first_stitch = int(np.flatnonzero(coordinates[:, 2] == pe.STITCH)[0])
+    machine = MACHINE_PROFILES[params.machine]
+    speed = machine["stitches_per_minute"]
+    runs = [
+        {
+            "start": b.command_range[0],
+            "end": b.command_range[1],
+            "color_index": b.color_index,
+            "kind": b.kind,
+            "region": b.region,
+        }
+        for b in plan.blocks
+        if b.command_range is not None
+    ]
     (stage / names[4]).write_text(
         json.dumps(
             {
-                "schema_version": 2,
+                "schema_version": 3,
                 "units": "0.1mm",
+                "coordinate_frame": "hoop_center",
                 "origin_mm": plan.origin_mm,
                 "commands": plan.commands,
                 "command_codes": {
-                    "STITCH": pe.STITCH,
-                    "JUMP": pe.JUMP,
-                    "TRIM": pe.TRIM,
-                    "END": pe.END,
-                    "COLOR_CHANGE": pe.COLOR_CHANGE,
+                    "stitch": pe.STITCH,
+                    "jump": pe.JUMP,
+                    "trim": pe.TRIM,
+                    "end": pe.END,
+                    "color_change": pe.COLOR_CHANGE,
+                    "command_mask": pe.COMMAND_MASK,
+                },
+                "hoop": {
+                    "width_mm": params.hoop_width_mm,
+                    "height_mm": params.hoop_height_mm,
+                    "bounds_mm": [
+                        -params.hoop_width_mm / 2,
+                        -params.hoop_height_mm / 2,
+                        params.hoop_width_mm / 2,
+                        params.hoop_height_mm / 2,
+                    ],
+                },
+                "machine_bounds_mm": [*(sewn.min(axis=0) / 10), *(sewn.max(axis=0) / 10)],
+                "machine": {
+                    "profile": params.machine,
+                    "min_stitch_mm": params.min_stitch_mm,
+                    "max_stitch_mm": params.max_stitch_mm,
+                    "max_jump_mm": 12,
+                    "stitches_per_minute": speed,
+                    "speed_source": "machine_profile"
+                    if params.machine != "generic"
+                    else "simulation_assumption",
+                },
+                "playback": {
+                    "command_count": len(plan.commands),
+                    "stitch_count": plan.stats["stitches"],
+                    "color_changes": plan.stats["color_changes"],
+                    "jumps": plan.stats["jumps"],
+                    "first_stitch_index": first_stitch,
+                    "first_point_units": plan.commands[first_stitch][:2],
+                    "stitch_time_seconds": round(60 * plan.stats["stitches"] / speed, 1),
+                    "timing_basis": "needle_cycles_only",
                 },
                 "stats": plan.stats,
                 "params": asdict(params),
+                "requested_params": plan.requested_params,
+                "adjustments": plan.adjustments,
+                "analysis": plan.analysis,
                 "warnings": plan.warnings,
                 "decisions": plan.decisions,
                 "threads": plan.threads,
                 "layers": layers,
-                "top_layer_runs": [
-                    {
-                        "start": b.command_range[0],
-                        "end": b.command_range[1],
-                        "color_index": b.color_index,
-                        "kind": b.kind,
-                        "region": b.region,
-                    }
-                    for b in plan.blocks
-                    if b.command_range is not None and b.kind in ("satin", "fill", "running")
-                ],
+                "runs": runs,
+                "top_layer_runs": [b for b in runs if b["kind"] in ("satin", "fill", "running")],
+                "underlay_runs": [b for b in runs if b["kind"] == "underlay"],
                 "coverage_tolerance_mm": 0.25,
                 "thread_model_mm": 0.3,
-                "coverage_basis": "quantized_top_layer"
-                if params.auto_select
-                else "all_sewn_stitches",
+                "coverage_basis": "quantized_top_layer",
             },
             indent=2,
         ),

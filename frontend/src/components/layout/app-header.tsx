@@ -17,7 +17,7 @@ export function AppHeader() {
           <Spline size={22} className="text-accent" /><span className="hidden sm:inline">Embroidery Booster</span>
         </Link>
         <nav aria-label="Navigation principale" className="flex gap-4">
-          {[{ href: "/", label: "Atelier" }, { href: "/quality", label: "Comparaison" }].map(item => (
+          {[{ href: "/", label: "Atelier" }, { href: "/quality", label: "Qualité" }].map(item => (
             <Link key={item.href} href={item.href} aria-current={path === item.href ? "page" : undefined}
               className={buttonVariants({ variant: path === item.href ? "secondary" : "ghost", size: "sm" })}>
               {item.label}

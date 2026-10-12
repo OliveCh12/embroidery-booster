@@ -43,7 +43,7 @@ export function EmbroideryWorkspace() {
       {capabilities.isError && <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Title>Moteur indisponible</Alert.Title><Alert.Description>{capabilities.error.message}</Alert.Description><Button size="sm" variant="secondary" className="mt-2" onPress={() => { void capabilities.refetch(); }}>Réessayer</Button></Alert.Content></Alert>}
       {error && <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Title>Traitement impossible</Alert.Title><Alert.Description>{error}</Alert.Description></Alert.Content></Alert>}
       <ResultPane file={file} sourcePreview={preview} result={generation.data} busy={generation.isPending}
-        importError={fileError} onSelect={selectFile} onClear={() => selectFile(null)} />
+        hoop={[settings.hoop_width, settings.hoop_height]} importError={fileError} onSelect={selectFile} onClear={() => selectFile(null)} />
       <p role="status" aria-live="polite" className="sr-only">{generation.isPending ? "Génération en cours" : generation.isSuccess ? "Fichiers prêts" : file ? `Dessin chargé : ${file.name}` : ""}</p>
     </section>
     <aside className="flex min-h-0 min-w-0 flex-col gap-4 md:col-start-1 md:row-start-1" aria-label="Préparation de la broderie">

@@ -1,94 +1,94 @@
-# Organisation du projet
+# Architecture
 
-`generate()` reste le point d'entrée commun. La préparation et la taille physique
-sont partagées. Le workflow SVG conserve sa géométrie historique ; le direct
-automatique calcule ensuite une géométrie indépendante pour chaque couleur visible.
+La version 0.4 utilise un seul moteur direct. `generate()` prépare l'entrée,
+applique la taille demandée et publie les fichiers après réussite des exports.
+La classification, les rails internes, les points et les contrôles machine
+appartiennent au package `stitching/`.
 
 ```text
 src/embroidery_rungs/
-  inputs.py                Conversion bitmap et taille physique
-  colors.py                Palette visible, séparation Lab et fond des bitmaps
-  external.py              Découverte / appels bornés des outils optionnels
-  pipeline.py              Orchestration, résultats et publication des fichiers
-  svg_manager.py           Lecture, transformations, rendu et SVG Ink/Stitch
-  image_processor.py       Masque, MAT, branches et topologie
+  pipeline.py              API generate(), préparation et publication des résultats
+  inputs.py                Tracé bitmap, formats acceptés et taille physique
+  svg_manager.py           Validation SVG et transformations physiques
+  colors.py                Fond bitmap, palette déterministe et régions visibles
+  image_processor.py       Rendu borné, axe médian et branches du squelette
   geometry_utils.py        Opérations géométriques partagées
-  rung_generator.py        Rails et directions de satin
-  optimizer.py             Raffinement local des guides
-  routing.py               Ordre des régions
-  debug_utils.py           Diagnostics visuels
+  routing.py               Routage des chemins géométriques
+  cli.py                   Commande embroidery-rungs
   stitching/
-    params.py              Réglages validés et presets tissu/fil/machine
-    paths.py               Échantillonnage satin, running et tatami
-    underlay.py            Fondations en retrait, adaptées au tissu et à la largeur
-    planner.py             Connexions, coupes, locks, quantification et invariants
-    regions.py             Repères locaux, équivalences rigides et ordre des régions
-    selection.py           Candidats satin/running/fill, angle par moments surfaciques
-    consistency.py         Politique commune aux homologues et audit machine final
-    digitizer.py           Couleurs, fusion des plans et changements de fil
-    quality.py             Audit des vrais points supérieurs, empreinte et crowding
-    export.py              PES/DST, JSON versionné et aperçus aux couleurs du fil
-  web/
-    app.py                 API Flask, validation des requêtes et fichiers
-    services.py            Adaptation web / exports natifs optionnels
-  cli.py                   Interface en ligne de commande
+    params.py              Paramètres physiques et presets tissu/fil/machine
+    analysis.py            Analyse des régions et ajustements bornés
+    regions.py             Repères locaux et équivalences géométriques
+    rails.py               Colonnes internes issues de l'axe médian
+    selection.py           Candidats satin/running/tatami et angle surfacique
+    consistency.py         Politique commune aux homologues, audit machine final
+    paths.py               Échantillonnage des points supérieurs
+    underlay.py            Fondations en retrait et soutien du satin
+    planner.py             Trajets, verrouillages, coupes et grille de 0,1 mm
+    digitizer.py           Couleurs, plans régionaux et changements de fil
+    quality.py             Couverture des vrais points supérieurs et crowding
+    export.py              PES/DST, JSON schema 3 et previews
+  web/app.py               API Flask et jobs isolés
 frontend/
-  src/app/                 Routes Next.js, providers et styles HeroUI
-    quality/               Galerie de comparaison des moteurs
+  src/app/                 Routes Next.js, thème et styles HeroUI
   src/components/layout/   Header, footer et menu des thèmes
-  src/features/
-    embroidery/            Import, réglages, génération et résultats
-    quality/               Rapport, métriques et aperçus comparés
-  src/lib/                 Client API et formatage partagés
-  public/                  Assets statiques de l'application
-examples/                  SVG reproductibles ; quality/ contient les cas contrôlés
-tests/                     Géométrie, points, formats, entrées, CLI et web
-scripts/                   Comparaisons, benchmarks et helpers Ink/Stitch
-docs/                      Architecture, décisions et rapports
-  benchmarks/              Mesures historiques identifiées
-output/                    Fichiers générés et jobs web ; ignorés par Git
-notebooks/                 Exemple exploratoire utilisant l'API publique
+  src/features/embroidery/ Import, réglages, résultats et lecture des points
+  src/features/quality/    Galerie de validation
+  src/lib/                 Client API et fonctions partagées
+examples/                  Cas SVG reproductibles et coupon de couture
+scripts/                   Développement, validation et benchmarks directs
+tests/                    Géométrie, symétrie, points, formats, CLI et API
+docs/                     Règles du moteur et protocoles de validation
+output/                   Jobs et artefacts générés, ignorés par Git
 ```
 
-Le moteur direct vit dans `stitching/`, la séparation des couleurs partagée dans
-`colors.py`, l'API Flask dans le package
-`web/` et l'interface dans `frontend/`. Les anciens lanceurs, réexports Python
-et fichiers `requirements.txt` ont été retirés. `generate()` et les deux commandes
-`embroidery-rungs` / `embroidery-rungs-web` constituent les entrées publiques.
-La galerie comparative existe uniquement dans Next.js ; son rapport est un JSON
-servi par l'API avec les aperçus associés.
+## Flux de génération
 
-Les dépendances et extras vivent dans `pyproject.toml`, avec résolution dans
-`uv.lock`. Le wheel Python embarque la bibliothèque, la CLI et l'API. Le frontend
-dispose de son workspace pnpm, de versions exactes et de `pnpm-lock.yaml`.
-Next.js 16, React 19, HeroUI 3 et Tailwind 4 portent l'interface ; TanStack Query
-gère capacités, génération et rapport. `next-themes` applique les modes clair,
-sombre et système sans duplication des styles HeroUI.
+1. Valider les réglages et le fichier ; tracer le bitmap si nécessaire.
+2. Appliquer le redimensionnement explicite et charger le SVG sécurisé.
+3. Borner les réglages physiques, puis rendre les couleurs visibles à 305 DPI,
+   sous le budget mémoire du renderer.
+4. Séparer les couleurs et leurs composantes connexes ; établir des repères
+   locaux canoniques pour les translations, rotations et réflexions pertinentes.
+5. Extraire les rails, comparer les candidats et appliquer une politique commune
+   aux régions équivalentes. Chaque contour source reste intact.
+6. Construire sous-couches et points, retrouver les coordonnées du dessin,
+   quantifier une seule fois sur une grille commune et vérifier la couverture.
+7. Assembler les couleurs, encoder PES/DST et écrire previews/JSON en staging.
+   Publier les fichiers seulement après réussite de la génération.
 
-`pnpm dev` lance les deux processus locaux avec arrêt coordonné. Next.js expose
-`/api/*` et `/quality-assets/*` via des rewrites vers l'API Python ; le navigateur
-utilise une seule origine. Aucun calcul de broderie ne migre côté frontend.
-Les presets physiques sont fournis par le serveur pour garder une seule
-définition des densités, compensations et recommandations machine. La page `/quality` consomme directement
-les artefacts reproductibles produits par `scripts/compare_quality.py`.
+Le pipeline ne calcule aucun squelette legacy à 150 DPI. Les rails servent
+uniquement à construire et vérifier les points directs ; ils ne constituent
+plus un export séparé. Les programmes externes et leur découverte ont été retirés.
 
-Les composants HeroUI assurent formulaires, onglets, cartes et menus. Les seules
-compositions applicatives correspondent au parcours métier : import d'un dessin,
-choix du matériau et inspection des résultats. Les réglages avancés et diagnostics
-restent repliés. Le shell partagé contient header, main et footer ; les pages
-commencent par leur contenu utile.
+## Contrats et responsabilités
 
-Les artefacts volumineux, rendus, exports de test et jobs restent dans `output/`.
-Les JSON de mesure publiés dans `docs/` sont des instantanés explicites,
-reproductibles avec `scripts/compare_quality.py`, `scripts/benchmark_direct.py`
-et `scripts/benchmark.py`. Les anciens audits restent datés ; ils ne décrivent
-pas le moteur actuel. L'ancien module de réparation par patches a été supprimé.
+`GenerationParams` décrit l'interprétation de l'entrée : largeur physique,
+ajustement au cadre, seuil et inversion bitmap. `StitchParams` décrit la couture.
+Le moteur conserve les valeurs demandées et expose les valeurs effectives avec
+chaque ajustement. La sélection du type est automatique ; désactiver
+`auto_adjust` conserve les réglages explicites sans contourner les contrôles
+physiques et géométriques.
 
-Les régions directes sont normalisées par translations, rotations de 90° et
-réflexions avant MAT et placement. Les correspondances approximatives tolèrent
-seulement le bruit des contours raster, sans transformer les formes source.
-`consistency.py` harmonise les décisions puis contrôle chaque membre dans le
-repère machine commun. Le routage déplace des régions complètes ; il ne renverse
-plus un satin après validation et conserve fondations puis points supérieurs.
-La préparation des couleurs utilise un histogramme complet, avec un échantillon
-pondéré borné pour les photos, indépendant de l’ordre des pixels.
+`GenerationResult` contient `input_path`, `original_path`, `direct`,
+`artwork_size_mm`, `params`, `warnings` et `timings`. `direct` est obligatoire ;
+`original_path` désigne le SVG interprété, pas une copie systématique de l'entrée.
+Le résultat direct rassemble fichiers, métriques, décisions, palette, paramètres
+effectifs/demandés, ajustements et analyse. Le JSON schema 3 ajoute les commandes
+et les plages nécessaires à la lecture de couture.
+
+Les composants front ne calculent pas de points et ne redéfinissent pas les
+presets. Next.js relaie l'API Python sur la même origine. Flask valide les
+réglages, borne les uploads/jobs, produit un répertoire UUID et sert les fichiers.
+Les previews SVG sont proposées au téléchargement ; les aperçus de fichiers
+importés sont rendus en PNG.
+
+## Validation
+
+Les tests vérifient les transformations, homologues, trous intentionnels,
+longueurs, connexion des régions, couleurs et coordonnées réimportées depuis
+PES/DST. L'audit de couverture exclut sous-couches, verrouillages et trajets.
+Le [rapport courant](QUALITY_REPORT.md) décrit les résultats mesurés ;
+`docs/benchmarks/` conserve les mesures directes historiques identifiées.
+Le [protocole de couture](SEWOUT.md) reste nécessaire pour qualifier un rendu
+physique : la simulation lit les commandes sans modéliser le tissu.

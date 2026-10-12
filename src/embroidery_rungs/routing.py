@@ -1,12 +1,4 @@
-"""Order satin columns to minimize travel (jump) stitches.
-
-Ink/Stitch stitches objects in document order, jumping from the end of one
-satin column to the start of the next. Each column can be entered from either
-end, so this is a path-TSP with two-state nodes. We solve it with nearest
--neighbour + 2-opt, which is fast (tens of columns) and near-optimal in
-practice. The result is the same columns, reordered and individually reversed
-so the design stitches with the shortest possible travel.
-"""
+"""Order geometry paths with nearest-neighbour routing and two-opt refinement."""
 
 import logging
 import math
@@ -103,8 +95,6 @@ def _reversed_element(el):
         "rail_a": el["rail_a"][::-1],
         "rail_b": el["rail_b"][::-1],
     }
-    if "rungs" in el:
-        reversed_element["rungs"] = list(reversed(el["rungs"]))
     return reversed_element
 
 

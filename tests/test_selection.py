@@ -7,7 +7,7 @@ import pytest
 from shapely import intersects, linestrings
 from shapely.geometry import box
 
-from embroidery_rungs import GenerationParams, StitchParams, generate
+from embroidery_rungs import StitchParams, generate
 from embroidery_rungs.cli import main
 from embroidery_rungs.stitching.quality import measure_stitches
 
@@ -26,9 +26,7 @@ EXAMPLES = Path(__file__).resolve().parents[1] / "examples/quality"
     ],
 )
 def test_automatic_selection_retains_columns_and_fills_missing_surfaces(tmp_path, shape, method):
-    result = generate(
-        EXAMPLES / f"{shape}.svg", tmp_path, GenerationParams(auto_optimize=True), method="both"
-    )
+    result = generate(EXAMPLES / f"{shape}.svg", tmp_path)
     assert {d["method"] for d in result.direct.decisions} == {method}
     assert result.direct.stats["unsafe_connections"] == 0
     assert result.direct.stats["short_stitches"] == 0
@@ -47,26 +45,19 @@ def test_automatic_selection_retains_columns_and_fills_missing_surfaces(tmp_path
             assert not intersects(linestrings(segments), hole).any()
 
 
-def test_manual_controls_and_auto_preserve_legacy_svgs(tmp_path):
+def test_direct_plan_is_the_single_exported_strategy(tmp_path):
     source = EXAMPLES / "holes.svg"
-    old = generate(source, tmp_path)
-    files = [Path(p) for p in (old.rungs_path, old.ready_path, old.satin_path)]
-    content = [p.read_bytes() for p in files]
-    automatic = generate(source, tmp_path, method="both")
+    automatic = generate(source, tmp_path)
     assert automatic.direct.decisions
-    assert [p.read_bytes() for p in files] == content
-    manual = generate(
-        source, tmp_path, method="direct", stitch_params=StitchParams(auto_select=False)
-    )
-    assert manual.direct.decisions == []
-    assert [p.read_bytes() for p in files] == content
+    assert automatic.direct.stats["coverage_repairs"] == 0
+    assert automatic.direct.stats["gap_fill_regions"] == 0
+    assert {path.suffix for path in tmp_path.iterdir()} == {".svg", ".json", ".pes", ".dst", ".png"}
 
 
 def test_manual_fill_angle_is_honored(tmp_path):
     direct = generate(
         EXAMPLES / "holes.svg",
         tmp_path,
-        method="direct",
         stitch_params=StitchParams(auto_fill_angle=False, fill_angle_deg=27),
     ).direct
     assert direct.decisions[0]["fill_angle_deg"] == 27
@@ -76,8 +67,6 @@ def test_complex_swoosh_does_not_choose_hundreds_of_cuts_for_the_same_coverage(t
     result = generate(
         EXAMPLES.parent / "nike.svg",
         tmp_path,
-        GenerationParams(auto_optimize=True),
-        method="direct",
         stitch_params=StitchParams(hoop_width_mm=500, hoop_height_mm=500),
     )
     assert result.direct.stats["trims"] < 50
@@ -108,8 +97,6 @@ def test_cli_material_options_are_saved_and_manual_values_win(tmp_path, capsys):
         main(
             [
                 str(EXAMPLES / "straight.svg"),
-                "--method",
-                "direct",
                 "--fabric",
                 "stretch",
                 "--thread-weight",
@@ -118,6 +105,7 @@ def test_cli_material_options_are_saved_and_manual_values_win(tmp_path, capsys):
                 "cutaway",
                 "--stitch-spacing",
                 "0.5",
+                "--no-auto-adjust",
                 "--fill-angle",
                 "23",
                 "--output-dir",

@@ -6,9 +6,9 @@ describe("Python generation contract", () => {
   const file = new File(["<svg/>"], "logo.svg", { type: "image/svg+xml" });
 
   it("serializes false booleans explicitly and omits automatic optional sizes", () => {
-    const form = generationForm(file, { ...DEFAULT_SETTINGS, underlay: false, debug: false });
+    const form = generationForm(file, { ...DEFAULT_SETTINGS, underlay: false, auto_adjust: false });
     expect(form.get("file")).toBe(file);
-    expect(form.get("method")).toBe("direct");
+    expect(form.get("auto_adjust")).toBe("false");
     expect(form.get("underlay")).toBe("false");
     expect(form.get("fit_to_hoop")).toBe("true");
     expect(form.has("design_width")).toBe(false);
@@ -48,9 +48,10 @@ describe("Python generation contract", () => {
     expect(form.get("max_satin_width")).toBe("7");
   });
 
-  it("only requests native export when using the editable path", () => {
-    expect(generationForm(file, { ...DEFAULT_SETTINGS, export: true }).get("export")).toBe("false");
-    expect(generationForm(file, { ...DEFAULT_SETTINGS, method: "both", export: true }).get("export")).toBe("true");
+  it("only sends direct settings without obsolete engine or guide options", () => {
+    const form = generationForm(file, DEFAULT_SETTINGS);
+    expect(form.get("auto_adjust")).toBe("true");
+    for (const key of ["method", "export", "auto_select", "fill_gaps", "wide_mode", "spacing", "density", "debug"]) expect(form.has(key)).toBe(false);
   });
 
   it("uses server presets while preserving unrelated settings and manual custom underlay", () => {
@@ -72,5 +73,6 @@ describe("Python generation contract", () => {
     expect(validateFile({ name: "logo.svg", size: 0 })).toContain("vide");
     expect(validateFile({ name: "logo.svg", size: 10 * 1024 * 1024 + 1 })).toContain("10 Mio");
     expect(validateFile({ name: "logo.exe", size: 100 })).toContain("SVG");
+    expect(validateFile({ name: "logo.pdf", size: 100 })).toContain("SVG");
   });
 });

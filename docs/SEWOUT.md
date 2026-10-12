@@ -13,7 +13,7 @@ courbe, variation de largeur, tatami avec une contreforme et détails de
 
 ```bash
 uv run embroidery-rungs examples/quality/sewout.svg \
-  --method direct --machine brother-skitch-pp1 \
+  --machine brother-skitch-pp1 \
   --fabric stable --thread-weight 40 --stabilizer cutaway \
   --fit-to-hoop -o output/sewout-cotton
 ```
@@ -26,7 +26,7 @@ film : le champ stabilisateur du projet décrit seulement le support principal.
 ## Import et préparation
 
 Le [Skitch PP1](https://www.brother-usa.com/p/sewing-embroidery/PP1) a une surface
-maximale de 100 × 100 mm et fonctionne via Artspira. Le profil valide cette surface
+maximale de 100 × 100 mm, une vitesse annoncée de 400 points/minute et fonctionne via Artspira. Le profil valide cette surface
 et propose six fils et un satin de 7 mm ; palette et largeur restent modifiables.
 [Artspira accepte PES et DST pour la broderie](https://support.brother.com/g/s/hf/mobileapp_info/artspira/plan/func1/en.html).
 Importer `sewout_direct.pes` ; le SVG est la source, pas un fichier de points.
@@ -56,7 +56,9 @@ pas à elles seules la coupe réelle sur toutes les machines.
    créer des flottés longs ou des piqûres au milieu du satin.
 
 Les ajustements de densité se font avec `--stitch-spacing` et `--fill-spacing`.
-Un pas plus petit ajoute des rangées et davantage de pénétrations. Ne pas faire
+Un pas plus petit ajoute des rangées et davantage de pénétrations. Les valeurs
+extrêmes sont bornées par défaut ; pour une calibration explicite, utiliser
+`--no-auto-adjust` et vérifier les valeurs effectives/demandées dans le JSON. Ne pas faire
 croire qu'un simple passage plus dense corrige un tissu mal soutenu.
 
 Les quatre combinaisons stable/40, stretch/40, textured/30 et stable/60 sont
