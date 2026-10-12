@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, applyMaterialPreset, generationForm, validateFile } from "./settings";
+import { DEFAULT_SETTINGS, applyMachineProfile, applyMaterialPreset, generationForm, validateFile } from "./settings";
 import type { Capabilities } from "./types";
 
 describe("Python generation contract", () => {
@@ -30,6 +30,22 @@ describe("Python generation contract", () => {
   it("sends an explicit monochrome override", () => {
     const form = generationForm(file, { ...DEFAULT_SETTINGS, preserve_colors: false });
     expect(form.get("preserve_colors")).toBe("false");
+  });
+
+  it("uses server machine recommendations without changing material or density", () => {
+    const capabilities = { machine_profiles: { "brother-skitch-pp1": { hoop_width: 100, hoop_height: 100, max_colors: 6, max_satin_width: 7 } } } as Capabilities;
+    const source = { ...DEFAULT_SETTINGS, hoop_width: 200, fabric: "stretch" as const, stabilizer: "cutaway" as const, stitch_spacing: 0.5 };
+    const adjusted = applyMachineProfile(source, "brother-skitch-pp1", capabilities);
+    expect(adjusted.hoop_width).toBe(100);
+    expect(adjusted.max_colors).toBe(6);
+    expect(adjusted.max_satin_width).toBe(7);
+    expect(adjusted.stitch_spacing).toBe(0.5);
+    expect(adjusted.fabric).toBe("stretch");
+    expect(adjusted.stabilizer).toBe("cutaway");
+    expect(source.hoop_width).toBe(200);
+    const form = generationForm(file, adjusted);
+    expect(form.get("machine")).toBe("brother-skitch-pp1");
+    expect(form.get("max_satin_width")).toBe("7");
   });
 
   it("only requests native export when using the editable path", () => {

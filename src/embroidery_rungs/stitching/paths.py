@@ -49,7 +49,13 @@ def _rail_samples(a, b, half_pitch, max_samples=500_000):
 
 def satin_points(a, b, params: StitchParams, *, underlay=False) -> np.ndarray:
     """Bound outer-edge spacing; distribute crowded inner-corner penetrations."""
-    pitch = 3.0 if underlay else params.satin_spacing_mm
+    # Sparse support is closer on unstable/lofty textiles, without increasing
+    # top density (extra top stitches would increase puckering).
+    pitch = (
+        {"stretch": 2.5, "textured": 2.0}.get(params.fabric, 3.0)
+        if underlay
+        else params.satin_spacing_mm
+    )
     a, b = _rail_samples(a, b, pitch / 2, params.max_stitches)
     if len(a) < 2:
         return np.empty((0, 2))
@@ -104,7 +110,7 @@ def _subdivide(points, maximum):
     return np.asarray(result)
 
 
-def fill_paths(polygon: Polygon, angle: float, spacing: float, length: float):
+def fill_paths(polygon: Polygon, angle: float, spacing: float, length: float, *, minimum=0.3):
     """Staggered tatami rows clipped to a polygon, including its holes."""
     shape = rotate(polygon, -angle, origin=(0, 0))
     xmin, ymin, xmax, ymax = shape.bounds
@@ -121,7 +127,7 @@ def fill_paths(polygon: Polygon, angle: float, spacing: float, length: float):
             [clipped] if clipped.geom_type == "LineString" else list(getattr(clipped, "geoms", []))
         )
         segments = sorted(
-            (s for s in segments if s.geom_type == "LineString" and s.length >= 0.3),
+            (s for s in segments if s.geom_type == "LineString" and s.length >= minimum),
             key=lambda s: s.bounds[0],
             reverse=bool(row % 2),
         )
@@ -135,7 +141,7 @@ def fill_paths(polygon: Polygon, angle: float, spacing: float, length: float):
                 * length
                 + phase
             )
-            inner = inner[(inner - low >= 0.3) & (high - inner >= 0.3)]
+            inner = inner[(inner - low >= minimum) & (high - inner >= minimum)]
             xs = np.r_[low, inner, high]
             if row % 2:
                 xs = xs[::-1]
@@ -154,9 +160,9 @@ def _safe_pieces(points, area):
     return pieces, int(np.count_nonzero(~safe))
 
 
-def _ordered_fill_paths(polygon, angle, spacing, length, max_travel=3.0):
+def _ordered_fill_paths(polygon, angle, spacing, length, max_travel=3.0, *, minimum=0.3):
     """Prefer nearby connections inside the fill before crossing a hole or gap."""
-    paths = list(fill_paths(polygon, angle, spacing, length))
+    paths = list(fill_paths(polygon, angle, spacing, length, minimum=minimum))
     if len(paths) < 2:
         return paths
     endpoints = np.asarray([(p[0], p[-1]) for p in paths])

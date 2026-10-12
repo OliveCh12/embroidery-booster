@@ -1,4 +1,4 @@
-import type { Capabilities, Fabric, GenerationSettings, ThreadWeight } from "./types";
+import type { Capabilities, Fabric, GenerationSettings, Machine, ThreadWeight } from "./types";
 
 export const DEFAULT_SETTINGS: GenerationSettings = {
   method: "direct", fabric: "custom", thread_weight: "40", stabilizer: "unspecified",
@@ -10,7 +10,15 @@ export const DEFAULT_SETTINGS: GenerationSettings = {
   density: 1, dpi: 150, debug: false, raster_threshold: null, raster_invert: false,
   max_colors: 12,
   preserve_colors: true,
+  machine: "generic",
+  max_satin_width: 8,
 };
+
+export function applyMachineProfile(settings: GenerationSettings, machine: Machine, capabilities: Capabilities): GenerationSettings {
+  const profile = capabilities.machine_profiles[machine];
+  return { ...settings, machine, hoop_width: profile.hoop_width, hoop_height: profile.hoop_height,
+    max_colors: profile.max_colors, max_satin_width: profile.max_satin_width };
+}
 
 export function applyMaterialPreset(settings: GenerationSettings, fabric: Fabric, weight: ThreadWeight, capabilities?: Capabilities): GenerationSettings {
   const preset = capabilities?.material_presets[fabric][weight];

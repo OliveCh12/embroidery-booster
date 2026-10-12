@@ -7,19 +7,61 @@ from dataclasses import dataclass, field
 
 import numpy as np
 import pyembroidery as pe
-from shapely import covers, linestrings, prepare
+from shapely import area as geometry_area
+from shapely import covers, linestrings, polygons, prepare
 from shapely.geometry import LineString, Polygon
 from shapely.ops import unary_union
 
 from .params import StitchParams
 from .paths import _ordered_fill_paths, _safe_pieces, _subdivide, resample_running, satin_points
+from .underlay import fill_underlay, satin_underlay
 
 
-def _compensated_fill(polygon, compensation):
-    expanded = polygon.buffer(compensation)
+def _compensated_fill(polygon, compensation, angle=0):
+    if compensation == 0:
+        return polygon
+    # Thread pulls along the sewn rows. A circular buffer also adds rows across
+    # them, distorting the silhouette instead of compensating that pull.
+    radians = math.radians(angle)
+    offset = compensation * np.array([math.cos(radians), math.sin(radians)])
+    boundary = np.asarray(polygon.exterior.coords)
+    sweeps = polygons(
+        np.stack(
+            [
+                boundary[:-1] - offset,
+                boundary[1:] - offset,
+                boundary[1:] + offset,
+                boundary[:-1] + offset,
+            ],
+            axis=1,
+        )
+    )
+    expanded = unary_union([polygon, *sweeps[geometry_area(sweeps) > 1e-12]])
     if polygon.interiors:
         expanded = expanded.difference(unary_union([Polygon(ring) for ring in polygon.interiors]))
     return expanded
+
+
+class UnstitchableRegion(ValueError):
+    """No sewn segment survives the machine grid and minimum stitch length."""
+
+
+def _machine_points(points, origin, minimum):
+    quantized = np.rint((points - origin) * 10).astype(int)
+    threshold = (minimum * 10 - 0.01) ** 2
+    deltas = np.diff(quantized, axis=0)
+    if np.all(np.sum(deltas * deltas, axis=1) >= threshold):
+        return quantized / 10 + origin
+    kept = [quantized[0]]
+    for point in quantized[1:]:
+        delta = point - kept[-1]
+        if delta @ delta >= threshold:
+            kept.append(point)
+    # Retain the cap/corner instead of silently dropping the final short step.
+    delta = quantized[-1] - kept[-2] if len(kept) >= 2 else np.zeros(2)
+    if len(kept) >= 2 and delta @ delta >= threshold:
+        kept[-1] = quantized[-1]
+    return np.asarray(kept) / 10 + origin
 
 
 @dataclass
@@ -76,18 +118,9 @@ def _make_blocks(elements, params):
             if is_gap or (
                 wide and params.wide_mode == "fill" and element.get("stitch_type") != "satin"
             ):
-                fill_area = _compensated_fill(polygon, compensation)
+                fill_area = _compensated_fill(polygon, compensation, angle)
                 if element.get("underlay", params.underlay):
-                    paths.extend(
-                        ("underlay", p)
-                        for p in _ordered_fill_paths(
-                            polygon,
-                            angle + 90,
-                            3.0,
-                            min(params.running_length_mm, params.max_stitch_mm),
-                            params.trim_distance_mm,
-                        )
-                    )
+                    paths.extend(("underlay", p) for p in fill_underlay(polygon, angle, params))
                 paths.extend(
                     ("fill", p)
                     for p in _ordered_fill_paths(
@@ -96,6 +129,7 @@ def _make_blocks(elements, params):
                         params.fill_spacing_mm,
                         min(params.fill_length_mm, params.max_stitch_mm) * 0.9,
                         params.trim_distance_mm,
+                        minimum=params.min_stitch_mm,
                     )
                 )
                 # A finish pass on every contour covers pointed tips and narrow
@@ -120,14 +154,7 @@ def _make_blocks(elements, params):
                         )
             else:
                 if params.underlay:
-                    centers = (a + b) / 2
-                    paths.append(
-                        ("underlay", resample_running(centers, min(2.0, params.max_stitch_mm)))
-                    )
-                    if np.linalg.norm(b - a, axis=1).max() >= 3:
-                        paths.append(
-                            ("underlay", satin_points(a[::-1], b[::-1], params, underlay=True))
-                        )
+                    paths.extend(("underlay", p) for p in satin_underlay(a, b, params))
                 paths.append(("satin", satin_points(a, b, params)))
         areas.append(area)
         for kind, points in paths:
@@ -176,6 +203,20 @@ def build_stitch_plan(
             f"Design is {size[0]:.1f} × {size[1]:.1f} mm; it exceeds the {params.hoop_width_mm:g} × {params.hoop_height_mm:g} mm hoop. Resize the SVG or choose a larger hoop."
         )
     origin = (low + high) / 2 if origin_mm is None else np.asarray(origin_mm, dtype=float)
+    original_regions = set(range(len(elements)))
+    machine_blocks = []
+    for block in blocks:
+        points = _machine_points(block.points, origin, params.min_stitch_mm)
+        pieces, bad = _safe_pieces(points, areas[block.region].buffer(0.08))
+        rejected += bad
+        machine_blocks.extend(StitchBlock(block.kind, p, block.region) for p in pieces)
+    sewn_regions = {b.region for b in machine_blocks if b.kind != "underlay"}
+    omitted = original_regions - sewn_regions
+    blocks = [b for b in machine_blocks if b.region in sewn_regions]
+    if not sewn_regions:
+        raise UnstitchableRegion(
+            "No sewn segment remains at the configured minimum stitch length; enlarge the design."
+        )
     commands, rendered = [], []
     allowed = unary_union(areas)
     prepare(allowed)
@@ -238,7 +279,7 @@ def build_stitch_plan(
             )
             connected = (
                 current is not None
-                and (not new_region or distance >= params.min_stitch_mm)
+                and distance >= params.min_stitch_mm - 0.001
                 and distance <= travel_limit
                 and travel_area.covers(LineString([current, first]))
             )
@@ -303,6 +344,10 @@ def build_stitch_plan(
             "Quantized stitches leave their regions; simplify sharp corners or reduce the minimum stitch length."
         )
     warnings = []
+    if omitted:
+        warnings.append(
+            f"{len(omitted)} regions are too small to sew and were omitted; enlarge the design."
+        )
     if rejected:
         warnings.append(
             f"{rejected} unsafe stitch connections were split into separate runs; inspect corners in the preview."
@@ -322,5 +367,6 @@ def build_stitch_plan(
         "width_mm": round(float(size[0]), 2),
         "height_mm": round(float(size[1]), 2),
         "unsafe_connections": rejected,
+        "omitted_regions": len(omitted),
     }
     return StitchPlan(commands, rendered, tuple(origin), stats, warnings)

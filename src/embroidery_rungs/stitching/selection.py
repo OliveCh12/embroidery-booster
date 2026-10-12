@@ -14,7 +14,7 @@ from ..routing import route_columns
 from ..rung_generator import _valid_rail_pieces
 from ..svg_manager import UNITS_PER_MM
 from .paths import _ordered_fill_paths
-from .planner import build_stitch_plan
+from .planner import UnstitchableRegion, build_stitch_plan
 from .quality import measure_plan, satin_crowding
 
 
@@ -27,7 +27,12 @@ def _fill_angle(polygon, params):
     best, best_cost = candidates[0], float("inf")
     for angle in candidates:
         paths = _ordered_fill_paths(
-            polygon, angle, max(1.0, params.fill_spacing_mm), 4.0, params.trim_distance_mm
+            polygon,
+            angle,
+            max(1.0, params.fill_spacing_mm),
+            4.0,
+            params.trim_distance_mm,
+            minimum=params.min_stitch_mm,
         )
         if len(paths) < 2:
             continue
@@ -196,11 +201,15 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
             satin = [linear]
             areas = [Polygon(np.vstack([linear["rail_a"], linear["rail_b"][::-1]]))]
         covered = source.intersection(unary_union(areas)).area / source.area if areas else 0.0
+        # Reserve compensation and rounding headroom so automatic satin does not
+        # acquire split penetrations through its face at the machine length cap.
+        float_limit = min(
+            params.max_satin_width_mm, params.max_stitch_mm - 0.2 - 2 * params.pull_compensation_mm
+        )
         wide = [
             area
             for e, area in zip(satin, areas, strict=True)
-            if np.percentile(np.linalg.norm(e["rail_b"] - e["rail_a"], axis=1), 75)
-            > params.max_satin_width_mm
+            if np.linalg.norm(e["rail_b"] - e["rail_a"], axis=1).max() > float_limit
         ]
         broad = source.intersection(unary_union(wide)).area / source.area if wide else 0.0
         method, reason, angle, candidates = "fill", "incomplete_or_broad_column", None, {}
@@ -217,19 +226,25 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
             ]
             if detail is not None:
                 running = [detail]
-            candidate = build_stitch_plan(route_columns(running), params, origin_mm=origin_mm)
-            metrics, _ = measure_plan(
-                candidate,
-                np.pad(component, 3),
-                scale,
-                np.array([local_transform.e, local_transform.f]) + 3,
-            )
-            candidates["running"] = metrics
-            if metrics["structural_coverage"] >= 0.999 and metrics["largest_gap_mm2"] <= 0.05:
-                option, method, reason = running, "running", "below_satin_width"
-            else:
-                reason = "running_top_layer_incomplete"
-        elif satin and covered >= 0.9 and broad <= 0.15:
+            try:
+                candidate = build_stitch_plan(route_columns(running), params, origin_mm=origin_mm)
+                metrics, _ = measure_plan(
+                    candidate,
+                    np.pad(component, 3),
+                    scale,
+                    np.array([local_transform.e, local_transform.f]) + 3,
+                )
+                candidates["running"] = metrics
+                if metrics["structural_coverage"] >= 0.999 and metrics["largest_gap_mm2"] <= 0.05:
+                    option, method, reason = running, "running", "below_satin_width"
+                else:
+                    reason = "running_top_layer_incomplete"
+            except ValueError as exc:
+                candidates["running"] = {"error": str(exc)}
+                reason = "running_geometry_rejected"
+        # Auto satin must fit throughout the column. A percentile can conceal a
+        # broad cap whose long floats snag, even when most of the column is narrow.
+        elif satin and covered >= 0.9 and not wide:
             try:
                 ordered = route_columns(satin)
                 candidate = build_stitch_plan(ordered, params, origin_mm=origin_mm)
@@ -266,6 +281,7 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
                     and reverse_metrics["crowded_satin_penetrations"] == 0
                     and reverse_metrics["structural_coverage"] >= 0.999
                     and reverse_metrics["largest_gap_mm2"] <= 0.05
+                    and reversed_plan.stats["unsafe_connections"] == 0
                 ):
                     option, method, reason = satin, "satin", "complete_regular_column"
                 else:
@@ -287,16 +303,20 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
                 }
                 for polygon in polygons
             ]
-            candidate = build_stitch_plan(route_columns(option), params, origin_mm=origin_mm)
-            metrics, _ = measure_plan(
-                candidate,
-                np.pad(component, 3),
-                scale,
-                np.array([local_transform.e, local_transform.f]) + 3,
-            )
-            if metrics["structural_coverage"] < 0.9999 or metrics["largest_gap_mm2"] > 0.01:
-                option = [{**e, "finish_inset": 0.0} for e in option]
-            candidates["fill"] = metrics
+            try:
+                candidate = build_stitch_plan(route_columns(option), params, origin_mm=origin_mm)
+                metrics, _ = measure_plan(
+                    candidate,
+                    np.pad(component, 3),
+                    scale,
+                    np.array([local_transform.e, local_transform.f]) + 3,
+                )
+                if metrics["structural_coverage"] < 0.9999 or metrics["largest_gap_mm2"] > 0.01:
+                    option = [{**e, "finish_inset": 0.0} for e in option]
+                candidates["fill"] = metrics
+            except UnstitchableRegion as exc:
+                candidates["fill"] = {"error": str(exc)}
+                option, method, reason = [], "omitted", "below_machine_resolution"
         chosen.extend(option)
         decisions.append(
             {

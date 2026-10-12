@@ -33,6 +33,9 @@ settings. Color-aware MAT work is necessary; it is not reused from a merged mask
 - Satin uses useful paired rails with sufficient swept coverage and suitable
   width. Slender almost-convex columns can use clipped parallel cross sections,
   avoiding raster skeleton fans at straight ends.
+- The widest cross-section must respect the satin width throughout the column,
+  with compensation and rounding headroom below the machine length cap. A width
+  percentile cannot conceal a broad cap. Manual split satin remains available.
 - The quantized candidate must cover at least 99.9% structurally, leave no gap
   larger than 0.05 mm², contain no unsafe connectors or detected crowded satin
   penetrations, and pass the same checks in **both sewing directions**.
@@ -42,7 +45,9 @@ settings. Color-aware MAT work is necessary; it is not reused from a merged mask
 
 Tatami uses an absolute row grid, staggered needle positions, source-clipped rows,
 automatically selected direction and contour finishing. Compensation is bounded
-by region area/perimeter to avoid bloating thin branched shapes. A 0.12 mm inset
+by region area/perimeter to avoid bloating thin branched shapes. It sweeps the
+boundary along the chosen stitch direction, without adding perpendicular rows.
+A 0.12 mm inset
 finish is preferred; if it leaves a structural gap, a source-edge finish is used
 with the same fill strategy. Original hole interiors remain excluded even when
 the outer boundary receives compensation.
@@ -51,6 +56,10 @@ Compact submillimeter details can use a principal clipped running chord. When
 necessary, its ends extend by at most 0.08 mm each to retain the minimum machine
 stitch length. This bounded fidelity adjustment is recorded and warned about;
 unrepresentable detail is not claimed to be perfectly reconstructed.
+Unsewable connected components are explicitly omitted and warned about, with an
+`omitted_regions` count and an `omitted` decision. If an entire color has no sewn
+segment, generation fails. Isolated needle penetrations cannot become successful
+exports.
 
 Manual `auto_select=False` retains the original rail-based split/fill controls
 and optional broad residual fill. It reports its coverage without automatic
@@ -63,6 +72,16 @@ alternate at half the requested same-edge row pitch. Deterministic short-stitch
 inset bands reduce stationary inner-corner crowding. Wide strands are split with
 staggered phases; pull compensation is bounded by local width. Underlay is a
 center walk plus coarse inset zigzag on sufficiently wide columns.
+Stretch and textured fabrics also receive inset edge walks on columns at least
+2.5 mm wide. Sparse zigzag pitch is 3 mm normally, 2.5 mm on stretch and 2 mm on
+textured fabric.
+
+`underlay.py` keeps fill foundations 0.3–0.5 mm inside the source according to
+thread weight (0.2 mm fallback if the region vanishes). A contour anchors larger
+pieces; sparse perpendicular rows support the surface at 3 mm pitch, or 2 mm on
+stretch/textured fabrics. Regions below 4 mm² avoid this duplicate foundation.
+These thresholds control edge visibility and bulk; they are conservative starting
+values to calibrate through a sew-out, not a simulated fabric response.
 
 `planner.py` orders regions and checks connectors against allowed geometry.
 Outside/long travel uses locks, trims and bounded needle-up jumps. Very short
@@ -76,6 +95,10 @@ between layers. Actual sewn bounds are centered using an **integer coordinate
 shift**, avoiding a second quantization. Combined hoop and command budgets are
 checked; sewn coordinates are integer tenths of a millimeter before export.
 Existing minimum/maximum length and allowed-region checks remain mandatory.
+After rounding/filtering, every run is checked again for safe geometry. The last
+cap is retained when the preceding short step can be replaced safely; unsafe
+chords split into needle-up moves. Runs with fewer than two penetrations vanish
+before command emission, and their missing regions remain visible in diagnostics.
 
 `pyembroidery` serializes PES v6 and extended DST with stitch resampling disabled.
 Thread lists follow color changes; both formats are read back in regression tests
@@ -101,11 +124,17 @@ The preview shows actual thread colors, gray underlay and dashed jumps. The web
 UI exposes color preservation/palette limits, ordered swatches and top-layer
 coverage. The comparison gallery retains a common all-sewn footprint for native
 comparability and also displays the direct engine's separate top-layer audit.
+The machine dropdown uses server-owned profiles. `for_fabric(...,
+machine="brother-skitch-pp1")` proposes six threads/7 mm satin and validates the
+verified 100 × 100 mm area. Generic hoops and explicit recommendations are still
+editable. No undocumented PP1 stitch-count limit is assumed; `max_stitches` is
+the application resource budget. Stretch fabrics without cutaway and unstable
+fabrics without underlay trigger advice before sewing.
 
 ## Evidence and limits
 
 See [quality report](QUALITY_REPORT.md), [architecture](ARCHITECTURE.md) and
-[before/after measurements](benchmarks/direct-top-layer.json). Tests cover colored
+[before/after measurements](benchmarks/sewing-quality.json). Tests cover colored
 SVG/PNG, transparency, overlaps, intentional holes, pale/similar paints, bounded
 gradients, coherent strategies, curved/narrow tapered satin, quantized density,
 machine limits, budget errors, API/CLI compatibility and PES/DST round trips.
@@ -116,6 +145,8 @@ thread tension, fabric deformation, thread spread and globally optimal routing
 are not modeled. Tiny designs may require enlargement. A Brother sew-out remains
 necessary to establish physical quality; valid files and near-complete geometric
 coverage cannot prove perfect embroidery for every image.
+Use [SEWOUT.md](SEWOUT.md) for the three-color test coupon, material controls and
+Brother import/cutting workflow.
 
 Reference: [Ink/Stitch satin parameters](https://inkstitch.org/docs/stitches/satin-column/)
 and [pyembroidery serialization](https://github.com/EmbroidePy/pyembroidery/blob/main/README.md).

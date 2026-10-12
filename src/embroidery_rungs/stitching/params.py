@@ -5,6 +5,27 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+MACHINE_PROFILES = {
+    "generic": {
+        "label": "Cadre personnalisable",
+        "hoop_width": 100.0,
+        "hoop_height": 100.0,
+        "max_colors": 12,
+        "max_satin_width": 8.0,
+        "max_area_mm": None,
+    },
+    "brother-skitch-pp1": {
+        "label": "Brother Skitch PP1 · 100 × 100 mm",
+        "hoop_width": 100.0,
+        "hoop_height": 100.0,
+        # Fewer spools and shorter satin floats are conservative starting points,
+        # not undocumented hardware limits; explicit overrides remain available.
+        "max_colors": 6,
+        "max_satin_width": 7.0,
+        "max_area_mm": 100.0,
+    },
+}
+
 
 @dataclass
 class StitchParams:
@@ -32,10 +53,17 @@ class StitchParams:
     stabilizer: str = "unspecified"
     max_colors: int = 12
     preserve_colors: bool = True
+    machine: str = "generic"
 
     @classmethod
     def for_fabric(
-        cls, fabric: str = "custom", *, thread_weight=40, stabilizer="unspecified", **overrides
+        cls,
+        fabric: str = "custom",
+        *,
+        thread_weight=40,
+        stabilizer="unspecified",
+        machine="generic",
+        **overrides,
     ):
         """Material starting points; explicit settings always take precedence."""
         presets = {
@@ -62,7 +90,16 @@ class StitchParams:
             raise ValueError("fabric must be 'custom', 'stable', 'stretch' or 'textured'.")
         if thread_weight not in (30, 40, 60):
             raise ValueError("thread_weight must be 30, 40 or 60.")
-        values = dict(presets[fabric])
+        if machine not in MACHINE_PROFILES:
+            raise ValueError("Unknown machine profile.")
+        profile = MACHINE_PROFILES[machine]
+        values = {
+            "hoop_width_mm": profile["hoop_width"],
+            "hoop_height_mm": profile["hoop_height"],
+            "max_colors": profile["max_colors"],
+            "max_satin_width_mm": profile["max_satin_width"],
+            **presets[fabric],
+        }
         factor = {30: 1.25, 40: 1.0, 60: 0.75}[thread_weight]
         for name in ("satin_spacing_mm", "fill_spacing_mm"):
             values[name] = round(values.get(name, 0.4) * factor, 3)
@@ -70,10 +107,13 @@ class StitchParams:
             fabric=fabric,
             thread_weight=thread_weight,
             stabilizer=stabilizer,
+            machine=machine,
             **(values | overrides),
         )
 
     def validate(self) -> None:
+        if self.machine not in MACHINE_PROFILES:
+            raise ValueError("Unknown machine profile.")
         if (
             isinstance(self.max_colors, bool)
             or not isinstance(self.max_colors, int)
@@ -102,6 +142,9 @@ class StitchParams:
                 or not low <= value <= high
             ):
                 raise ValueError(f"{name} must be between {low} and {high} mm.")
+        limit = MACHINE_PROFILES[self.machine]["max_area_mm"]
+        if limit is not None and max(self.hoop_width_mm, self.hoop_height_mm) > limit:
+            raise ValueError("Brother Skitch PP1 supports a maximum 100 × 100 mm embroidery area.")
         if (
             not isinstance(self.fill_angle_deg, (int, float))
             or not math.isfinite(self.fill_angle_deg)

@@ -73,8 +73,12 @@ def parse_arguments(argv=None):
         "--single-color", action="store_true", help="Trace/digitize a monochrome silhouette"
     )
     parser.add_argument(
-        "--max-colors", type=int, default=12, help="Maximum automatic thread palette (1–32)"
+        "--max-colors",
+        type=int,
+        help="Maximum automatic thread palette (1–32; machine preset by default)",
     )
+    parser.add_argument("--machine", choices=("generic", "brother-skitch-pp1"), default="generic")
+    parser.add_argument("--max-satin-width", type=float, help="Maximum automatic satin width in mm")
     parser.add_argument(
         "--fabric", choices=("custom", "stable", "stretch", "textured"), default="custom"
     )
@@ -105,6 +109,8 @@ def main(argv=None):
                 ("fill_spacing_mm", args.fill_spacing),
                 ("pull_compensation_mm", args.pull_compensation),
                 ("fill_angle_deg", args.fill_angle),
+                ("max_colors", args.max_colors),
+                ("max_satin_width_mm", args.max_satin_width),
             )
             if value is not None
         }
@@ -127,6 +133,7 @@ def main(argv=None):
                 args.fabric,
                 thread_weight=args.thread_weight,
                 stabilizer=args.stabilizer,
+                machine=args.machine,
                 **overrides,
                 running_length_mm=args.running_length,
                 max_stitch_mm=args.max_stitch,
@@ -139,7 +146,6 @@ def main(argv=None):
                 hoop_height_mm=args.hoop_height,
                 thread_color=args.thread_color or "#176d9c",
                 preserve_colors=not args.single_color and args.thread_color is None,
-                max_colors=args.max_colors,
             ),
         )
     except (OSError, ValueError) as exc:

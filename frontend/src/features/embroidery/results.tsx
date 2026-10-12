@@ -92,7 +92,7 @@ function Diagnostics({ result }: { result: GenerationResult }) {
           <Chip size="sm">{result.direct.stats.satin_regions} satin</Chip><Chip size="sm">{result.direct.stats.fill_regions} fill</Chip><Chip size="sm">{result.direct.stats.running_regions} point droit</Chip>
         </div>
         <ul className="max-h-60 space-y-2 overflow-auto text-sm text-muted">
-          {result.direct.decisions.map(item => <li key={item.component}>Région {item.component} · {item.method === "running" ? "point droit" : item.method} · {formatNumber(item.width_mm)} mm{item.method === "fill" && item.fill_angle_deg !== null ? ` · ${item.fill_angle_deg}°` : ""}</li>)}
+          {result.direct.decisions.map(item => <li key={item.component}>Région {item.component} · {item.method === "running" ? "point droit" : item.method === "omitted" ? "trop petite pour être cousue" : item.method} · {formatNumber(item.width_mm)} mm{item.method === "fill" && item.fill_angle_deg !== null ? ` · ${item.fill_angle_deg}°` : ""}</li>)}
         </ul>
       </Accordion.Body></Accordion.Panel>
     </Accordion.Item>}

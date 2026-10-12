@@ -2,6 +2,16 @@ export type Method = "direct" | "both" | "inkstitch";
 export type Fabric = "custom" | "stable" | "stretch" | "textured";
 export type Stabilizer = "unspecified" | "cutaway" | "tearaway" | "washaway";
 export type ThreadWeight = "30" | "40" | "60";
+export type Machine = "generic" | "brother-skitch-pp1";
+
+export interface MachineProfile {
+  label: string;
+  hoop_width: number;
+  hoop_height: number;
+  max_colors: number;
+  max_satin_width: number;
+  max_area_mm: number | null;
+}
 
 export interface MaterialPreset {
   stitch_spacing: number;
@@ -16,10 +26,13 @@ export interface Capabilities {
   direct: boolean;
   quality_report: boolean;
   material_presets: Record<Fabric, Record<ThreadWeight, MaterialPreset>>;
+  machine_profiles: Record<Machine, MachineProfile>;
 }
 
 export interface GenerationSettings {
   method: Method;
+  machine: Machine;
+  max_satin_width: number;
   fabric: Fabric;
   thread_weight: ThreadWeight;
   stabilizer: Stabilizer;
@@ -68,7 +81,7 @@ export interface StitchStats {
 
 export interface Decision {
   component: number;
-  method: "satin" | "fill" | "running";
+  method: "satin" | "fill" | "running" | "omitted";
   reason: string;
   width_mm: number;
   fill_angle_deg: number | null;

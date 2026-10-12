@@ -4,7 +4,7 @@ import { Accordion, Button, Card, Form, Separator, Spinner } from "@heroui/react
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { ChoiceSetting, NumberSetting, ToggleSetting } from "./controls";
-import { applyMaterialPreset } from "./settings";
+import { applyMachineProfile, applyMaterialPreset } from "./settings";
 import type { Capabilities, GenerationSettings } from "./types";
 
 function AdvancedSection({ title, children }: { title: string; children: ReactNode }) {
@@ -25,6 +25,7 @@ export function SettingsForm({ settings: s, onChange, capabilities, busy, canGen
   }
   function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (canGenerate) onSubmit(); }
   const direct = s.method !== "inkstitch";
+  const hoopLimit = capabilities?.machine_profiles?.[s.machine]?.max_area_mm ?? 500;
   return (
     <Form onSubmit={submit} onInvalid={() => setSettingsExpanded(true)} className="flex min-h-0 w-full flex-1 flex-col gap-4">
       <div className="flex min-h-0 flex-col gap-4 md:flex-1 md:overflow-y-auto md:overscroll-contain" aria-label="Réglages de la broderie">
@@ -40,15 +41,19 @@ export function SettingsForm({ settings: s, onChange, capabilities, busy, canGen
             ]} />
             <Separator />
             <p className="text-xs font-medium text-muted">Dimensions et cadre</p>
+            <ChoiceSetting label="Machine" value={s.machine} disabled={busy || !capabilities?.machine_profiles}
+              onChange={value => { if (capabilities) onChange(applyMachineProfile(s, value, capabilities)); }}
+              options={Object.entries(capabilities?.machine_profiles ?? {}).map(([value, profile]) => ({ value: value as GenerationSettings["machine"], label: profile.label }))} />
             <NumberSetting label="Largeur du dessin (mm)" value={s.design_width} onChange={value => update("design_width", value)} min={1} max={500} step={0.1} optional disabled={busy} />
             <fieldset className="space-y-2">
               <legend className="text-sm">Cadre (mm)</legend>
               <div className="grid grid-cols-2 gap-4">
-                <NumberSetting label="Largeur" value={s.hoop_width} onChange={value => update("hoop_width", value ?? NaN)} min={10} max={500} disabled={busy} />
-                <NumberSetting label="Hauteur" value={s.hoop_height} onChange={value => update("hoop_height", value ?? NaN)} min={10} max={500} disabled={busy} />
+                <NumberSetting label="Largeur" value={s.hoop_width} onChange={value => update("hoop_width", value ?? NaN)} min={10} max={hoopLimit} disabled={busy} />
+                <NumberSetting label="Hauteur" value={s.hoop_height} onChange={value => update("hoop_height", value ?? NaN)} min={10} max={hoopLimit} disabled={busy} />
               </div>
             </fieldset>
             <ToggleSetting label="Adapter au cadre" value={s.fit_to_hoop} onChange={value => update("fit_to_hoop", value)} disabled={busy} />
+            {s.machine === "brother-skitch-pp1" && <p className="text-xs leading-relaxed text-muted">Importez le PES dans Artspira et activez la coupe des fils de saut sur la machine. Le profil propose 6 couleurs et des satins jusqu’à 7 mm ; ces réglages restent modifiables.</p>}
             <Separator />
             <p className="text-xs font-medium text-muted">Tissu et fil</p>
             <ChoiceSetting label="Tissu" value={s.fabric} disabled={busy || !capabilities}
@@ -64,7 +69,7 @@ export function SettingsForm({ settings: s, onChange, capabilities, busy, canGen
                 { value: "unspecified", label: "À préciser" }, { value: "cutaway", label: "À découper" }, { value: "tearaway", label: "À déchirer" }, { value: "washaway", label: "Hydrosoluble" },
               ]} />
             </div>
-            <p className="text-xs leading-relaxed text-muted">Le tissu et le fil proposent des réglages modifiables. Le stabilisateur est enregistré avec le plan.</p>
+            <p className="text-xs leading-relaxed text-muted">Le tissu ajuste densité, compensation et sous-couche. Pour le jersey, prévoyez un support à découper ; sur l’éponge, une couche hydrosoluble en surface aide à retenir les points. Validez sur une chute du tissu.</p>
             {direct && <ToggleSetting label="Choisir les types de points" value={s.auto_select} onChange={value => update("auto_select", value)} disabled={busy} />}
             <Accordion className="w-full">
               <AdvancedSection title="Points et sous-couche">
@@ -76,6 +81,7 @@ export function SettingsForm({ settings: s, onChange, capabilities, busy, canGen
                 </div>
                 <ToggleSetting label="Sous-couche" value={s.underlay} onChange={value => update("underlay", value)} disabled={busy} />
                 {direct && <>
+                <NumberSetting label="Largeur satin maximale (mm)" value={s.max_satin_width} onChange={value => update("max_satin_width", value ?? NaN)} min={2} max={12} step={0.5} disabled={busy} />
                 <NumberSetting label="Point droit (mm)" value={s.running_length} onChange={value => update("running_length", value ?? NaN)} min={0.5} max={5} step={0.1} disabled={busy} />
                 <ToggleSetting label="Angle fill automatique" value={s.auto_fill_angle} onChange={value => update("auto_fill_angle", value)} disabled={busy} />
                 {!s.auto_fill_angle && <NumberSetting label="Angle fill (°)" value={s.fill_angle} onChange={value => update("fill_angle", value ?? NaN)} min={-180} max={180} step={5} disabled={busy} />}

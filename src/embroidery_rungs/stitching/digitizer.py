@@ -75,6 +75,7 @@ def _combine(plans, colors, params, origin):
             "running_regions",
             "underlay_stitches",
             "unsafe_connections",
+            "omitted_regions",
         ):
             stats[key] = stats.get(key, 0) + plan.stats[key]
     commands.append([*commands[-1][:2], pe.END])
@@ -161,6 +162,12 @@ def digitize(svg: SVGDocument, params: StitchParams) -> tuple[StitchPlan, list[d
                 "Stitch budget exceeded across colour layers; reduce colours or enlarge spacing."
             )
         plan.decisions = decisions
+        omitted = sum(d["method"] == "omitted" for d in decisions)
+        plan.stats["omitted_regions"] += omitted
+        if omitted:
+            plan.warnings.append(
+                f"{omitted} details are below machine resolution and were omitted; enlarge the design."
+            )
         plan.stats["crowded_satin_penetrations"] = satin_crowding(plan, params.min_stitch_mm)
         metrics, _ = measure_plan(plan, mask, scale, [transform.e, transform.f])
         if (
@@ -198,5 +205,17 @@ def digitize(svg: SVGDocument, params: StitchParams) -> tuple[StitchPlan, list[d
     if reduced:
         result.warnings.append(
             f"Artwork gradients/colours were quantized to {len(colors)} thread colours; inspect the interpreted palette."
+        )
+    if params.fabric == "stretch" and params.stabilizer != "cutaway":
+        result.warnings.append(
+            "Stretch fabrics need lasting support; select a suitable cutaway stabilizer and test on the actual fabric."
+        )
+    if params.fabric in ("stretch", "textured") and not params.underlay:
+        result.warnings.append(
+            "Underlay is disabled on an unstable or textured fabric; top stitches may sink or pucker."
+        )
+    if params.machine == "brother-skitch-pp1":
+        result.warnings.append(
+            "Import the PES via Artspira; enable Jump Stitch Trimming on the Skitch PP1 and sew a fabric sample first."
         )
     return result, diagnostics

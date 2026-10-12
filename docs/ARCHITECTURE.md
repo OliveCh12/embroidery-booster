@@ -18,8 +18,9 @@ src/embroidery_rungs/
   routing.py               Ordre des régions
   debug_utils.py           Diagnostics visuels
   stitching/
-    params.py              Réglages validés et presets tissu/fil
-    paths.py               Échantillonnage satin, running, tatami et sous-couches
+    params.py              Réglages validés et presets tissu/fil/machine
+    paths.py               Échantillonnage satin, running et tatami
+    underlay.py            Fondations en retrait, adaptées au tissu et à la largeur
     planner.py             Connexions, coupes, locks, quantification et invariants
     selection.py           Choix automatique sur les régions source complètes
     digitizer.py           MAT par couleur, fusion des plans et changements de fil
@@ -66,7 +67,7 @@ sombre et système sans duplication des styles HeroUI.
 `/api/*` et `/quality-assets/*` via des rewrites vers l'API Python ; le navigateur
 utilise une seule origine. Aucun calcul de broderie ne migre côté frontend.
 Les presets physiques sont fournis par le serveur pour garder une seule
-définition des densités et compensations. La page `/quality` consomme directement
+définition des densités, compensations et recommandations machine. La page `/quality` consomme directement
 les artefacts reproductibles produits par `scripts/compare_quality.py`.
 
 Les composants HeroUI assurent formulaires, onglets, cartes et menus. Les seules

@@ -74,6 +74,9 @@ uv run embroidery-rungs examples/direct-quality.svg --method both --auto-optimiz
 # Preserve logo colors, export Brother PES and DST
 uv run embroidery-rungs examples/quality/multicolor.svg --method direct --max-colors 8 -o output/color-logo
 
+# Skitch PP1: 100 × 100 mm, practical palette and satin recommendations
+uv run embroidery-rungs examples/quality/sewout.svg --method direct --machine brother-skitch-pp1 --fabric stable --thread-weight 40 --stabilizer cutaway --fit-to-hoop -o output/sewout-cotton
+
 # Explicit monochrome override
 uv run embroidery-rungs logo.png --method direct --single-color --thread-color '#176d9c'
 
@@ -92,6 +95,8 @@ Satin candidates must pass coverage and crowding checks in both sewing direction
 It never patches a deficient satin region with a different top stitch type.
 Small compact details can receive a bounded minimum-length adjustment, reported
 in warnings. Decisions and candidate diagnostics are recorded in JSON.
+Details that cannot form a sewn segment after machine rounding are explicitly
+marked `omitted`; an entirely unsewable design fails with an enlargement message.
 
 | Setting | Default | CLI |
 |---|---:|---|
@@ -100,6 +105,7 @@ in warnings. Decisions and candidate diagnostics are recorded in JSON.
 | Pull compensation per rail | 0.15 mm | `--pull-compensation` |
 | Running length | 2.5 mm | `--running-length` |
 | Maximum sewn segment | 8 mm | `--max-stitch` |
+| Maximum automatic satin width | 8 mm | `--max-satin-width` |
 | Underlay | enabled | `--no-underlay` |
 | Hoop | 100 × 100 mm | `--hoop-width`, `--hoop-height` |
 | Automatic stitch-type selection | enabled | `--no-auto-select` |
@@ -107,6 +113,7 @@ in warnings. Decisions and candidate diagnostics are recorded in JSON.
 | Maximum thread colors | 12 | `--max-colors` |
 | Preserve visible colors | enabled in auto | `--single-color` disables it |
 | Bitmap threshold | automatic | `--raster-threshold`, `--invert-image` |
+| Machine profile | custom hoop | `--machine generic\|brother-skitch-pp1` |
 
 `--wide-mode split|fill` explicitly switches to manual per-rail selection.
 `--spacing`, `--density` and `--auto-optimize` control **direction guides**,
@@ -120,6 +127,7 @@ from embroidery_rungs import GenerationParams, StitchParams, generate
 
 settings = StitchParams.for_fabric(
     "stretch", thread_weight=40, stabilizer="cutaway",
+    machine="brother-skitch-pp1",
     hoop_width_mm=100, hoop_height_mm=100,
 )
 result = generate(
@@ -141,6 +149,19 @@ Presets `custom`, `stable`, `stretch` and `textured`, plus thread weights 30/40/
 propose editable density, compensation and underlay. The server owns these values;
 the UI uses the same presets. Explicit numeric overrides take precedence.
 Stabilizer selection is recorded; it is not a calibrated mechanical model.
+Fill pull compensation extends along the sewn rows, retaining intentional holes.
+Its underlay is inset, with edge support and sparse cross rows; unstable fabrics
+receive closer support. Auto satin reserves room for compensation and rounding
+before the maximum stitch length, avoiding split penetrations across its face.
+
+The Skitch factory preset proposes six thread colors and a 7 mm satin width;
+these are editable recommendations. Its **100 × 100 mm** hoop limit is validated
+even with manual overrides, following the [Brother specifications](https://www.brother-usa.com/p/sewing-embroidery/PP1).
+The Skitch uses Artspira: import the generated **PES** (or DST), rather than the
+source SVG. [Artspira supports these embroidery formats](https://support.brother.com/g/s/hf/mobileapp_info/artspira/plan/func1/en.html);
+import availability depends on the account/region. Enable Jump Stitch Trimming
+in the machine settings; PES trim commands alone do not prove physical cutting.
+See the [sew-out protocol](docs/SEWOUT.md) and the reproducible three-color coupon.
 
 The original positional API and result fields remain available. `direct` is
 `None` for original-only calls. Added fields include warnings, stage timings and

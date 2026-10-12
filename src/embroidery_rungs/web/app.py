@@ -16,6 +16,7 @@ from werkzeug.utils import secure_filename
 
 from embroidery_rungs import GenerationParams, StitchParams, generate
 from embroidery_rungs.image_processor import render_preview
+from embroidery_rungs.stitching.params import MACHINE_PROFILES
 
 from . import services
 
@@ -62,6 +63,7 @@ def create_app(config=None):
             direct_formats=["pes", "dst"],
             quality_report=(Path(app.config["QUALITY_REPORT_DIR"]) / "comparison.json").is_file(),
             recommended_method="direct",
+            machine_profiles=MACHINE_PROFILES,
             material_presets={
                 fabric: {
                     str(weight): {
@@ -119,11 +121,14 @@ def create_app(config=None):
                 request.form.get("fabric", "custom"),
                 thread_weight=int(request.form.get("thread_weight", 40)),
                 stabilizer=request.form.get("stabilizer", "unspecified"),
+                machine=request.form.get("machine", "generic"),
             )
             stitch_params.hoop_width_mm = float(request.form.get("hoop_width", 100))
             stitch_params.hoop_height_mm = float(request.form.get("hoop_height", 100))
             if method != "inkstitch":
-                stitch_params.max_colors = int(request.form.get("max_colors", 12))
+                stitch_params.max_colors = int(
+                    request.form.get("max_colors", stitch_params.max_colors)
+                )
                 stitch_params.preserve_colors = (
                     request.form.get("preserve_colors", "true") == "true"
                 )
@@ -133,6 +138,7 @@ def create_app(config=None):
                     ("fill_spacing", "fill_spacing_mm"),
                     ("fill_angle", "fill_angle_deg"),
                     ("max_stitch", "max_stitch_mm"),
+                    ("max_satin_width", "max_satin_width_mm"),
                     ("pull_compensation", "pull_compensation_mm"),
                 ):
                     setattr(
@@ -243,6 +249,8 @@ def create_app(config=None):
                         "fabric": result.direct.params.fabric,
                         "thread_weight": result.direct.params.thread_weight,
                         "stabilizer": result.direct.params.stabilizer,
+                        "machine": result.direct.params.machine,
+                        "max_satin_width_mm": result.direct.params.max_satin_width_mm,
                     },
                 }
             debug = {p.name: url(p) for p in (directory / "debug").glob("*.png")}
