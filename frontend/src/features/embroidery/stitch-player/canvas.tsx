@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
+import { canvasTheme } from "./canvas-theme";
 import { pointAt, STITCH_PHASE, viewport, type StitchPlan } from "./model";
 
 interface CanvasOptions { dark: boolean; underlay: boolean; travel: boolean }
@@ -15,11 +16,15 @@ class StitchRenderer {
   private transform = viewport(1, 1, 100, 100);
   private context: CanvasRenderingContext2D;
   private overlay: CanvasRenderingContext2D;
+  private firstStitch: number;
+  private colors: ReturnType<typeof canvasTheme>;
 
   constructor(private canvas: HTMLCanvasElement, private needle: HTMLCanvasElement, private plan: StitchPlan, private options: CanvasOptions) {
     const context = canvas.getContext("2d"), overlay = needle.getContext("2d");
     if (!context || !overlay) throw new Error("Le navigateur ne prend pas en charge l’aperçu des points.");
     this.context = context; this.overlay = overlay;
+    this.firstStitch = plan.codes.indexOf(plan.command.stitch);
+    this.colors = canvasTheme(options.dark);
   }
 
   resize(width: number, height: number) {
@@ -48,20 +53,20 @@ class StitchRenderer {
     this.cursor = 0;
     const ctx = this.context, { width, height } = this;
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = this.options.dark ? "#1c222c" : "#f2f4f7";
+    ctx.fillStyle = this.colors.background;
     ctx.fillRect(0, 0, width, height);
     const { left, top, scale } = this.transform, hoop = this.plan.hoop;
-    ctx.fillStyle = this.options.dark ? "#717b8c" : "#c4ccd7";
+    ctx.fillStyle = this.colors.textile;
     ctx.fillRect(left, top, hoop.width * scale, hoop.height * scale);
-    ctx.strokeStyle = this.options.dark ? "#414b5b" : "#a4afbf";
+    ctx.strokeStyle = this.colors.grid;
     ctx.lineWidth = 0.5; ctx.setLineDash([]); ctx.beginPath();
     for (let mm = Math.ceil(-hoop.width / 20) * 10; mm <= hoop.width / 2; mm += 10) { ctx.moveTo(this.x(mm), top); ctx.lineTo(this.x(mm), top + hoop.height * scale); }
     for (let mm = Math.ceil(-hoop.height / 20) * 10; mm <= hoop.height / 2; mm += 10) { ctx.moveTo(left, this.y(mm)); ctx.lineTo(left + hoop.width * scale, this.y(mm)); }
     ctx.stroke();
-    ctx.strokeStyle = this.options.dark ? "#c6ceda" : "#758196";
+    ctx.strokeStyle = this.colors.hoop;
     ctx.lineWidth = 1; ctx.strokeRect(left, top, hoop.width * scale, hoop.height * scale);
     ctx.font = "11px system-ui, sans-serif";
-    ctx.fillStyle = this.options.dark ? "#d3dae5" : "#5e6b80";
+    ctx.fillStyle = this.colors.label;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     const labelStep = scale < 3 ? 20 : 10;
     for (let mm = Math.ceil(-hoop.width / (2 * labelStep)) * labelStep; mm <= hoop.width / 2; mm += labelStep) ctx.fillText(String(mm + hoop.width / 2), this.x(mm), top + hoop.height * scale + 16);
@@ -90,7 +95,7 @@ class StitchRenderer {
         if (drawing) ctx.stroke();
         style = nextStyle; drawing = true;
         ctx.beginPath(); ctx.setLineDash(jump ? [3, 4] : []);
-        ctx.strokeStyle = jump || travel ? "#c98316" : lock ? "#7860c1" : underlay ? "#8c8c8c" : nextStyle;
+        ctx.strokeStyle = jump || travel ? this.colors.travel : lock ? this.colors.lock : underlay ? this.colors.underlay : nextStyle;
         ctx.lineWidth = jump ? 0.7 : underlay || travel || lock ? Math.max(0.5, 0.15 * this.transform.scale) : Math.max(0.65, 0.3 * this.transform.scale);
         ctx.lineCap = "round"; ctx.lineJoin = "round";
       }
@@ -107,21 +112,23 @@ class StitchRenderer {
     const ctx = this.overlay;
     ctx.clearRect(0, 0, this.width, this.height);
     if (this.cursor === this.plan.count) return;
-    const firstIndex = this.plan.codes.indexOf(this.plan.command.stitch);
+    const firstIndex = this.firstStitch;
     if (firstIndex >= 0) {
-      ctx.strokeStyle = "#147d52"; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.beginPath();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 4; ctx.setLineDash([]); ctx.beginPath();
       ctx.arc(this.x(this.plan.points[firstIndex * 2]), this.y(this.plan.points[firstIndex * 2 + 1]), 5, 0, 2 * Math.PI); ctx.stroke();
+      ctx.strokeStyle = this.colors.start; ctx.lineWidth = 2; ctx.stroke();
     }
     const point = pointAt(this.plan, this.cursor);
     if (!point) return;
     const x = this.x(point[0]), y = this.y(point[1]);
     if (this.plan.codes[this.cursor - 1] === this.plan.command.jump && this.cursor > 1) {
-      ctx.strokeStyle = "#f59e0b"; ctx.setLineDash([4, 3]); ctx.lineWidth = 1; ctx.beginPath();
+      ctx.strokeStyle = this.colors.travel; ctx.setLineDash([4, 3]); ctx.lineWidth = 1; ctx.beginPath();
       ctx.moveTo(this.x(this.plan.points[(this.cursor - 2) * 2]), this.y(this.plan.points[(this.cursor - 2) * 2 + 1])); ctx.lineTo(x, y); ctx.stroke();
     }
-    ctx.setLineDash([]); ctx.fillStyle = "#ef4444"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
+    ctx.setLineDash([]); ctx.fillStyle = this.colors.needle; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(x, y, 4, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
-    ctx.strokeStyle = "#ef4444"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 9, y); ctx.lineTo(x + 9, y); ctx.moveTo(x, y - 9); ctx.lineTo(x, y + 9); ctx.stroke();
+    ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x - 9, y); ctx.lineTo(x + 9, y); ctx.moveTo(x, y - 9); ctx.lineTo(x, y + 9); ctx.stroke();
+    ctx.strokeStyle = this.colors.needle; ctx.lineWidth = 1; ctx.stroke();
   }
 }
 
@@ -139,7 +146,7 @@ export function StitchCanvas({ plan, cursor, underlay, travel }: { plan: StitchP
     return () => { observer.disconnect(); current.destroy(); renderer.current = null; };
   }, [plan, resolvedTheme, underlay, travel]);
   useEffect(() => { renderer.current?.setCursor(cursor); }, [cursor, plan, resolvedTheme, underlay, travel]);
-  return <div ref={wrapper} className="relative min-h-64 flex-1 overflow-hidden rounded-xl border border-border" role="img" aria-label={`Cadre ${plan.hoop.width} par ${plan.hoop.height} mm. ${plan.stitches[cursor]} points cousus. Grille de 10 mm. Vert : premier point, rouge : aiguille.`}>
+  return <div ref={wrapper} className="relative min-h-64 flex-1 overflow-hidden rounded-xl border border-border @2xl:min-h-40" role="img" aria-label={`Cadre ${plan.hoop.width} par ${plan.hoop.height} mm. ${plan.stitches[cursor]} points cousus. Grille de 10 mm. Vert : premier point, rouge : aiguille.`}>
     <canvas ref={canvas} className="absolute inset-0 size-full" aria-hidden="true" />
     <canvas ref={needle} className="pointer-events-none absolute inset-0 size-full" aria-hidden="true" />
   </div>;

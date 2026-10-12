@@ -68,10 +68,23 @@ points, déplacements aiguille levée, coupes et changements de fil. Le dessin
 reste centré dans son cadre physique ; la grille et les graduations sont en
 millimètres, espacées de 10 mm. Pendant la lecture, le premier point est vert et
 l’aiguille rouge ; ces marqueurs disparaissent sur l’aperçu terminé.
-Le lecteur propose lecture/pause, retour au départ, pas par commande, affichage
-complet et déplacement sur la timeline. Il montre l’ordre des fils et peut
-s’arrêter à chaque changement de couleur. Le menu d’affichage distingue couverture
-dans la couleur du fil, sous-couche grise, liaisons cousues ambre, sauts pointillés
+Le lecteur propose deux actions explicites : **Tout lire** traverse tous les
+changements de couleur ; **Lire par fil** s'arrête avant de commencer la couleur
+suivante et demande d'installer la bobine correspondante. Pause, retour au
+départ, pas par commande, affichage complet et timeline restent disponibles.
+La liste à gauche donne le nom descriptif, le HEX, le nombre de points et le
+début estimé de chaque passage. Les noms ne sont pas des références fabricant.
+Cliquer sur une ligne rejoint son début ; le passage actif reste visible dans
+la liste. Sur les petites largeurs, cette liste passe sous le cadre.
+
+Le titrage commun (30, 40 ou 60 wt) est affiché une fois pour tous les fils ;
+le moteur ne prévoit pas de changement d'épaisseur en cours de broderie. Les
+horaires de début et la durée totale comptent uniquement les cycles d'aiguille.
+
+Le cadre, la grille, les graduations et les phases utilisent des contrastes
+adaptés au thème clair/sombre. Le textile neutre garde visibles le noir et le
+blanc sans changer les couleurs des fils. Le menu d’affichage distingue couverture
+dans la couleur du fil, sous-couche neutre, liaisons cousues ambre, sauts pointillés
 et ancrages violets. La sous-couche est masquable ; liaisons, sauts et ancrages
 se masquent ensemble. Les détails de
 qualité séparent le nombre de points de couverture, de sous-couche, de liaison
@@ -97,7 +110,8 @@ Les grands blocs utilisent un espacement de 16 px.
 - `src/app` : routes, layout, providers et CSS.
 - `src/components/layout` : navigation et thème.
 - `src/features/embroidery` : import, paramètres et résultats.
-- `src/features/embroidery/stitch-player` : validation du plan, timeline et rendu Canvas.
+- `src/features/embroidery/stitch-player` : modèle du plan et séquence de fils,
+  liste de passages, timeline, rendu Canvas et palette des thèmes.
 - `src/features/quality` : contrôle du corpus direct généré côté Python.
 - `src/lib` : HTTP, erreurs et formatage.
 

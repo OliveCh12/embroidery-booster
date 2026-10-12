@@ -60,7 +60,12 @@ espacement prévu. Aucun essai sur tissu n'est revendiqué.
 - **426 tests Python passent** (84,87 s), dont les frontières de tuiles, les
   accents pâles, les fonds ambigus et les badges compressés. Les régressions
   PNG/JPEG/WEBP génèrent aussi du PES et vérifient sa réimportation.
-- **40 tests frontend passent** ; TypeScript, ESLint et le build Next.js passent.
+- **49 tests frontend passent** ; TypeScript, ESLint et le build Next.js passent.
+  La liste des fils suit les vrais changements machine, y compris les couleurs
+  répétées et les passages sans point. Les limites exactes des pauses et les
+  contrastes du Canvas clair/sombre sont couverts. L'atelier est aussi vérifié
+  à 390 px, sans débordement horizontal : pause avant le rouge de Pepsi, puis
+  lecture continue jusqu'à la fin.
 - Ruff, formatage, `git diff --check` et distributions Python 0.5.1 validés.
 - L'atelier affiche le Pepsi nettoyé et ses diagnostics, puis la simulation
   dans un cadre 100 × 100 mm. Le PES téléchargé contient exactement les

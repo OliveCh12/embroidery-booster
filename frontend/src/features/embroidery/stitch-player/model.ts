@@ -13,7 +13,24 @@ export interface StitchPlan {
   command: { stitch: number; jump: number; trim: number; color_change: number; end: number; mask: number };
   colorChanges: number[];
   stitchesPerMinute: number;
+  threadWeight: 30 | 40 | 60 | null;
 }
+
+export interface ThreadSequenceStep {
+  index: number;
+  color: string;
+  name: string;
+  startCursor: number;
+  endCursor: number;
+  stitchCount: number;
+  firstStitch: number | null;
+  lastStitch: number | null;
+  startMinutes: number;
+  endMinutes: number;
+  durationMinutes: number;
+}
+
+export type ThreadStepStatus = "pending" | "active" | "completed";
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Plan de points invalide.");
@@ -75,7 +92,51 @@ export function parseStitchPlan(value: unknown): StitchPlan {
   }
   const machine = source.machine ? record(source.machine) : {};
   const stitchesPerMinute = finite(machine.stitches_per_minute) && machine.stitches_per_minute > 0 ? machine.stitches_per_minute : 400;
-  return { count, points, codes, colors, stitches, phases, threads: source.threads, hoop: { width: hoop.width_mm, height: hoop.height_mm }, bounds, command, colorChanges, stitchesPerMinute };
+  const params = source.params && typeof source.params === "object" && !Array.isArray(source.params) ? source.params as Record<string, unknown> : {};
+  const weight = params.thread_weight;
+  const threadWeight = weight === 30 || weight === 40 || weight === 60 ? weight : null;
+  return { count, points, codes, colors, stitches, phases, threads: source.threads, hoop: { width: hoop.width_mm, height: hoop.height_mm }, bounds, command, colorChanges, stitchesPerMinute, threadWeight };
+}
+
+export function describeThreadColor(hex: string): string {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return "Couleur inconnue";
+  const rgb = [1, 3, 5].map(offset => parseInt(hex.slice(offset, offset + 2), 16) / 255);
+  const [red, green, blue] = rgb;
+  const maximum = Math.max(...rgb), minimum = Math.min(...rgb), chroma = maximum - minimum;
+  if (chroma <= Math.max(12 / 255, maximum * 0.08)) {
+    if (maximum < 28 / 255) return "Noir";
+    if (maximum < 95 / 255) return "Gris foncé";
+    if (maximum < 185 / 255) return "Gris";
+    return minimum >= 245 / 255 ? "Blanc" : "Gris clair";
+  }
+  const saturation = chroma / maximum;
+  const sector = maximum === red ? (green - blue) / chroma : maximum === green ? (blue - red) / chroma + 2 : (red - green) / chroma + 4;
+  const hue = ((sector * 60) + 360) % 360;
+  if (hue >= 15 && hue < 70 && maximum < 0.68) return "Marron";
+  if (hue >= 15 && hue < 70 && saturation < 0.35) return "Beige";
+  const name = hue < 15 || hue >= 345 ? "Rouge" : hue < 45 ? "Orange" : hue < 70 ? "Jaune" : hue < 165 ? "Vert" : hue < 200 ? "Turquoise" : hue < 255 ? "Bleu" : hue < 290 ? "Violet" : "Rose";
+  return maximum < 0.55 ? `${name} foncé` : saturation < 0.4 ? `${name} clair` : name;
+}
+
+export function buildThreadSequence(plan: StitchPlan): ThreadSequenceStep[] {
+  return Array.from({ length: plan.colorChanges.length + 1 }, (_, index) => {
+    // Cursor boundaries exclude COLOR_CHANGE itself; selecting a passage resumes with its new thread.
+    const startCursor = index === 0 ? 0 : plan.colorChanges[index - 1] + 1;
+    const endCursor = plan.colorChanges[index] ?? plan.count;
+    const before = plan.stitches[startCursor], after = plan.stitches[endCursor];
+    const stitchCount = after - before;
+    return {
+      index, color: plan.threads[index].toUpperCase(), name: describeThreadColor(plan.threads[index]),
+      startCursor, endCursor, stitchCount,
+      firstStitch: stitchCount ? before + 1 : null, lastStitch: stitchCount ? after : null,
+      startMinutes: before / plan.stitchesPerMinute, endMinutes: after / plan.stitchesPerMinute,
+      durationMinutes: stitchCount / plan.stitchesPerMinute,
+    };
+  });
+}
+
+export function threadStepStatus(step: ThreadSequenceStep, cursor: number): ThreadStepStatus {
+  return cursor >= step.endCursor ? "completed" : cursor >= step.startCursor ? "active" : "pending";
 }
 
 export function viewport(width: number, height: number, hoopWidth: number, hoopHeight: number) {

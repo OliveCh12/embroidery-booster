@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advancePlayback, eventLabel, parseStitchPlan, pointAt, viewport } from "./model";
+import { advancePlayback, buildThreadSequence, describeThreadColor, eventLabel, parseStitchPlan, pointAt, threadStepStatus, viewport } from "./model";
 
 const example = {
   schema_version: 3, units: "0.1mm", coordinate_frame: "hoop_center", threads: ["#ffffff", "#ce1126"],
@@ -33,6 +33,66 @@ describe("physical stitch plan", () => {
     expect(advancePlayback(plan, 0, 2, true)).toEqual({ cursor: 5, pausedForColor: true });
     expect(advancePlayback(plan, 5, 2, true)).toEqual({ cursor: 9, pausedForColor: false });
     expect(advancePlayback(plan, 0, 4, false).cursor).toBe(9);
+  });
+
+  it("builds thread passages from machine color changes with exact stitch ranges and sewing times", () => {
+    const plan = parseStitchPlan(example);
+    const sequence = buildThreadSequence(plan);
+    expect(sequence).toEqual([
+      { index: 0, color: "#FFFFFF", name: "Blanc", startCursor: 0, endCursor: 4, stitchCount: 2, firstStitch: 1, lastStitch: 2, startMinutes: 0, endMinutes: 0.005, durationMinutes: 0.005 },
+      { index: 1, color: "#CE1126", name: "Rouge", startCursor: 5, endCursor: 9, stitchCount: 2, firstStitch: 3, lastStitch: 4, startMinutes: 0.005, endMinutes: 0.01, durationMinutes: 0.005 },
+    ]);
+    expect(sequence.map(step => threadStepStatus(step, 0))).toEqual(["active", "pending"]);
+    expect(sequence.map(step => threadStepStatus(step, 5))).toEqual(["completed", "active"]);
+    expect(sequence.map(step => threadStepStatus(step, plan.count))).toEqual(["completed", "completed"]);
+    expect(advancePlayback(plan, sequence[1].startCursor, 1, true)).toEqual({ cursor: 7, pausedForColor: false });
+    expect(buildThreadSequence(parseStitchPlan({ ...example, machine: { stitches_per_minute: 800 } }))[1].startMinutes).toBe(0.0025);
+  });
+
+  it("pauses at each change at an exact stitch budget, including consecutive color commands", () => {
+    const plan = parseStitchPlan({ ...example, threads: ["#ffffff", "#ce1126", "#ffffff"], commands: [
+      [0, 0, 1], [0, 0, 0], [0, 0, 2], [0, 0, 5], [0, 0, 2], [0, 0, 5], [10, 0, 1], [20, 0, 0], [20, 0, 4],
+    ], underlay_runs: [] });
+    const first = advancePlayback(plan, 0, 1, true);
+    expect(first).toEqual({ cursor: 4, pausedForColor: true });
+    const second = advancePlayback(plan, first.cursor, 1, true);
+    expect(second).toEqual({ cursor: 6, pausedForColor: true });
+    expect(advancePlayback(plan, second.cursor, 1, true)).toEqual({ cursor: 9, pausedForColor: false });
+    expect(advancePlayback(plan, 0, 1, false)).toEqual({ cursor: 7, pausedForColor: false });
+    expect(advancePlayback(plan, 0, 2, false)).toEqual({ cursor: 9, pausedForColor: false });
+    expect(advancePlayback(plan, plan.count, 1, true)).toEqual({ cursor: plan.count, pausedForColor: false });
+    const sequence = buildThreadSequence(plan);
+    expect(sequence.map(step => step.stitchCount)).toEqual([1, 0, 1]);
+    expect(sequence[1]).toMatchObject({ startCursor: 4, endCursor: 5, firstStitch: null, lastStitch: null });
+    expect(sequence[2]).toMatchObject({ index: 2, color: "#FFFFFF", firstStitch: 2, lastStitch: 2 });
+  });
+
+  it("lists only machine thread passages, including a single-color plan", () => {
+    const plan = parseStitchPlan({ ...example, commands: [[0, 0, 1], [0, 0, 0], [10, 0, 0], [10, 0, 4]], underlay_runs: [] });
+    expect(buildThreadSequence(plan)).toHaveLength(1);
+    expect(buildThreadSequence(plan)[0]).toMatchObject({ startCursor: 0, endCursor: plan.count, stitchCount: 2, firstStitch: 1, lastStitch: 2 });
+    expect(advancePlayback(plan, 0, 2, true)).toEqual({ cursor: plan.count, pausedForColor: false });
+  });
+
+  it("reads a global thread weight without inventing it for older plans", () => {
+    expect(parseStitchPlan(example).threadWeight).toBeNull();
+    for (const thread_weight of [30, 40, 60] as const) expect(parseStitchPlan({ ...example, params: { thread_weight } }).threadWeight).toBe(thread_weight);
+    for (const thread_weight of [20, "40", false, null]) expect(parseStitchPlan({ ...example, params: { thread_weight } }).threadWeight).toBeNull();
+    expect(parseStitchPlan({ ...example, params: null }).threadWeight).toBeNull();
+  });
+
+  it("describes RGB colors in French without assigning a manufacturer reference", () => {
+    const colors = {
+      "#000000": "Noir", "#ffffff": "Blanc", "#808080": "Gris", "#f2f2f2": "Gris clair",
+      "#ce1126": "Rouge", "#001f72": "Bleu foncé", "#0000ff": "Bleu", "#00ff00": "Vert",
+      "#ffff00": "Jaune", "#ff8000": "Orange", "#00ffff": "Turquoise", "#8000ff": "Violet",
+      "#ff80bf": "Rose", "#996633": "Marron", "#ffeecc": "Beige",
+    };
+    for (const [hex, name] of Object.entries(colors)) {
+      expect(describeThreadColor(hex)).toBe(name);
+      expect(describeThreadColor(hex.toUpperCase())).toBe(name);
+    }
+    expect(describeThreadColor("blue")).toBe("Couleur inconnue");
   });
 
   it("fits a rectangular physical hoop isotropically and centers machine origin", () => {

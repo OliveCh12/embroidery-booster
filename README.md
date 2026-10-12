@@ -23,7 +23,11 @@ pnpm dev
 Open <http://127.0.0.1:3000>. Import an SVG or image on the preview side by file
 selection, drag-and-drop or clipboard paste. Choose its physical size, machine,
 fabric, thread and stabilizer; generate, review the interpreted artwork and
-stitch playback, then download PES. The interface has light, dark and system
+stitch playback, then download PES. The viewer lists thread passes with descriptive
+colour names, HEX values, stitch counts and estimated start times. Select a pass
+to seek to its start. **Tout lire** plays continuously; **Lire par fil** pauses
+before the next colour and prompts for the new spool. Thread weight is shared
+across all passes. Times exclude spool changes and travel. The interface has light, dark and system
 modes. See [frontend development](frontend/README.md) for separate processes and
 production builds.
 

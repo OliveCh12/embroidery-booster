@@ -91,6 +91,15 @@ réglages, borne les uploads/jobs, produit un répertoire UUID et sert les fichi
 Les previews SVG sont proposées au téléchargement ; les aperçus de fichiers
 importés sont rendus en PNG.
 
+Le modèle du lecteur dérive chaque passage des commandes `COLOR_CHANGE`, avec
+plage de curseur, compte exact des points et temps cumulés de cycles d'aiguille.
+La liste des fils et les modes de lecture partagent ces limites ; aucun
+changement de bobine ne peut être déduit d'une simple différence de HEX.
+Le titrage global vient des paramètres du JSON, sans valeur inventée pour
+les anciens plans. La palette de contraste du Canvas ne modifie jamais les
+couleurs des fils ni les commandes machine. Le poids du fil et les pauses
+de lecture restent distincts du calcul de couture côté Python.
+
 `background.py` modifie l'alpha extérieur et conserve les RGB par défaut.
 La préparation couleur active aussi la récupération des peintures contaminées
 par le fond sur une bande de 3 pixels du contour final, si le nettoyage bitmap
