@@ -24,10 +24,12 @@ Open <http://127.0.0.1:3000>. Import an SVG or image on the preview side by file
 selection, drag-and-drop or clipboard paste. Choose its physical size, machine,
 fabric, thread and stabilizer; generate, review the interpreted artwork and
 stitch playback, then download PES. The viewer lists thread passes with descriptive
-colour names, HEX values, stitch counts and estimated start times. Select a pass
-to seek to its start. **Tout lire** plays continuously; **Lire par fil** pauses
-before the next colour and prompts for the new spool. Thread weight is shared
-across all passes. Times exclude spool changes and travel. The interface has light, dark and system
+colour names, stitch counts and estimated start times; HEX values are available
+on hover. Select a pass to seek to its start. The compact Play/Pause control uses
+**Continu** to play continuously or **Par fil** to pause before the next colour.
+Preview options contain simulation speed, command stepping and phase visibility.
+**Détails** opens a right-hand panel for quality checks, warnings and logs.
+Thread weight is shared across all passes. Times exclude spool changes and travel. The interface has light, dark and system
 modes. See [frontend development](frontend/README.md) for separate processes and
 production builds.
 

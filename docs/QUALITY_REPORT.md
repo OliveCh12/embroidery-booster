@@ -66,6 +66,12 @@ espacement prévu. Aucun essai sur tissu n'est revendiqué.
   contrastes du Canvas clair/sombre sont couverts. L'atelier est aussi vérifié
   à 390 px, sans débordement horizontal : pause avant le rouge de Pepsi, puis
   lecture continue jusqu'à la fin.
+- Le lecteur compact est vérifié en clair/sombre et à 390 px : arrêt après
+  **8 736 points**, avant le noir, puis reprise continue jusqu'aux **12 628**
+  points. Changer le mode conserve la pause. La timeline répond à Home et aux
+  flèches ; l'avance par commande reste disponible dans les options. Le panneau
+  droit affiche contrôles et journal, défile indépendamment et se ferme avec
+  Échap. Aucun débordement horizontal ni erreur console observé.
 - Ruff, formatage, `git diff --check` et distributions Python 0.5.1 validés.
 - L'atelier affiche le Pepsi nettoyé et ses diagnostics, puis la simulation
   dans un cadre 100 × 100 mm. Le PES téléchargé contient exactement les

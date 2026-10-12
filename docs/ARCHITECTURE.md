@@ -100,6 +100,12 @@ les anciens plans. La palette de contraste du Canvas ne modifie jamais les
 couleurs des fils ni les commandes machine. Le poids du fil et les pauses
 de lecture restent distincts du calcul de couture côté Python.
 
+Le lecteur expose une seule commande Lire/Pause et un mode Continu/Par fil.
+La timeline garde les commandes exactes et les interactions clavier React Aria,
+avec une présentation compacte. Les diagnostics restent dans le composant
+résultat, accessibles dans un Drawer HeroUI à droite, fermé par défaut ; les
+événements de son portail sont isolés de la zone d'import.
+
 `background.py` modifie l'alpha extérieur et conserve les RGB par défaut.
 La préparation couleur active aussi la récupération des peintures contaminées
 par le fond sur une bande de 3 pixels du contour final, si le nettoyage bitmap

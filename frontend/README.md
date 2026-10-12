@@ -48,6 +48,12 @@ les paramètres au dessin et au matériau. Les réglages effectivement appliqué
 leurs modifications et les mesures de couverture figurent dans les détails du
 résultat. Désactiver l’ajustement permet de régler les points manuellement.
 
+Le bouton **Détails**, dans l’en-tête de l’aperçu, ouvre un panneau à droite :
+remarques, contrôles de qualité, interprétation du dessin, décisions par région,
+fichiers de travail et journal. Il reste fermé par défaut pour laisser toute la
+place au rendu. Son contenu défile indépendamment ; Échap ou le bouton de
+fermeture ramène à l’aperçu. Un point discret signale les remarques à consulter.
+
 Le type de points peut rester en **Auto**, ou être fixé à Satin, Tatami ou Point
 droit. Le satin forcé est refusé si la région ne permet pas une couverture
 régulière dans les limites de la machine. Le point droit convient aux lignes
@@ -68,12 +74,15 @@ points, déplacements aiguille levée, coupes et changements de fil. Le dessin
 reste centré dans son cadre physique ; la grille et les graduations sont en
 millimètres, espacées de 10 mm. Pendant la lecture, le premier point est vert et
 l’aiguille rouge ; ces marqueurs disparaissent sur l’aperçu terminé.
-Le lecteur propose deux actions explicites : **Tout lire** traverse tous les
-changements de couleur ; **Lire par fil** s'arrête avant de commencer la couleur
-suivante et demande d'installer la bobine correspondante. Pause, retour au
-départ, pas par commande, affichage complet et timeline restent disponibles.
-La liste à gauche donne le nom descriptif, le HEX, le nombre de points et le
-début estimé de chaque passage. Les noms ne sont pas des références fabricant.
+Le bouton **Lire / Pause** suit le mode choisi : **Continu** traverse tous les
+changements de couleur ; **Par fil** s'arrête avant de commencer la couleur
+suivante et signale la bobine à installer sans masquer le dessin. Retour au
+départ, affichage complet et timeline restent disponibles sur une barre compacte.
+Les options regroupent vitesse de simulation, affichage des couches et passage
+à la commande suivante.
+La liste à gauche donne le nom descriptif, le nombre de points et le début estimé
+de chaque passage ; le HEX reste consultable au survol. Les noms ne sont pas des
+références fabricant.
 Cliquer sur une ligne rejoint son début ; le passage actif reste visible dans
 la liste. Sur les petites largeurs, cette liste passe sous le cadre.
 

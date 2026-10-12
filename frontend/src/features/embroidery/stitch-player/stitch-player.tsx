@@ -10,6 +10,7 @@ import { ToggleSetting } from "../controls";
 import { StitchCanvas } from "./canvas";
 import { advancePlayback, buildThreadSequence, eventLabel, parseStitchPlan, type StitchPlan } from "./model";
 import { sewingTime, ThreadList } from "./thread-list";
+import styles from "./stitch-player.module.css";
 
 function Timeline({ plan }: { plan: StitchPlan }) {
   const [cursor, setCursor] = useState(plan.count);
@@ -25,9 +26,8 @@ function Timeline({ plan }: { plan: StitchPlan }) {
   const activeThread = cursor ? plan.colors[cursor - 1] : 0;
 
   function seek(next: number) { position.current = next; setCursor(next); setPlaying(false); setWaitingForThread(false); }
-  function play(byThread: boolean) {
+  function play() {
     if (position.current === plan.count) { position.current = 0; setCursor(0); }
-    setPauseAtColor(byThread);
     setWaitingForThread(false);
     setPlaying(true);
   }
@@ -53,49 +53,45 @@ function Timeline({ plan }: { plan: StitchPlan }) {
   }, [playing, speed, pauseAtColor, plan]);
 
   return <div className="flex min-h-full min-w-0 flex-1 flex-col gap-4 md:h-full">
-    <div className="grid min-h-0 flex-1 gap-4 @2xl:grid-cols-[220px_minmax(0,1fr)]">
+    <div className="grid min-h-0 flex-1 gap-4 @2xl:grid-cols-[180px_minmax(0,1fr)]">
       <ThreadList plan={plan} steps={threads} cursor={cursor} onSeek={seek} />
       <div className="order-1 flex min-h-0 min-w-0 flex-col gap-4 @2xl:order-none">
         <StitchCanvas plan={plan} cursor={cursor} underlay={underlay} travel={travel} />
-        <div className={`flex shrink-0 flex-wrap items-center justify-between gap-4 rounded-lg px-4 py-2 text-xs ${waitingForThread ? "bg-warning-soft text-warning-soft-foreground" : "bg-background text-muted"}`}>
-          <span role="status" aria-live="polite">{waitingForThread ? `Installez le fil ${activeThread + 1} · ${threads[activeThread].name}, puis reprenez la lecture.` : `${eventLabel(plan, cursor)} · fil ${activeThread + 1}/${threads.length}`}</span>
-          <span className="tabular-nums">{formatNumber(sewn)} / {formatNumber(total)} points · {formatNumber(sewn / total * 100)} %</span>
-        </div>
       </div>
     </div>
     <div className="flex shrink-0 flex-wrap items-center gap-4">
-      <div className="flex flex-wrap items-center gap-4" aria-label="Modes de lecture">
-        <Button size="sm" variant={pauseAtColor ? "secondary" : "primary"} onPress={() => play(false)} aria-pressed={!pauseAtColor}><Play size={16} />Tout lire</Button>
-        <Button size="sm" variant={pauseAtColor ? "primary" : "secondary"} onPress={() => play(true)} aria-pressed={pauseAtColor}><Play size={16} />{waitingForThread ? "Reprendre par fil" : "Lire par fil"}</Button>
-        {playing && <Button size="sm" variant="secondary" onPress={() => setPlaying(false)}><Pause size={16} />Pause</Button>}
+      <div className="flex shrink-0 items-center gap-1" aria-label="Commandes de lecture">
+        <Button size="sm" variant="secondary" isIconOnly aria-label={playing ? "Mettre en pause" : waitingForThread ? "Reprendre la lecture" : "Lire la broderie"} onPress={() => playing ? setPlaying(false) : play()}>{playing ? <Pause size={16} /> : <Play size={16} />}</Button>
+        <Button size="sm" variant="ghost" isIconOnly aria-label="Revenir au premier point" onPress={() => seek(0)}><RotateCcw size={15} /></Button>
+        <Button size="sm" variant="ghost" isIconOnly aria-label="Afficher la broderie complète" isDisabled={cursor === plan.count} onPress={() => seek(plan.count)}><SkipForward size={15} /></Button>
       </div>
-      <div className="flex items-center gap-4">
-        <Button size="sm" variant="secondary" isIconOnly aria-label="Revenir au premier point" onPress={() => seek(0)}><RotateCcw size={16} /></Button>
-        <Button size="sm" variant="secondary" isIconOnly aria-label="Commande suivante" isDisabled={cursor === plan.count} onPress={() => seek(Math.min(plan.count, cursor + 1))}><StepForward size={16} /></Button>
-        <Button size="sm" variant="secondary" isIconOnly aria-label="Afficher la broderie complète" isDisabled={cursor === plan.count} onPress={() => seek(plan.count)}><SkipForward size={16} /></Button>
-      </div>
-      <Select value={speed} onChange={value => { if (typeof value === "string") setSpeed(value); }} aria-label="Vitesse de simulation" variant="secondary" className="ml-auto w-20 shrink-0">
+      <Select value={pauseAtColor ? "thread" : "continuous"} onChange={value => { if (typeof value === "string") setPauseAtColor(value === "thread"); }} aria-label="Mode de lecture" variant="secondary" className="w-28 shrink-0">
         <Select.Trigger className="min-h-8 py-1"><Select.Value /><Select.Indicator /></Select.Trigger>
-        <Select.Popover><ListBox aria-label="Vitesse de simulation">{["1", "10", "60", "240"].map(value => <ListBox.Item key={value} id={value} textValue={`×${value}`}><Label>×{value}</Label><ListBox.ItemIndicator /></ListBox.Item>)}</ListBox></Select.Popover>
+        <Select.Popover><ListBox aria-label="Mode de lecture"><ListBox.Item id="continuous" textValue="Continu"><Label>Continu</Label><ListBox.ItemIndicator /></ListBox.Item><ListBox.Item id="thread" textValue="Par fil"><Label>Par fil</Label><ListBox.ItemIndicator /></ListBox.Item></ListBox></Select.Popover>
       </Select>
+      <span className="min-w-0 text-xs text-muted" title={`${eventLabel(plan, cursor)} · ${formatNumber(sewn)} / ${formatNumber(total)} points`}>{waitingForThread ? `Fil ${activeThread + 1} · ${threads[activeThread].name} à installer` : cursor === plan.count ? "Terminé" : `Fil ${activeThread + 1} · ${threads[activeThread].name}`}</span>
+      <span role="status" aria-live="polite" className="sr-only">{waitingForThread ? `Installez le fil ${activeThread + 1} · ${threads[activeThread].name}, puis reprenez la lecture.` : cursor === plan.count ? "Broderie terminée" : ""}</span>
+      <Slider value={cursor} onChange={value => seek(Array.isArray(value) ? value[0] : value)} minValue={0} maxValue={plan.count} step={1} aria-label="Avancement de la broderie" className={styles.timeline}>
+        <Slider.Track><Slider.Fill /><Slider.Thumb aria-label="Position de lecture" /></Slider.Track>
+      </Slider>
+      <span className="shrink-0 text-xs text-muted tabular-nums" title="Temps de couture estimé, hors déplacements et changements de bobine">{sewingTime(sewn / plan.stitchesPerMinute)} / {sewingTime(total / plan.stitchesPerMinute)}</span>
       <Popover>
-        <Button size="sm" variant="secondary" isIconOnly aria-label="Options de l’aperçu"><SlidersHorizontal size={16} /></Button>
+        <Button size="sm" variant="ghost" isIconOnly aria-label="Options de l’aperçu"><SlidersHorizontal size={16} /></Button>
         <Popover.Content placement="top end"><Popover.Dialog className="flex w-72 flex-col gap-4 p-4">
           <Popover.Heading>Options de l’aperçu</Popover.Heading>
+          <Select value={speed} onChange={value => { if (typeof value === "string") setSpeed(value); }} aria-label="Vitesse de simulation" variant="secondary">
+            <Label>Vitesse de simulation</Label><Select.Trigger className="min-h-8 py-1"><Select.Value /><Select.Indicator /></Select.Trigger>
+            <Select.Popover><ListBox aria-label="Vitesse de simulation">{["1", "10", "60", "240"].map(value => <ListBox.Item key={value} id={value} textValue={`×${value}`}><Label>×{value}</Label><ListBox.ItemIndicator /></ListBox.Item>)}</ListBox></Select.Popover>
+          </Select>
           <ToggleSetting label="Afficher la sous-couche" value={underlay} onChange={setUnderlay} />
           <ToggleSetting label="Liaisons, sauts et ancrages" value={travel} onChange={setTravel} />
+          <Button size="sm" variant="secondary" isDisabled={cursor === plan.count} onPress={() => seek(Math.min(plan.count, cursor + 1))}><StepForward size={16} />Commande suivante</Button>
+          <p className="text-xs leading-relaxed text-muted">Continu traverse toutes les couleurs ; Par fil attend votre reprise à chaque changement. Modifier le mode ajuste les prochains arrêts et ne reprend pas une lecture en pause.</p>
           <p className="text-xs leading-relaxed text-muted">Couverture : couleur du fil. Sous-couche : gris. Liaisons : ambre ; sauts en pointillés. Ancrages : violet. Les repères vert (départ) et rouge (aiguille) apparaissent pendant la lecture.</p>
           <p className="text-xs leading-relaxed text-muted">Dessin : {formatNumber(plan.bounds[2] - plan.bounds[0])} × {formatNumber(plan.bounds[3] - plan.bounds[1])} mm. Grille de 10 mm.</p>
           <p className="text-xs leading-relaxed text-muted">Simulation à {plan.stitchesPerMinute} points/min, accélérée ×{speed}. Sauts, coupes et changements de fil ne sont pas chronométrés.</p>
         </Popover.Dialog></Popover.Content>
       </Popover>
-    </div>
-    <div className="flex shrink-0 items-center gap-4 text-xs text-muted">
-      <span className="shrink-0 tabular-nums" aria-label="Temps de couture écoulé">{sewingTime(sewn / plan.stitchesPerMinute)}</span>
-      <Slider value={cursor} onChange={value => seek(Array.isArray(value) ? value[0] : value)} minValue={0} maxValue={plan.count} step={1} aria-label="Avancement de la broderie" className="min-w-0 flex-1">
-        <Slider.Track><Slider.Fill /><Slider.Thumb aria-label="Position de lecture" /></Slider.Track>
-      </Slider>
-      <span className="shrink-0 tabular-nums" aria-label="Durée de couture estimée">{sewingTime(total / plan.stitchesPerMinute)}</span>
     </div>
   </div>;
 }
