@@ -14,9 +14,9 @@ function AdvancedSection({ title, children }: { title: string; children: ReactNo
   </Accordion.Item>;
 }
 
-export function SettingsForm({ settings: s, onChange, capabilities, busy, canGenerate, onSubmit, children }: {
+export function SettingsForm({ settings: s, onChange, capabilities, busy, canGenerate, onSubmit }: {
   settings: GenerationSettings; onChange: (settings: GenerationSettings) => void;
-  capabilities?: Capabilities; busy: boolean; canGenerate: boolean; onSubmit: () => void; children: ReactNode;
+  capabilities?: Capabilities; busy: boolean; canGenerate: boolean; onSubmit: () => void;
 }) {
   const settingsId = useId();
   const [settingsExpanded, setSettingsExpanded] = useState(false);
@@ -29,7 +29,6 @@ export function SettingsForm({ settings: s, onChange, capabilities, busy, canGen
   return (
     <Form onSubmit={submit} onInvalid={() => setSettingsExpanded(true)} className="flex min-h-0 w-full flex-1 flex-col gap-4">
       <div className="flex min-h-0 flex-col gap-4 md:flex-1 md:overflow-y-auto md:overscroll-contain" aria-label="Réglages de la broderie">
-        {children}
         <Button variant="secondary" fullWidth className="shrink-0 justify-between md:hidden" aria-expanded={settingsExpanded} aria-controls={settingsId} onPress={() => setSettingsExpanded(value => !value)}>
           Réglages de broderie<ChevronDown size={16} className={settingsExpanded ? "rotate-180" : undefined} />
         </Button>

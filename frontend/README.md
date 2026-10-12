@@ -49,6 +49,12 @@ séparément. Aucune installation d'Inkscape n'est nécessaire pour le moteur di
 - `src/lib` : client HTTP, erreurs et formatage.
 
 L'atelier conserve les téléchargements SVG, PES/DST et exports natifs optionnels.
+L'import se trouve dans le panneau d'aperçu : dépôt de fichier, sélection classique
+ou collage d'image avec Ctrl+V / Cmd+V après avoir cliqué dans cette zone. Les formats
+et la limite de 10 Mio sont les mêmes pour les trois méthodes. Les actions
+« Remplacer » et « Retirer » restent accessibles après import, ainsi que le dépôt
+et le collage. Un import invalide conserve le dessin et les résultats précédents.
+Le panneau de gauche contient uniquement les paramètres et la génération.
 Les densités par matériau proviennent de `/api/capabilities` ; elles ne sont pas
 recopiées en JavaScript. Les résultats sont invalidés au changement de fichier.
 Les aperçus utilisent un fond blanc pour distinguer le dessin de l'interface.
@@ -56,12 +62,13 @@ Les aperçus utilisent un fond blanc pour distinguer le dessin de l'interface.
 À partir de 768 px, l'atelier occupe la hauteur disponible entre le header et le
 footer. Les réglages défilent séparément et le bouton de génération reste visible.
 Les aperçus s'adaptent à l'espace restant ; les mesures et diagnostics sont
-repliables. Sur mobile, les réglages sont repliés au départ et les panneaux
-s'empilent. Les grands blocs partagent un espacement de 16 px.
+repliables. Sur mobile, l'import et l'aperçu apparaissent en premier ; les réglages,
+repliés au départ, et la génération suivent. Les grands blocs partagent un
+espacement de 16 px.
 
 La galerie `/quality` lit `output/quality-comparison/comparison.json` et les images
 du même dossier. Si le corpus est absent, elle donne la commande pour le générer.
-Les tests Vitest couvrent validation des fichiers, sérialisation des réglages,
+Les tests Vitest couvrent import du presse-papiers, validation des fichiers, sérialisation des réglages,
 presets et erreurs HTTP. La CI vérifie types, lint, tests et compilation production.
 `pnpm check` génère d'abord les types Next.js ; `next-env.d.ts` et `.next/`
 sont des fichiers de travail générés, exclus de Git et de l'archive source.

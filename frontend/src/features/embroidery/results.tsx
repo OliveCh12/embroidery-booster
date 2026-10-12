@@ -1,9 +1,10 @@
 "use client";
 
 import { Accordion, Alert, Card, Chip, Spinner, Tabs, buttonVariants } from "@heroui/react";
-import { Download, FileImage, ScanLine } from "lucide-react";
+import { Download, FileImage } from "lucide-react";
 import type { ReactNode } from "react";
 import { formatNumber } from "@/lib/format";
+import { FileUpload } from "./file-upload";
 import type { GenerationResult } from "./types";
 
 export function PreviewFrame({ src, alt, expand = false }: { src: string; alt: string; expand?: boolean }) {
@@ -106,18 +107,28 @@ function Diagnostics({ result }: { result: GenerationResult }) {
   </Accordion>;
 }
 
-export function ResultPane({ file, sourcePreview, result, busy }: {
+function SourcePreview({ sourcePreview, result }: { sourcePreview: string | null; result?: GenerationResult }) {
+  return result || sourcePreview ? <div className="flex min-h-full flex-1 flex-col gap-4">
+    <PreviewFrame expand src={result?.artwork_preview ?? sourcePreview!} alt="Dessin utilisé pour la broderie" />
+    <p className="shrink-0 text-xs text-muted">{result ? "Silhouette interprétée à sa taille réelle. Les proportions sont conservées." : "Dessin source. Ajustez les paramètres, puis générez la broderie."}</p>
+    {result && <DownloadLink href={result.artwork_svg}>Dessin interprété · SVG</DownloadLink>}
+  </div> : <div className="flex min-h-64 flex-1 flex-col items-center justify-center gap-4 text-center text-muted">
+    <FileImage size={32} aria-hidden="true" /><p className="text-sm">Le dessin sera visible après conversion.</p>
+    <p className="text-xs">Ajustez les paramètres, puis générez la broderie.</p>
+  </div>;
+}
+
+export function ResultPane({ file, sourcePreview, result, busy, importError, onSelect, onClear }: {
   file: File | null; sourcePreview: string | null; result?: GenerationResult; busy: boolean;
+  importError: string | null; onSelect: (file: File) => void; onClear: () => void;
 }) {
   const defaultTab = result?.method === "both" ? "compare" : result?.direct ? "direct" : result ? "inkstitch" : "source";
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4" aria-busy={busy}>
-    <Card className="min-h-[480px] flex-1 gap-4 md:min-h-0">
-      <Card.Header className="shrink-0 flex-row items-center justify-between gap-4">
-        <Card.Title className="min-w-0 truncate">{file?.name ?? "Aperçu"}</Card.Title>
-        {result && <Chip size="sm" variant="soft" className="shrink-0">{result.artwork_size_mm.map(formatNumber).join(" × ")} mm</Chip>}
-      </Card.Header>
-      <Card.Content className="flex min-h-0 flex-1 flex-col gap-4">
-        {busy ? <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 text-center text-muted" role="status"><Spinner size="lg" /><p>Génération de la broderie…</p><p className="text-xs">Analyse du dessin, placement des points et exports.</p></div> : <Tabs key={result?.job ?? file?.name ?? "empty"} defaultSelectedKey={defaultTab} className="min-h-0 w-full flex-1 gap-4" variant="secondary">
+    <FileUpload file={file} onSelect={onSelect} onClear={onClear} disabled={busy} error={importError}
+      headerContent={result && <Chip size="sm" variant="soft" className="hidden shrink-0 @xl:flex">{result.artwork_size_mm.map(formatNumber).join(" × ")} mm</Chip>}>
+        {busy ? <div className="flex min-h-64 flex-1 flex-col items-center justify-center gap-4 text-center text-muted md:min-h-0" role="status"><Spinner size="lg" /><p>Génération de la broderie…</p><p className="text-xs">Analyse du dessin, placement des points et exports.</p></div>
+          : !result ? <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"><SourcePreview sourcePreview={sourcePreview} /></div>
+          : <Tabs key={result.job} defaultSelectedKey={defaultTab} className="min-h-0 w-full flex-1 gap-4" variant="secondary">
           <Tabs.ListContainer className="shrink-0"><Tabs.List aria-label="Aperçus de la broderie">
             <Tabs.Tab id="source">Dessin<Tabs.Indicator /></Tabs.Tab>
             {result?.direct && <Tabs.Tab id="direct">Points directs<Tabs.Indicator /></Tabs.Tab>}
@@ -125,22 +136,13 @@ export function ResultPane({ file, sourcePreview, result, busy }: {
             {result?.method === "both" && <Tabs.Tab id="compare">Comparer<Tabs.Indicator /></Tabs.Tab>}
           </Tabs.List></Tabs.ListContainer>
           <Tabs.Panel id="source" className="mt-0 min-h-0 flex-1 overflow-y-auto overscroll-contain p-0">
-            {result || sourcePreview ? <div className="flex min-h-full flex-col gap-4">
-              <PreviewFrame expand src={result?.artwork_preview ?? sourcePreview!} alt="Dessin utilisé pour la broderie" />
-              <p className="text-xs text-muted">{result ? "Silhouette interprétée à sa taille réelle. Les proportions sont conservées." : "Dessin source. La silhouette interprétée sera disponible après génération."}</p>
-              {result && <DownloadLink href={result.artwork_svg}>Dessin interprété · SVG</DownloadLink>}
-            </div> : <div className="flex min-h-full flex-col items-center justify-center gap-4 text-center text-muted">
-              {file ? <FileImage size={32} /> : <ScanLine size={32} />}
-              <p className="text-sm">{file ? "Le dessin sera visible après conversion." : "Importez un dessin pour commencer."}</p>
-              {!file && <p className="max-w-xs text-xs leading-relaxed">L’atelier choisit satin, fill ou point droit pour chaque région de votre motif.</p>}
-            </div>}
+            <SourcePreview sourcePreview={sourcePreview} result={result} />
           </Tabs.Panel>
           {result?.direct && <Tabs.Panel id="direct" className="mt-0 min-h-0 flex-1 overflow-y-auto overscroll-contain p-0"><StitchResult result={result} engine="direct" /></Tabs.Panel>}
           {result && result.method !== "direct" && <Tabs.Panel id="inkstitch" className="mt-0 min-h-0 flex-1 overflow-y-auto overscroll-contain p-0"><StitchResult result={result} engine="inkstitch" /></Tabs.Panel>}
           {result?.method === "both" && <Tabs.Panel id="compare" className="@container mt-0 min-h-0 flex-1 overflow-y-auto overscroll-contain p-0"><div className="grid min-h-full gap-4 @3xl:grid-cols-2"><StitchResult result={result} engine="direct" compare /><StitchResult result={result} engine="inkstitch" compare /></div></Tabs.Panel>}
         </Tabs>}
-      </Card.Content>
-    </Card>
+    </FileUpload>
     {!busy && result && <Card className="shrink-0 gap-4 md:max-h-[40%] md:overflow-y-auto md:overscroll-contain"><Card.Content className="gap-4">
       <Accordion>
         <Accordion.Item>
