@@ -156,7 +156,7 @@ def test_exported_satin_rails_are_valid_and_paired(name, tmp_path):
             continue
         parts = list(SVGPath(element.get("d")).as_subpaths())
         assert len(parts) == 2, "Unambiguous paired-node satin must have exactly two rails"
-        a, b = [[(s.end.x, s.end.y) for s in part] for part in parts]
+        a, b = [[(s.end.x, s.end.y) for s in SVGPath(part)] for part in parts]
         assert len(a) == len(b) >= 3
         assert LineString(a).is_simple and LineString(b).is_simple
         assert Polygon(a + list(reversed(b))).is_valid
