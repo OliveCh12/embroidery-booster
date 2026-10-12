@@ -4,28 +4,85 @@
 
 Le fond n'est pas une couleur à effacer partout. Un badge blanc fermé peut être
 une vraie partie du logo, même si son extérieur est également blanc. L'algorithme
-part de la couleur dominante du périmètre, puis propage uniquement dans les
-pixels compatibles reliés à ce périmètre. Les zones enfermées restent peintes.
+estime le fond depuis le périmètre, puis propage uniquement dans les pixels
+compatibles reliés à ce périmètre. Les zones enfermées restent peintes.
 La [propagation sous masque de SciPy](https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.binary_propagation.html)
 permet ce traitement sans reconnaissance de marque ni service externe.
 
 | Réglage | Bitmap | SVG |
 |---|---|---|
-| Auto | Respecte un périmètre déjà transparent ; sinon retire le fond si au moins 85 % du bord visible concorde | Conserve les peintures vectorielles explicites |
+| Auto | Respecte un périmètre déjà transparent ; sinon essaie un fond uni ou un dégradé doux cohérent | Conserve les peintures vectorielles explicites |
 | Keep / Conserver | Conserve tous les pixels opaques, même le canvas | Conserve les peintures |
-| Remove / Retirer | Essaie la couleur dominante connectée au bord, même si le bord est ambigu | Rasterise, retire le fond connecté et retrace en conservant l'échelle physique |
+| Remove / Retirer | Essaie le fond cohérent, ou la couleur dominante connectée au bord si le fond est ambigu | Rasterise, retire le fond connecté et retrace en conservant l'échelle physique |
 
-La tolérance dépend des variations mesurées sur le bord, avec un minimum de
-2 unités de distance RGB : un extérieur blanc uniforme ne doit pas absorber un logo gris
-très pâle. Le fond utilise huit voisins, complémentaires des quatre voisins des
-régions peintes. Une ouverture diagonale reste donc une ouverture. Retirer est
-un choix explicite de l'utilisateur, pas une segmentation sémantique d'une photo.
-Une bordure volontaire peut ressembler à un fond ; Conserver est prévu pour ce cas.
+Trois cas sont distingués : fond constant, champ affine RGB ajusté de façon
+robuste, et dégradé non linéaire suivi par petites variations entre voisins.
+Un champ affine n'est pas extrapolé aveuglément : les pixels extérieurs observés
+doivent être compatibles avec lui. Pour un dégradé radial ou sinusoïdal, le fond
+local provient des pixels extérieurs effectivement atteints. Un bord à ruptures
+ou texturé est conservé par Auto. Si toute l'image correspond au dégradé et
+qu'aucun premier plan distinct ne subsiste, Auto conserve l'image : le dégradé
+peut lui-même être le motif à broder. Il n'y a aucune reconnaissance sémantique du
+sujet d'une photo ; une bordure volontaire peut ressembler à un fond et doit
+alors être conservée explicitement.
+
+La tolérance du fond constant reste étroite (minimum de 2 unités de distance
+RGB), afin de garder les peintures pâles. Elle ne suffit pas pour la compression
+et l'antialiasing. Une seconde étape affine la bande extérieure de 24 pixels,
+en évaluant le mélange `C = alpha * F + (1-alpha) * B` avec des références locales
+de peinture et de fond. Les mélanges contenant moins de 50 % de peinture sont
+rattachés au fond seulement s'ils sont accessibles depuis l'extérieur. Une
+faible valeur négative explique les halos clairs produits par le ringing des
+codecs : la projection est testée avant d'être bornée. Les aplats pâles stables
+fournissent leurs propres références ; aucune érosion globale du logo n'est
+appliquée. Une petite palette de peintures littérales est conservée sans matting :
+un accent pâle de quelques pixels ne doit pas être traité comme du ringing.
+Les RGB cachés sous la transparence ne participent pas à ce choix.
+
+Les contours fortement contrastés forment une barrière fermée à l'échelle de
+l'image entière. Seul son intérieur, avec une marge d'un pixel, est protégé :
+protéger toute la bande contrastée conserverait aussi le halo gris extérieur.
+Cette protection empêche le matting de traverser un liseré noir fin et
+d'effacer le blanc du badge. Les calculs locaux utilisent des tuiles, mais la
+fermeture et la propagation restent globales pour conserver la même topologie.
+
+`bitmap_foreground()` conserve les RGB par défaut. La préparation couleur peut
+ensuite récupérer la peinture de référence sur les mélanges conservés, dans une
+bande de 3 pixels du contour final. C'est nécessaire lorsqu'un noir mélangé au
+fond gris serait autrement quantifié en blanc. Le masque ne change pas pendant
+cette récupération, et les pixels intérieurs ou transparents sont inchangés.
+Désactiver le nettoyage bitmap conserve les RGB originaux avant quantification.
+
+Le fond utilise huit voisins, complémentaires des quatre voisins des régions
+peintes. Une ouverture diagonale reste donc une ouverture. Retirer est un choix
+explicite de l'utilisateur, pas une suppression de toutes les couleurs du bord.
 
 Les trous alpha restent des trous. À l'inverse, un blanc opaque enfermé est une
 couleur à broder. En monochrome sans seuil, toutes les peintures visibles forment
 la silhouette. Un seuil ou une inversion explicite utilise l'interprétation
 manuelle de luminance et est signalé comme tel.
+
+Le tracé conserve une silhouette alpha commune, peinte avec la couleur dominante
+de ses contours, puis superpose les autres régions. Cela évite les fissures
+transparentes créées par l'antialiasing de chemins de couleur indépendants,
+sans remplir les trous alpha intentionnels ni ajouter de couleur de fil.
+Le SVG bitmap utilise `crispEdges` pour le rendu de ces masques catégoriels :
+recalculer un antialiasing après la palette créerait des îlots de couleurs
+intermédiaires et pourrait casser un liseré satin fin. Les SVG vectoriels natifs
+gardent leurs propriétés de rendu.
+
+Les diagnostics distinguent `model` (`uniform` / `smooth_gradient`), `model_fit`,
+`border_error_rgb` (erreur p95 du modèle au bord, absente pour une propagation
+locale), `gradient_step_rgb`, `edge_refined_pixels` et `edge_recovered_pixels`.
+Un score de compatibilité
+du bord ne prouve pas une segmentation sémantique correcte.
+
+Ce choix utilise les dépendances NumPy/SciPy existantes. [GrabCut](https://docs.opencv.org/4.13.0/d8/d83/tutorial_py_grabcut.html)
+prévoit un rectangle ou des marqueurs de premier plan/fond, avec retouches
+possibles. [rembg](https://github.com/danielgatis/rembg) propose des modèles de
+segmentation et de matting ; leurs masques de sujets ne constituent pas une
+garantie de conservation des peintures et contreformes d'un logo. Ils ne sont
+pas ajoutés au moteur par défaut.
 
 ## Palette et parasites bitmap
 

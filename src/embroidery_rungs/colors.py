@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import numpy as np
 from PIL import Image
-from scipy.ndimage import binary_dilation, binary_propagation, find_objects, label
+from scipy.ndimage import binary_dilation, find_objects, label
 from scipy.optimize import nnls
 from scipy.spatial import cKDTree
 from skimage.color import rgb2lab
+
+from .background import bitmap_foreground as bitmap_foreground
 
 
 def separate_colors(rgba: np.ndarray, max_colors: int = 12) -> tuple[np.ndarray, list[str], bool]:
@@ -111,84 +113,6 @@ def separate_colors(rgba: np.ndarray, max_colors: int = 12) -> tuple[np.ndarray,
     remap[used + 1] = np.arange(1, len(used) + 1)
     hex_colors = ["#" + "".join(f"{int(c):02x}" for c in palette[i]) for i in used]
     return remap[labels], hex_colors, reduced
-
-
-def bitmap_foreground(
-    rgba: np.ndarray, mode: str = "auto", diagnostics: dict | None = None
-) -> np.ndarray:
-    """Remove only background connected to the perimeter, preserving enclosed paint.
-
-    Eight-connected background is complementary to four-connected foreground:
-    a diagonal opening is still an opening, rather than an invented white hole.
-    """
-    if mode not in ("auto", "keep", "remove"):
-        raise ValueError("background mode must be 'auto', 'keep' or 'remove'.")
-    rgba = rgba.copy()
-    info = {
-        "mode": mode,
-        "applied": False,
-        "reason": "kept_by_request",
-        "background_color": None,
-        "border_confidence": 0.0,
-        "removed_fraction": 0.0,
-        "interior_preserved_pixels": 0,
-    }
-    if diagnostics is not None:
-        diagnostics.update(info)
-    if mode == "keep":
-        return rgba
-    rgb = rgba[..., :3]
-    alpha = rgba[..., 3]
-    border_alpha = np.concatenate([alpha[0], alpha[-1], alpha[:, 0], alpha[:, -1]])
-    # Existing transparency defines the silhouette. A single alpha=254 pixel
-    # does not: ordinary PNG encoders often leave nearly opaque alpha values.
-    if np.any(border_alpha < 128) and (mode == "auto" or np.mean(border_alpha < 128) >= 0.85):
-        info["reason"] = "existing_transparency"
-        if diagnostics is not None:
-            diagnostics.update(info)
-        return rgba
-    border = np.concatenate([rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]])
-    border = border[border_alpha >= 128]
-    if not len(border):
-        info["reason"] = "transparent_perimeter"
-        if diagnostics is not None:
-            diagnostics.update(info)
-        return rgba
-    colors, counts = np.unique(border, axis=0, return_counts=True)
-    background = colors[np.argmax(counts)]
-    distances = np.linalg.norm(border.astype(float) - background, axis=1)
-    close_border = distances <= 18
-    info["background_color"] = "#" + "".join(f"{int(c):02x}" for c in background)
-    info["border_confidence"] = float(close_border.mean())
-    if mode == "auto" and close_border.mean() < 0.85:
-        info["reason"] = "ambiguous_perimeter"
-    else:
-        # Keep a pale foreground distinct from an exactly uniform white border.
-        # Two RGB levels cover one-level-per-channel encoder rounding without
-        # confusing a pale solid paint with the perimeter.
-        tolerance = max(2.0, float(np.percentile(distances[close_border], 99)))
-        delta = rgb.astype(np.int16) - background.astype(np.int16)
-        matching = (
-            np.einsum("ijk,ijk->ij", delta.astype(np.int32), delta.astype(np.int32)) <= tolerance**2
-        )
-        matching |= alpha < 128
-        seeds = np.zeros(alpha.shape, dtype=bool)
-        seeds[[0, -1], :] = matching[[0, -1], :]
-        seeds[:, [0, -1]] = matching[:, [0, -1]]
-        outside = binary_propagation(seeds, structure=np.ones((3, 3)), mask=matching)
-        removed = outside & (alpha >= 128)
-        rgba[outside, 3] = 0
-        info.update(
-            applied=bool(removed.any()),
-            reason="border_connected_background"
-            if removed.any()
-            else "no_border_connected_background",
-            removed_fraction=float(removed.mean()),
-            interior_preserved_pixels=int((matching & ~outside & (alpha >= 128)).sum()),
-        )
-    if diagnostics is not None:
-        diagnostics.update(info)
-    return rgba
 
 
 def bitmap_colors(

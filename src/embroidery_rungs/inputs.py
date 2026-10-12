@@ -9,11 +9,12 @@ from xml.etree import ElementTree as ET
 import numpy as np
 import resvg_py
 from PIL import Image, ImageOps, UnidentifiedImageError
-from scipy.ndimage import label
+from scipy.ndimage import binary_dilation, label
 from skimage.filters import threshold_otsu
 from skimage.measure import approximate_polygon, find_contours
 
-from .colors import bitmap_colors, bitmap_foreground, clean_color_regions
+from .background import bitmap_foreground
+from .colors import bitmap_colors, clean_color_regions
 from .svg_manager import MAX_INPUT_BYTES, UNITS_PER_MM, load_svg_paths
 
 RASTER_EXT = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
@@ -100,14 +101,10 @@ def raster_to_svg(
     height, width = mask.shape
     physical_width = width_mm if width_mm is not None else 80 * width / max(width, height)
     physical_width = _fitted_width(physical_width, width, height, hoop_size_mm, diagnostics)
-    parts = []
     # Scale simplification to physical size, with a half-pixel upper bound.
     tolerance = min(0.5, 0.05 * width / physical_width)
-    for contour in find_contours(mask.astype(np.uint8), 0.5):
-        contour = approximate_polygon(contour, tolerance=tolerance)
-        if len(contour) >= 4:
-            parts.append("M " + " L ".join(f"{x:.3f},{y:.3f}" for y, x in contour) + " Z")
-    if not parts:
+    path = _trace_path(mask, tolerance)
+    if not path:
         raise ValueError("No contours found in the image.")
     root = ET.Element(
         "svg",
@@ -116,7 +113,7 @@ def raster_to_svg(
         height=f"{physical_width * height / width:g}mm",
         viewBox=f"0 0 {width} {height}",
     )
-    ET.SubElement(root, "path", fill="black", attrib={"fill-rule": "evenodd", "d": " ".join(parts)})
+    ET.SubElement(root, "path", fill="black", attrib={"fill-rule": "evenodd", "d": path})
     ET.ElementTree(root).write(svg_path, encoding="utf-8", xml_declaration=True)
     return str(svg_path)
 
@@ -136,7 +133,9 @@ def _color_bitmap_svg(
     background_info = {}
     # Flood the source before resampling: Lanczos otherwise mixes opaque blank
     # margins into the artwork and makes background-coloured islands.
-    rgba = bitmap_foreground(np.asarray(image), background_mode, background_info)
+    rgba = bitmap_foreground(
+        np.asarray(image), background_mode, background_info, recover_edge_colors=cleanup
+    )
     ys, xs = np.nonzero(rgba[..., 3] >= 128)
     if not len(ys):
         raise ValueError("No shapes found in a uniform or fully transparent image.")
@@ -201,18 +200,38 @@ def _color_bitmap_svg(
         viewBox=f"0 0 {width} {height}",
     )
     tolerance = min(0.5, 0.03 * width / physical_width)
+    # Thread masks are categorical paint: a second antialiasing pass would
+    # recreate blended slivers and can split a narrow satin outline.
+    root.set("shape-rendering", "crispEdges")
+    # Independent antialiased paint contours leave cracks at shared boundaries.
+    # Paint the complete alpha silhouette first, then overlay the other colours.
+    # The most frequent boundary paint avoids a pale rim around dark outlines.
+    visible = labels > 0
+    boundary = visible & binary_dilation(~visible)
+    base = int(np.bincount(labels[boundary], minlength=len(colors) + 1)[1:].argmax()) + 1
+    ET.SubElement(
+        root,
+        "path",
+        fill=colors[base - 1],
+        attrib={"fill-rule": "evenodd", "d": _trace_path(visible, tolerance)},
+    )
     for index, color in enumerate(colors, 1):
-        parts = []
-        for contour in find_contours(labels == index, 0.5):
-            contour = approximate_polygon(contour, tolerance=tolerance)
-            if len(contour) >= 4:
-                parts.append("M " + " L ".join(f"{x:.3f},{y:.3f}" for y, x in contour) + " Z")
-        if parts:
-            ET.SubElement(
-                root, "path", fill=color, attrib={"fill-rule": "evenodd", "d": " ".join(parts)}
-            )
+        if index == base:
+            continue
+        path = _trace_path(labels == index, tolerance)
+        if path:
+            ET.SubElement(root, "path", fill=color, attrib={"fill-rule": "evenodd", "d": path})
     ET.ElementTree(root).write(svg_path, encoding="utf-8", xml_declaration=True)
     return str(svg_path)
+
+
+def _trace_path(mask: np.ndarray, tolerance: float) -> str:
+    parts = []
+    for contour in find_contours(mask, 0.5):
+        contour = approximate_polygon(contour, tolerance=tolerance)
+        if len(contour) >= 4:
+            parts.append("M " + " L ".join(f"{x:.3f},{y:.3f}" for y, x in contour) + " Z")
+    return " ".join(parts)
 
 
 def _fitted_width(width_mm, width, height, hoop_size_mm, diagnostics):
@@ -329,9 +348,20 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
             "SVG rasterized and retraced for explicit border-connected background removal; physical scale is preserved."
         )
     if input_analysis["background"]["applied"]:
+        model = input_analysis["background"].get("model")
         warnings.append(
-            "Only the background connected to the image border was removed; enclosed opaque colours remain embroidery regions."
+            "Only the smooth gradient connected to the image border was removed; enclosed opaque colours remain embroidery regions."
+            if model == "smooth_gradient"
+            else "Only the background connected to the image border was removed; enclosed opaque colours remain embroidery regions."
         )
+        if input_analysis["background"].get("edge_refined_pixels"):
+            warnings.append(
+                "Background blending and compression fringes were refined at exterior contours; inspect the interpreted artwork for very fine edge details."
+            )
+        if input_analysis["background"].get("edge_recovered_pixels"):
+            warnings.append(
+                "Background colour contamination was removed from retained contour pixels before palette assignment; disable bitmap cleanup to keep their original RGB."
+            )
     elif input_analysis["background"]["reason"] == "ambiguous_perimeter":
         warnings.append(
             "Background kept because the image perimeter is ambiguous; choose Keep or Remove explicitly after checking the artwork."

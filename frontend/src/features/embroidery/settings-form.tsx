@@ -84,7 +84,8 @@ export function SettingsForm({ settings: s, onChange, capabilities, busy, canGen
               {s.preserve_colors && <NumberSetting label="Couleurs maximum" value={s.max_colors} onChange={value => update("max_colors", value ?? NaN)} min={1} max={32} disabled={busy} />}
               <NumberSetting label="Seuil noir / blanc" value={s.raster_threshold} onChange={value => update("raster_threshold", value)} min={0} max={255} optional disabled={busy} />
               <ToggleSetting label="Inverser clair / foncé" value={s.raster_invert} onChange={value => update("raster_invert", value)} disabled={busy} />
-              <p className="text-xs leading-relaxed text-muted">Auto retire un fond uniforme reconnu. Conserver garde les aplats de fond ; Supprimer demande leur retrait. Un seuil manuel produit une silhouette monochrome. Vérifiez le dessin interprété.</p>
+              <p className="text-xs leading-relaxed text-muted">Auto estime un fond uni ou un dégradé doux depuis les bords, puis s’arrête aux contours du dessin. Les aplats intérieurs, comme un badge blanc, sont conservés. Si le fond est ambigu, Auto le garde. Conserver désactive le retrait ; Supprimer demande son estimation.</p>
+              <p className="text-xs leading-relaxed text-muted">Un fond photographique ou un dessin qui touche les bords peut nécessiter une image déjà détourée. Un seuil manuel produit une silhouette monochrome. Vérifiez l’onglet Dessin après génération.</p>
             </AdvancedSection>
           </Accordion>
         </Card.Content>

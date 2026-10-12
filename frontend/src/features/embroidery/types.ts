@@ -58,6 +58,9 @@ export interface InputAnalysis {
     mode: BackgroundMode | null; applied: boolean | null; reason: string | null;
     background_color: string | null; border_confidence: number | null;
     removed_fraction: number | null; interior_preserved_pixels: number | null;
+    model?: "uniform" | "smooth_gradient" | null;
+    border_error_rgb?: number | null; edge_refined_pixels?: number | null;
+    edge_recovered_pixels?: number | null;
   };
   cleanup?: {
     enabled: boolean | null; changed_pixels: number | null; removed_pixels: number | null;

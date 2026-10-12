@@ -1,0 +1,710 @@
+{
+  "baseline_commit": "30c58df51a69d7f6636c7318cde9e27869fa032d",
+  "reference_units": "source pixels, before tracing and machine compensation",
+  "scope": "Source-mask audit; timing is one measured run, no sew-out quality inference.",
+  "cases": [
+    {
+      "case": "uniform-png",
+      "reference": "known foreground alpha before compositing and compression",
+      "before": {
+        "seconds": 0.0016,
+        "mask_pixels": 11096,
+        "components": 136,
+        "intersection_over_union": 0.95629,
+        "false_pixels_beyond_1_5px": 239,
+        "false_pixels_beyond_2px": 150,
+        "maximum_outer_distance_px": 3.0,
+        "missing_core_pixels": 0,
+        "reason": "border_connected_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "border_connected_background",
+          "background_color": "#f2f2f2",
+          "border_confidence": 1.0,
+          "removed_fraction": 0.718547077922078,
+          "interior_preserved_pixels": 7
+        }
+      },
+      "after": {
+        "seconds": 0.0102,
+        "mask_pixels": 10618,
+        "components": 1,
+        "intersection_over_union": 0.99934,
+        "false_pixels_beyond_1_5px": 0,
+        "false_pixels_beyond_2px": 0,
+        "maximum_outer_distance_px": 1.0,
+        "missing_core_pixels": 0,
+        "reason": "border_connected_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "border_connected_background",
+          "model": "uniform",
+          "model_fit": "constant",
+          "gradient_step_rgb": null,
+          "background_color": "#f2f2f2",
+          "border_confidence": 1.0,
+          "border_error_rgb": 0.0,
+          "removed_fraction": 0.730671672077922,
+          "interior_preserved_pixels": 7,
+          "edge_refined_pixels": 478,
+          "edge_recovered_pixels": 0
+        }
+      }
+    },
+    {
+      "case": "uniform-jpeg",
+      "reference": "known foreground alpha before compositing and compression",
+      "before": {
+        "seconds": 0.0014,
+        "mask_pixels": 11879,
+        "components": 49,
+        "intersection_over_union": 0.89326,
+        "false_pixels_beyond_1_5px": 846,
+        "false_pixels_beyond_2px": 720,
+        "maximum_outer_distance_px": 9.899,
+        "missing_core_pixels": 0,
+        "reason": "border_connected_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "border_connected_background",
+          "background_color": "#f2f2f2",
+          "border_confidence": 1.0,
+          "removed_fraction": 0.6986860795454546,
+          "interior_preserved_pixels": 85
+        }
+      },
+      "after": {
+        "seconds": 0.0107,
+        "mask_pixels": 10615,
+        "components": 1,
+        "intersection_over_union": 0.99943,
+        "false_pixels_beyond_1_5px": 0,
+        "false_pixels_beyond_2px": 0,
+        "maximum_outer_distance_px": 1.0,
+        "missing_core_pixels": 0,
+        "reason": "border_connected_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "border_connected_background",
+          "model": "uniform",
+          "model_fit": "constant",
+          "gradient_step_rgb": null,
+          "background_color": "#f2f2f2",
+          "border_confidence": 1.0,
+          "border_error_rgb": 0.0,
+          "removed_fraction": 0.7307477678571429,
+          "interior_preserved_pixels": 7,
+          "edge_refined_pixels": 1264,
+          "edge_recovered_pixels": 0
+        }
+      }
+    },
+    {
+      "case": "uniform-webp",
+      "reference": "known foreground alpha before compositing and compression",
+      "before": {
+        "seconds": 0.0014,
+        "mask_pixels": 11221,
+        "components": 34,
+        "intersection_over_union": 0.94564,
+        "false_pixels_beyond_1_5px": 271,
+        "false_pixels_beyond_2px": 182,
+        "maximum_outer_distance_px": 5.831,
+        "missing_core_pixels": 0,
+        "reason": "border_connected_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "border_connected_background",
+          "background_color": "#f2f2f2",
+          "border_confidence": 1.0,
+          "removed_fraction": 0.7153764204545454,
+          "interior_preserved_pixels": 15
+        }
+      },
+      "after": {
+        "seconds": 0.0102,
+        "mask_pixels": 10613,
+        "components": 1,
+        "intersection_over_union": 0.99925,
+        "false_pixels_beyond_1_5px": 0,
+        "false_pixels_beyond_2px": 0,
+        "maximum_outer_distance_px": 1.0,
+        "missing_core_pixels": 0,
+        "reason": "border_connected_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "border_connected_background",
+          "model": "uniform",
+          "model_fit": "constant",
+          "gradient_step_rgb": null,
+          "background_color": "#f2f2f2",
+          "border_confidence": 1.0,
+          "border_error_rgb": 0.0,
+          "removed_fraction": 0.7307984983766234,
+          "interior_preserved_pixels": 6,
+          "edge_refined_pixels": 608,
+          "edge_recovered_pixels": 0
+        }
+      }
+    },
+    {
+      "case": "linear-png",
+      "reference": "known foreground alpha before compositing and compression",
+      "before": {
+        "seconds": 0.0002,
+        "mask_pixels": 39424,
+        "components": 1,
+        "intersection_over_union": 0.26915,
+        "false_pixels_beyond_1_5px": 28345,
+        "false_pixels_beyond_2px": 28147,
+        "maximum_outer_distance_px": 89.404,
+        "missing_core_pixels": 0,
+        "reason": "ambiguous_perimeter",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": false,
+          "reason": "ambiguous_perimeter",
+          "background_color": "#c7c7c7",
+          "border_confidence": 0.32625,
+          "removed_fraction": 0.0,
+          "interior_preserved_pixels": 0
+        }
+      },
+      "after": {
+        "seconds": 0.0117,
+        "mask_pixels": 10613,
+        "components": 1,
+        "intersection_over_union": 0.99962,
+        "false_pixels_beyond_1_5px": 0,
+        "false_pixels_beyond_2px": 0,
+        "maximum_outer_distance_px": 1.0,
+        "missing_core_pixels": 0,
+        "reason": "smooth_border_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "smooth_border_background",
+          "model": "smooth_gradient",
+          "model_fit": "affine",
+          "gradient_step_rgb": null,
+          "background_color": null,
+          "border_confidence": 1.0,
+          "border_error_rgb": 0.8203,
+          "removed_fraction": 0.7307984983766234,
+          "interior_preserved_pixels": 9,
+          "edge_refined_pixels": 366,
+          "edge_recovered_pixels": 0
+        }
+      }
+    },
+    {
+      "case": "linear-jpeg",
+      "reference": "known foreground alpha before compositing and compression",
+      "before": {
+        "seconds": 0.0002,
+        "mask_pixels": 39424,
+        "components": 1,
+        "intersection_over_union": 0.26915,
+        "false_pixels_beyond_1_5px": 28345,
+        "false_pixels_beyond_2px": 28147,
+        "maximum_outer_distance_px": 89.404,
+        "missing_core_pixels": 0,
+        "reason": "ambiguous_perimeter",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": false,
+          "reason": "ambiguous_perimeter",
+          "background_color": "#c8c8c8",
+          "border_confidence": 0.34,
+          "removed_fraction": 0.0,
+          "interior_preserved_pixels": 0
+        }
+      },
+      "after": {
+        "seconds": 0.0118,
+        "mask_pixels": 10611,
+        "components": 1,
+        "intersection_over_union": 0.99925,
+        "false_pixels_beyond_1_5px": 0,
+        "false_pixels_beyond_2px": 0,
+        "maximum_outer_distance_px": 1.0,
+        "missing_core_pixels": 0,
+        "reason": "smooth_border_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "smooth_border_background",
+          "model": "smooth_gradient",
+          "model_fit": "affine",
+          "gradient_step_rgb": null,
+          "background_color": null,
+          "border_confidence": 1.0,
+          "border_error_rgb": 1.0412,
+          "removed_fraction": 0.7308492288961039,
+          "interior_preserved_pixels": 13,
+          "edge_refined_pixels": 647,
+          "edge_recovered_pixels": 0
+        }
+      }
+    },
+    {
+      "case": "linear-webp",
+      "reference": "known foreground alpha before compositing and compression",
+      "before": {
+        "seconds": 0.0002,
+        "mask_pixels": 39424,
+        "components": 1,
+        "intersection_over_union": 0.26915,
+        "false_pixels_beyond_1_5px": 28345,
+        "false_pixels_beyond_2px": 28147,
+        "maximum_outer_distance_px": 89.404,
+        "missing_core_pixels": 0,
+        "reason": "ambiguous_perimeter",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": false,
+          "reason": "ambiguous_perimeter",
+          "background_color": "#cbcbcb",
+          "border_confidence": 0.38,
+          "removed_fraction": 0.0,
+          "interior_preserved_pixels": 0
+        }
+      },
+      "after": {
+        "seconds": 0.0113,
+        "mask_pixels": 10609,
+        "components": 1,
+        "intersection_over_union": 0.99906,
+        "false_pixels_beyond_1_5px": 0,
+        "false_pixels_beyond_2px": 0,
+        "maximum_outer_distance_px": 1.0,
+        "missing_core_pixels": 0,
+        "reason": "smooth_border_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "smooth_border_background",
+          "model": "smooth_gradient",
+          "model_fit": "affine",
+          "gradient_step_rgb": null,
+          "background_color": null,
+          "border_confidence": 1.0,
+          "border_error_rgb": 1.9278,
+          "removed_fraction": 0.7308999594155844,
+          "interior_preserved_pixels": 16,
+          "edge_refined_pixels": 240,
+          "edge_recovered_pixels": 0
+        }
+      }
+    },
+    {
+      "case": "radial-png",
+      "reference": "known foreground alpha before compositing and compression",
+      "before": {
+        "seconds": 0.0002,
+        "mask_pixels": 39424,
+        "components": 1,
+        "intersection_over_union": 0.26915,
+        "false_pixels_beyond_1_5px": 28345,
+        "false_pixels_beyond_2px": 28147,
+        "maximum_outer_distance_px": 89.404,
+        "missing_core_pixels": 0,
+        "reason": "ambiguous_perimeter",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": false,
+          "reason": "ambiguous_perimeter",
+          "background_color": "#e5e5e5",
+          "border_confidence": 0.84,
+          "removed_fraction": 0.0,
+          "interior_preserved_pixels": 0
+        }
+      },
+      "after": {
+        "seconds": 0.0105,
+        "mask_pixels": 10610,
+        "components": 1,
+        "intersection_over_union": 0.99991,
+        "false_pixels_beyond_1_5px": 0,
+        "false_pixels_beyond_2px": 0,
+        "maximum_outer_distance_px": 0.0,
+        "missing_core_pixels": 0,
+        "reason": "smooth_border_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "smooth_border_background",
+          "model": "smooth_gradient",
+          "model_fit": "smooth",
+          "gradient_step_rgb": 1.7321,
+          "background_color": null,
+          "border_confidence": 1.0,
+          "border_error_rgb": null,
+          "removed_fraction": 0.7308745941558441,
+          "interior_preserved_pixels": 7015,
+          "edge_refined_pixels": 971,
+          "edge_recovered_pixels": 0
+        }
+      }
+    },
+    {
+      "case": "radial-jpeg",
+      "reference": "known foreground alpha before compositing and compression",
+      "before": {
+        "seconds": 0.0002,
+        "mask_pixels": 39424,
+        "components": 1,
+        "intersection_over_union": 0.26915,
+        "false_pixels_beyond_1_5px": 28345,
+        "false_pixels_beyond_2px": 28147,
+        "maximum_outer_distance_px": 89.404,
+        "missing_core_pixels": 0,
+        "reason": "ambiguous_perimeter",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": false,
+          "reason": "ambiguous_perimeter",
+          "background_color": "#e5e5e5",
+          "border_confidence": 0.83875,
+          "removed_fraction": 0.0,
+          "interior_preserved_pixels": 0
+        }
+      },
+      "after": {
+        "seconds": 0.0108,
+        "mask_pixels": 10611,
+        "components": 1,
+        "intersection_over_union": 0.99925,
+        "false_pixels_beyond_1_5px": 0,
+        "false_pixels_beyond_2px": 0,
+        "maximum_outer_distance_px": 1.0,
+        "missing_core_pixels": 0,
+        "reason": "smooth_border_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "smooth_border_background",
+          "model": "smooth_gradient",
+          "model_fit": "smooth",
+          "gradient_step_rgb": 1.7321,
+          "background_color": null,
+          "border_confidence": 1.0,
+          "border_error_rgb": null,
+          "removed_fraction": 0.7308492288961039,
+          "interior_preserved_pixels": 5325,
+          "edge_refined_pixels": 1796,
+          "edge_recovered_pixels": 0
+        }
+      }
+    },
+    {
+      "case": "radial-webp",
+      "reference": "known foreground alpha before compositing and compression",
+      "before": {
+        "seconds": 0.0002,
+        "mask_pixels": 39424,
+        "components": 1,
+        "intersection_over_union": 0.26915,
+        "false_pixels_beyond_1_5px": 28345,
+        "false_pixels_beyond_2px": 28147,
+        "maximum_outer_distance_px": 89.404,
+        "missing_core_pixels": 0,
+        "reason": "ambiguous_perimeter",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": false,
+          "reason": "ambiguous_perimeter",
+          "background_color": "#e5e5e5",
+          "border_confidence": 0.8475,
+          "removed_fraction": 0.0,
+          "interior_preserved_pixels": 0
+        }
+      },
+      "after": {
+        "seconds": 0.011,
+        "mask_pixels": 10606,
+        "components": 1,
+        "intersection_over_union": 0.99896,
+        "false_pixels_beyond_1_5px": 0,
+        "false_pixels_beyond_2px": 0,
+        "maximum_outer_distance_px": 1.0,
+        "missing_core_pixels": 0,
+        "reason": "smooth_border_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "smooth_border_background",
+          "model": "smooth_gradient",
+          "model_fit": "smooth",
+          "gradient_step_rgb": 3.4641,
+          "background_color": null,
+          "border_confidence": 1.0,
+          "border_error_rgb": null,
+          "removed_fraction": 0.7309760551948052,
+          "interior_preserved_pixels": 7180,
+          "edge_refined_pixels": 802,
+          "edge_recovered_pixels": 0
+        }
+      }
+    },
+    {
+      "case": "colored-png",
+      "reference": "known foreground alpha before compositing and compression",
+      "before": {
+        "seconds": 0.0002,
+        "mask_pixels": 39424,
+        "components": 1,
+        "intersection_over_union": 0.26915,
+        "false_pixels_beyond_1_5px": 28345,
+        "false_pixels_beyond_2px": 28147,
+        "maximum_outer_distance_px": 89.404,
+        "missing_core_pixels": 0,
+        "reason": "ambiguous_perimeter",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": false,
+          "reason": "ambiguous_perimeter",
+          "background_color": "#82b2dc",
+          "border_confidence": 0.38625,
+          "removed_fraction": 0.0,
+          "interior_preserved_pixels": 0
+        }
+      },
+      "after": {
+        "seconds": 0.0099,
+        "mask_pixels": 10612,
+        "components": 1,
+        "intersection_over_union": 0.99991,
+        "false_pixels_beyond_1_5px": 0,
+        "false_pixels_beyond_2px": 0,
+        "maximum_outer_distance_px": 1.0,
+        "missing_core_pixels": 0,
+        "reason": "smooth_border_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "smooth_border_background",
+          "model": "smooth_gradient",
+          "model_fit": "affine",
+          "gradient_step_rgb": null,
+          "background_color": null,
+          "border_confidence": 1.0,
+          "border_error_rgb": 0.5405,
+          "removed_fraction": 0.7308238636363636,
+          "interior_preserved_pixels": 0,
+          "edge_refined_pixels": 333,
+          "edge_recovered_pixels": 0
+        }
+      }
+    },
+    {
+      "case": "colored-jpeg",
+      "reference": "known foreground alpha before compositing and compression",
+      "before": {
+        "seconds": 0.0002,
+        "mask_pixels": 39424,
+        "components": 1,
+        "intersection_over_union": 0.26915,
+        "false_pixels_beyond_1_5px": 28345,
+        "false_pixels_beyond_2px": 28147,
+        "maximum_outer_distance_px": 89.404,
+        "missing_core_pixels": 0,
+        "reason": "ambiguous_perimeter",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": false,
+          "reason": "ambiguous_perimeter",
+          "background_color": "#83afdc",
+          "border_confidence": 0.3825,
+          "removed_fraction": 0.0,
+          "interior_preserved_pixels": 0
+        }
+      },
+      "after": {
+        "seconds": 0.0105,
+        "mask_pixels": 10619,
+        "components": 1,
+        "intersection_over_union": 0.99868,
+        "false_pixels_beyond_1_5px": 0,
+        "false_pixels_beyond_2px": 0,
+        "maximum_outer_distance_px": 1.0,
+        "missing_core_pixels": 0,
+        "reason": "smooth_border_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "smooth_border_background",
+          "model": "smooth_gradient",
+          "model_fit": "affine",
+          "gradient_step_rgb": null,
+          "background_color": null,
+          "border_confidence": 1.0,
+          "border_error_rgb": 2.3115,
+          "removed_fraction": 0.7306463068181818,
+          "interior_preserved_pixels": 0,
+          "edge_refined_pixels": 540,
+          "edge_recovered_pixels": 0
+        }
+      }
+    },
+    {
+      "case": "colored-webp",
+      "reference": "known foreground alpha before compositing and compression",
+      "before": {
+        "seconds": 0.0003,
+        "mask_pixels": 39424,
+        "components": 1,
+        "intersection_over_union": 0.26915,
+        "false_pixels_beyond_1_5px": 28345,
+        "false_pixels_beyond_2px": 28147,
+        "maximum_outer_distance_px": 89.404,
+        "missing_core_pixels": 0,
+        "reason": "ambiguous_perimeter",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": false,
+          "reason": "ambiguous_perimeter",
+          "background_color": "#85a6da",
+          "border_confidence": 0.3,
+          "removed_fraction": 0.0,
+          "interior_preserved_pixels": 0
+        }
+      },
+      "after": {
+        "seconds": 0.0101,
+        "mask_pixels": 10615,
+        "components": 1,
+        "intersection_over_union": 0.99925,
+        "false_pixels_beyond_1_5px": 0,
+        "false_pixels_beyond_2px": 0,
+        "maximum_outer_distance_px": 1.0,
+        "missing_core_pixels": 0,
+        "reason": "smooth_border_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "smooth_border_background",
+          "model": "smooth_gradient",
+          "model_fit": "affine",
+          "gradient_step_rgb": null,
+          "background_color": null,
+          "border_confidence": 1.0,
+          "border_error_rgb": 2.099,
+          "removed_fraction": 0.7307477678571429,
+          "interior_preserved_pixels": 0,
+          "edge_refined_pixels": 430,
+          "edge_recovered_pixels": 0
+        }
+      }
+    },
+    {
+      "case": "linear-detached-accent-jpeg",
+      "reference": "known foreground alpha before compositing and compression",
+      "before": {
+        "seconds": 0.0002,
+        "mask_pixels": 39424,
+        "components": 1,
+        "intersection_over_union": 0.26978,
+        "false_pixels_beyond_1_5px": 28296,
+        "false_pixels_beyond_2px": 28078,
+        "maximum_outer_distance_px": 89.404,
+        "missing_core_pixels": 0,
+        "reason": "ambiguous_perimeter",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": false,
+          "reason": "ambiguous_perimeter",
+          "background_color": "#c8c8c8",
+          "border_confidence": 0.34,
+          "removed_fraction": 0.0,
+          "interior_preserved_pixels": 0
+        }
+      },
+      "after": {
+        "seconds": 0.0118,
+        "mask_pixels": 10659,
+        "components": 2,
+        "intersection_over_union": 0.99709,
+        "false_pixels_beyond_1_5px": 4,
+        "false_pixels_beyond_2px": 0,
+        "maximum_outer_distance_px": 2.0,
+        "missing_core_pixels": 0,
+        "reason": "smooth_border_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "smooth_border_background",
+          "model": "smooth_gradient",
+          "model_fit": "affine",
+          "gradient_step_rgb": null,
+          "background_color": null,
+          "border_confidence": 1.0,
+          "border_error_rgb": 1.0412,
+          "removed_fraction": 0.7296316964285714,
+          "interior_preserved_pixels": 13,
+          "edge_refined_pixels": 745,
+          "edge_recovered_pixels": 0
+        }
+      }
+    },
+    {
+      "case": "pepsi-real",
+      "input_name": "pepsi.png",
+      "input_sha256": "17e2389f415170ef8340e7f044139fc86f39d339e45ab5de75d5101c74356979",
+      "reference": "proxy: fill largest four-connected dark component, max RGB <80",
+      "reference_limit": "Dark-core edge omits antialiasing; allow two source pixels. This is a proxy for the closed Pepsi outline, not a labeled photograph mask.",
+      "before": {
+        "seconds": 0.0467,
+        "mask_pixels": 155651,
+        "components": 75,
+        "intersection_over_union": 0.95337,
+        "false_pixels_beyond_1_5px": 5525,
+        "false_pixels_beyond_2px": 4808,
+        "maximum_outer_distance_px": 14.422,
+        "missing_core_pixels": 0,
+        "reason": "border_connected_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "border_connected_background",
+          "background_color": "#f2f2f2",
+          "border_confidence": 1.0,
+          "removed_fraction": 0.8642830984933035,
+          "interior_preserved_pixels": 701
+        }
+      },
+      "after": {
+        "seconds": 0.2636,
+        "mask_pixels": 148841,
+        "components": 1,
+        "intersection_over_union": 0.99699,
+        "false_pixels_beyond_1_5px": 0,
+        "false_pixels_beyond_2px": 0,
+        "maximum_outer_distance_px": 1.0,
+        "missing_core_pixels": 0,
+        "reason": "border_connected_background",
+        "diagnostics": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "border_connected_background",
+          "model": "uniform",
+          "model_fit": "constant",
+          "gradient_step_rgb": null,
+          "background_color": "#f2f2f2",
+          "border_confidence": 1.0,
+          "border_error_rgb": 0.0,
+          "removed_fraction": 0.870220947265625,
+          "interior_preserved_pixels": 361,
+          "edge_refined_pixels": 6810,
+          "edge_recovered_pixels": 0
+        }
+      }
+    }
+  ]
+}

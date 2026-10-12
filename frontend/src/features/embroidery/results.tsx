@@ -4,6 +4,7 @@ import { Accordion, Alert, Chip, Spinner, Tabs, buttonVariants } from "@heroui/r
 import { Download, FileImage } from "lucide-react";
 import type { ReactNode } from "react";
 import { formatNumber } from "@/lib/format";
+import { describeBackground } from "./background-diagnostics";
 import { FileUpload } from "./file-upload";
 import { BACKGROUND_MODE_LABELS, STITCH_TYPE_LABELS } from "./settings";
 import { StitchPlayer } from "./stitch-player/stitch-player";
@@ -18,24 +19,17 @@ export function DownloadLink({ href, children, primary = false }: { href: string
 
 const parameterLabels: Record<string, string> = { satin_spacing_mm: "Pas satin", fill_spacing_mm: "Pas fill", pull_compensation_mm: "Compensation", underlay: "Sous-couche", max_satin_width_mm: "Largeur satin maximale", max_stitch_mm: "Longueur maximale", running_length_mm: "Point droit", fill_angle_deg: "Angle fill" };
 function settingValue(value: number | boolean) { return typeof value === "boolean" ? value ? "activée" : "désactivée" : formatNumber(value); }
-const backgroundReasons: Record<string, string> = {
-  kept_by_request: "Fond conservé selon votre choix.", existing_transparency: "La transparence de l’image définit le contour conservé.",
-  transparent_perimeter: "Le bord de l’image est déjà transparent.", ambiguous_perimeter: "Le bord n’est pas suffisamment uniforme : fond conservé.",
-  border_connected_background: "Le fond relié au bord a été retiré ; les aplats intérieurs sont préservés.",
-  no_border_connected_background: "Aucun fond relié au bord à retirer.",
-  explicit_vector_paint: "Les couleurs et transparences explicites du SVG sont conservées.",
-  manual_threshold_or_inversion: "Le seuil ou l’inversion manuels déterminent la silhouette.",
-};
-
 function InputDiagnostics({ result }: { result: GenerationResult }) {
   const background = result.input_analysis?.background, cleanup = result.input_analysis?.cleanup;
+  const description = background ? describeBackground(background) : null;
   return <div className="flex flex-col gap-4 text-xs text-muted">
     <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
       <div><dt>Type de points</dt><dd className="mt-4 font-medium text-foreground">{STITCH_TYPE_LABELS[result.direct.params.stitch_type ?? "auto"]}</dd></div>
       {background && <><div><dt>Fond demandé</dt><dd className="mt-4 font-medium text-foreground">{background.mode ? BACKGROUND_MODE_LABELS[background.mode] : "—"}</dd></div><div><dt>Fond interprété</dt><dd className="mt-4 font-medium text-foreground">{background.applied === true ? "Retiré" : background.applied === false ? "Conservé" : "—"}</dd></div></>}
       {cleanup && <div><dt>Réduction des parasites</dt><dd className="mt-4 font-medium text-foreground">{cleanup.reason === "vector_artwork_preserved" ? "SVG préservé" : cleanup.reason === "single_colour_silhouette" ? "Silhouette monochrome" : cleanup.enabled === true ? "Activée" : cleanup.enabled === false ? "Désactivée" : "—"}</dd></div>}
     </dl>
-    {background?.reason && <p>{backgroundReasons[background.reason] ?? background.reason}{(background.removed_fraction ?? 0) > 0 ? ` ${formatNumber(background.removed_fraction! * 100)} % de l’image retirés.` : ""}</p>}
+    {description && <p>{description.message}</p>}
+    {!!description?.metrics.length && <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">{description.metrics.map(item => <div key={item.label}><dt>{item.label}</dt><dd className="mt-4 font-medium text-foreground tabular-nums">{item.value}</dd></div>)}</dl>}
     {(cleanup?.palette_consolidated_pixels ?? 0) > 0 && <p>Nuances liées à la compression consolidées : {cleanup?.palette_source_colors != null && cleanup.palette_colors != null ? `${formatNumber(cleanup.palette_source_colors)} nuances d’image → ${formatNumber(cleanup.palette_colors)} couleurs de fil. ` : ""}{cleanup?.regions_before != null && cleanup.regions_after_palette != null ? `${formatNumber(cleanup.regions_before)} → ${formatNumber(cleanup.regions_after_palette)} îlots de couleur. ` : ""}{cleanup?.palette_changed_area_mm2 != null ? `${formatNumber(cleanup.palette_changed_area_mm2)} mm² de nuances ajustées. ` : ""}{(cleanup?.retained_accent_colors ?? 0) > 0 ? `${formatNumber(cleanup!.retained_accent_colors!)} couleur${cleanup!.retained_accent_colors! > 1 ? "s" : ""} de détail préservée${cleanup!.retained_accent_colors! > 1 ? "s" : ""}. ` : ""}Les zones transparentes sont conservées.</p>}
     {(cleanup?.changed_pixels ?? 0) > 0 && <p>Nettoyage : {(cleanup?.regions_after_palette ?? cleanup?.regions_before) != null && cleanup?.regions_after != null ? `${formatNumber((cleanup.regions_after_palette ?? cleanup.regions_before)!)} → ${formatNumber(cleanup.regions_after)} îlots de couleur · ` : ""}{cleanup?.changed_area_mm2 != null ? `${formatNumber(cleanup.changed_area_mm2)} mm² modifiés.` : ""}{(cleanup?.removed_pixels ?? 0) > 0 ? " Des parasites isolés trop fins pour être cousus ont été retirés." : " Les transparences du dessin sont conservées."}</p>}
   </div>;

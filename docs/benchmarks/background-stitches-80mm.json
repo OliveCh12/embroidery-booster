@@ -1,0 +1,316 @@
+{
+  "baseline_ref": "30c58df",
+  "design_width_mm": 80.0,
+  "max_colors": 12,
+  "measurement": {
+    "basis": "quantized_top_layer",
+    "thread_mm": 0.3,
+    "structural_tolerance_mm": 0.25,
+    "dpi": 305
+  },
+  "before": [
+    {
+      "file": "pepsi.png",
+      "input_sha256": "17e2389f415170ef8340e7f044139fc86f39d339e45ab5de75d5101c74356979",
+      "top_metrics": {
+        "coverage": 0.8417,
+        "structural_coverage": 1.0,
+        "iou": 0.8316,
+        "spill_mm2": 59.93,
+        "missing_mm2": 778.23,
+        "uncovered_p95_mm": 0.083,
+        "uncovered_max_mm": 0.416,
+        "structural_missing_mm2": 0.06,
+        "largest_gap_mm2": 0.01,
+        "stitches": 10683,
+        "trims": 0,
+        "jumps": 1518,
+        "jump_length_mm": 2826.4,
+        "max_stitch_mm": 4.1,
+        "short_stitches": 0
+      },
+      "stats": {
+        "satin_regions": 5,
+        "fill_regions": 36,
+        "running_regions": 68,
+        "underlay_stitches": 2998,
+        "unsafe_connections": 0,
+        "omitted_regions": 45,
+        "stitches": 15084,
+        "trims": 304,
+        "jumps": 486,
+        "color_changes": 3,
+        "colors": 4,
+        "width_mm": 79.8,
+        "height_mm": 80.3,
+        "thread_length_mm": 20640.6,
+        "jump_length_mm": 3094.5,
+        "max_stitch_mm": 4.1,
+        "short_stitches": 0,
+        "gap_fill_regions": 0,
+        "coverage_repairs": 0,
+        "minimum_detail_enlargements": 44,
+        "crowded_satin_penetrations": 0,
+        "coverage": 0.8392,
+        "structural_coverage": 0.9999,
+        "iou": 0.7873,
+        "spill_mm2": 328.95,
+        "missing_mm2": 790.57,
+        "structural_missing_mm2": 0.35,
+        "largest_gap_mm2": 0.01,
+        "uncovered_max_mm": 6.421,
+        "uncovered_p95_mm": 0.083,
+        "audit_pixels_per_mm": 12.008,
+        "symmetry_operations": 0,
+        "equivalent_regions": 86,
+        "omitted_colors": 0,
+        "adjusted_parameters": 1,
+        "seconds": 4.1449
+      },
+      "threads": [
+        "#ffffff",
+        "#ff1301",
+        "#010101",
+        "#0e0f95"
+      ],
+      "methods": [
+        "fill",
+        "omitted",
+        "running",
+        "satin"
+      ],
+      "seconds": 4.6898,
+      "warnings": [
+        "#ffffff: 20 details are below machine resolution and were omitted; enlarge the design.",
+        "#010101: 25 details are below machine resolution and were omitted; enlarge the design.",
+        "#010101: Top-layer coverage is 99.97%; largest unfilled area 0.01 mm\u00b2, maximum distance from thread 6.421 mm. Enlarge fine details or inspect before sewing.",
+        "44 compact details were extended by at most 0.08 mm per end to retain the minimum stitch length; enlarge the design for finer fidelity.",
+        "Artwork contains 103 disconnected colour islands smaller than 0.15 mm\u00b2 (3.9 mm\u00b2 total). These may produce excessive tiny runs and jumps; inspect image noise and colour boundaries."
+      ],
+      "analysis": {
+        "category": "complex",
+        "topology_basis": "visible_color_regions",
+        "color_count": 4,
+        "region_count": 150,
+        "hole_count": 10,
+        "area_mm2": 4916.19,
+        "boundary_length_mm": 2710.27,
+        "fine_region_area_ratio": 0.0021,
+        "micro_region_count": 103,
+        "micro_region_area_mm2": 3.9,
+        "palette_reduced": false,
+        "requested_stitch_type": "auto",
+        "strategy_policy": "coherent_color_fill",
+        "strategy_counts": {
+          "satin": 1,
+          "fill": 36,
+          "running": 68,
+          "omitted": 45
+        },
+        "quality_status": "needs_review",
+        "stitch_breakdown": {
+          "entry": 304,
+          "top": 9165,
+          "underlay": 2998,
+          "travel": 1558,
+          "lock": 1059
+        }
+      },
+      "adjustments": [
+        {
+          "parameter": "max_satin_width_mm",
+          "requested": 8.0,
+          "effective": 7.5,
+          "reason": "safe_satin_float_limit"
+        }
+      ],
+      "input_analysis": {
+        "sizing": {
+          "requested_width_mm": 80.0,
+          "effective_width_mm": 80.0,
+          "effective_height_mm": 80.71111111111111,
+          "fitted": false
+        },
+        "background": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "border_connected_background",
+          "background_color": "#f2f2f2",
+          "border_confidence": 1.0,
+          "removed_fraction": 0.8642830984933035,
+          "interior_preserved_pixels": 701
+        },
+        "cleanup": {
+          "enabled": true,
+          "changed_pixels": 0,
+          "removed_pixels": 0,
+          "changed_area_mm2": 0.0,
+          "reason": "no_safe_speckles",
+          "palette_source_colors": 8533,
+          "flat_paints_recovered": true,
+          "palette_consolidated_pixels": 83211,
+          "retained_accent_colors": 0,
+          "palette_reduced": true,
+          "palette_colors": 4,
+          "regions_before": 2976,
+          "regions_after": 150,
+          "regions_after_palette": 150,
+          "palette_changed_area_mm2": 2629.8785185185184
+        }
+      }
+    }
+  ],
+  "after": [
+    {
+      "file": "pepsi.png",
+      "input_sha256": "17e2389f415170ef8340e7f044139fc86f39d339e45ab5de75d5101c74356979",
+      "top_metrics": {
+        "coverage": 0.8384,
+        "structural_coverage": 1.0,
+        "iou": 0.8311,
+        "spill_mm2": 43.48,
+        "missing_mm2": 801.76,
+        "uncovered_p95_mm": 0.083,
+        "uncovered_max_mm": 0.167,
+        "structural_missing_mm2": 0.0,
+        "largest_gap_mm2": 0.0,
+        "stitches": 8548,
+        "trims": 0,
+        "jumps": 989,
+        "jump_length_mm": 1922.9,
+        "max_stitch_mm": 4.0,
+        "short_stitches": 0
+      },
+      "stats": {
+        "satin_regions": 5,
+        "fill_regions": 14,
+        "running_regions": 37,
+        "underlay_stitches": 3069,
+        "unsafe_connections": 0,
+        "omitted_regions": 0,
+        "stitches": 12628,
+        "trims": 176,
+        "jumps": 327,
+        "color_changes": 3,
+        "colors": 4,
+        "width_mm": 80.0,
+        "height_mm": 80.0,
+        "thread_length_mm": 19910.6,
+        "jump_length_mm": 2327.1,
+        "max_stitch_mm": 4.0,
+        "short_stitches": 0,
+        "gap_fill_regions": 0,
+        "coverage_repairs": 0,
+        "minimum_detail_enlargements": 27,
+        "crowded_satin_penetrations": 0,
+        "coverage": 0.8371,
+        "structural_coverage": 1.0,
+        "iou": 0.7976,
+        "spill_mm2": 249.64,
+        "missing_mm2": 808.14,
+        "structural_missing_mm2": 0.0,
+        "largest_gap_mm2": 0.0,
+        "uncovered_max_mm": 0.186,
+        "uncovered_p95_mm": 0.083,
+        "audit_pixels_per_mm": 12.008,
+        "symmetry_operations": 0,
+        "equivalent_regions": 31,
+        "omitted_colors": 0,
+        "adjusted_parameters": 1,
+        "seconds": 2.5087
+      },
+      "threads": [
+        "#ffffff",
+        "#ff1301",
+        "#0e0f95",
+        "#010101"
+      ],
+      "methods": [
+        "fill",
+        "running",
+        "satin"
+      ],
+      "seconds": 3.2859,
+      "warnings": [
+        "27 compact details were extended by at most 0.08 mm per end to retain the minimum stitch length; enlarge the design for finer fidelity."
+      ],
+      "analysis": {
+        "category": "complex",
+        "topology_basis": "visible_color_regions",
+        "color_count": 4,
+        "region_count": 52,
+        "hole_count": 10,
+        "area_mm2": 4961.38,
+        "boundary_length_mm": 2001.68,
+        "fine_region_area_ratio": 0.0005,
+        "micro_region_count": 38,
+        "micro_region_area_mm2": 1.91,
+        "palette_reduced": false,
+        "requested_stitch_type": "auto",
+        "strategy_policy": "coherent_color_fill",
+        "strategy_counts": {
+          "satin": 1,
+          "fill": 14,
+          "running": 37,
+          "omitted": 0
+        },
+        "quality_status": "geometric_checks_passed",
+        "stitch_breakdown": {
+          "entry": 176,
+          "top": 7559,
+          "underlay": 3069,
+          "travel": 1186,
+          "lock": 638
+        }
+      },
+      "adjustments": [
+        {
+          "parameter": "max_satin_width_mm",
+          "requested": 8.0,
+          "effective": 7.5,
+          "reason": "safe_satin_float_limit"
+        }
+      ],
+      "input_analysis": {
+        "sizing": {
+          "requested_width_mm": 80.0,
+          "effective_width_mm": 80.0,
+          "effective_height_mm": 80.0,
+          "fitted": false
+        },
+        "background": {
+          "mode": "auto",
+          "applied": true,
+          "reason": "border_connected_background",
+          "model": "uniform",
+          "model_fit": "constant",
+          "gradient_step_rgb": null,
+          "background_color": "#f2f2f2",
+          "border_confidence": 1.0,
+          "border_error_rgb": 0.0,
+          "removed_fraction": 0.870220947265625,
+          "interior_preserved_pixels": 361,
+          "edge_refined_pixels": 6810,
+          "edge_recovered_pixels": 1098
+        },
+        "cleanup": {
+          "enabled": true,
+          "changed_pixels": 0,
+          "removed_pixels": 0,
+          "changed_area_mm2": 0.0,
+          "reason": "no_safe_speckles",
+          "palette_source_colors": 8483,
+          "flat_paints_recovered": true,
+          "palette_consolidated_pixels": 76724,
+          "retained_accent_colors": 0,
+          "palette_reduced": true,
+          "palette_colors": 4,
+          "regions_before": 1546,
+          "regions_after": 60,
+          "regions_after_palette": 60,
+          "palette_changed_area_mm2": 2559.5462980338193
+        }
+      }
+    }
+  ]
+}

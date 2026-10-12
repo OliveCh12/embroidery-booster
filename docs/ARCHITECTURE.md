@@ -10,7 +10,8 @@ src/embroidery_rungs/
   pipeline.py              API generate(), préparation et publication des résultats
   inputs.py                Tracé bitmap, formats acceptés et taille physique
   svg_manager.py           Validation SVG et transformations physiques
-  colors.py                Fond bitmap, palette déterministe et régions visibles
+  background.py            Fond connecté, gradients doux et affinage des contours
+  colors.py                Palette déterministe et régions visibles
   image_processor.py       Rendu borné, axe médian et branches du squelette
   geometry_utils.py        Opérations géométriques partagées
   routing.py               Routage des chemins géométriques
@@ -45,6 +46,7 @@ output/                   Jobs et artefacts générés, ignorés par Git
 ## Flux de génération
 
 1. Valider les réglages et le fichier ; interpréter le fond connecté au bord,
+   affiner ses mélanges avec le contour avant tout redimensionnement,
    consolider la palette bitmap et réduire les petits parasites adjacents avant
    le tracé. Exposer chaque modification dans `input_analysis`.
 2. Appliquer le redimensionnement explicite et charger le SVG sécurisé.
@@ -88,6 +90,16 @@ presets. Next.js relaie l'API Python sur la même origine. Flask valide les
 réglages, borne les uploads/jobs, produit un répertoire UUID et sert les fichiers.
 Les previews SVG sont proposées au téléchargement ; les aperçus de fichiers
 importés sont rendus en PNG.
+
+`background.py` modifie l'alpha extérieur et conserve les RGB par défaut.
+La préparation couleur active aussi la récupération des peintures contaminées
+par le fond sur une bande de 3 pixels du contour final, si le nettoyage bitmap
+est activé. Ni les trous alpha ni leurs RGB cachés ne sont modifiés. L'ancien
+import `colors.bitmap_foreground` reste disponible comme réexport. L'extraction
+précède la quantification, afin qu'un halo ne devienne pas un fil blanc.
+Les diagnostics du modèle, de l'affinage et de la récupération sont additifs
+au JSON existant. Les calculs de distance et de RGB utilisent des tuiles de
+512 pixels avec contexte ; la propagation extérieure reste globale.
 
 ## Validation
 

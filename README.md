@@ -2,9 +2,9 @@
 
 Generate **PES and DST embroidery directly from SVG or bitmap artwork**. The
 application chooses satin, running stitches or tatami for each visible colour
-region, then produces inspectable machine points. Version **0.5.0** adds
-background interpretation, bounded colour-speckle cleanup and explicit stitch
-strategies to the same direct engine throughout the library, CLI and web app.
+region, then produces inspectable machine points. Version **0.5.1** refines
+background extraction at logo contours and supports smooth exterior gradients,
+alongside bounded colour-speckle cleanup and explicit stitch strategies.
 
 ## Installation
 
@@ -39,9 +39,12 @@ images are rejected. PDF, EPS, PS and AI must be exported to SVG before import.
 
 PNG, JPEG, WebP, BMP, GIF and TIFF are traced locally. GIF/TIFF use the first
 frame. Alpha is preserved. **Auto background** removes only a sufficiently
-uniform background connected to the perimeter: a white badge enclosed by a
+uniform or smoothly varying background connected to the perimeter: a white badge enclosed by a
 logo remains white embroidery. Choose **Keep** to retain a deliberate canvas or
-**Remove** to explicitly remove the dominant exterior colour. SVG Auto/Keep
+**Remove** to explicitly attempt exterior removal. Background blending and codec
+ringing at contours are refined before tracing, rather than becoming stray
+embroidery regions. Ambiguous or textured photo backgrounds are kept by Auto;
+this is not semantic object extraction. SVG Auto/Keep
 retain explicit vector paints; SVG Remove rasterizes and retraces at the original
 physical scale. Blank margins are cropped. Flat artwork retains its colours; photos
 and gradients use a bounded palette, with 12 threads by default and six in the

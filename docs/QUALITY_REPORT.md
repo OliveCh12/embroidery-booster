@@ -1,6 +1,93 @@
 # Validation du moteur direct — 12 octobre 2026
 
-Version **0.5.0** : interprétation du fond, consolidation des couleurs bitmap,
+## Version actuelle : 0.5.1
+
+La suppression du fond distingue maintenant les aplats, les dégradés doux
+affines et les dégradés non linéaires. Une propagation depuis l'extérieur et
+une protection des intérieurs fermés préservent les peintures du logo. Le
+matting local retire les franges de compression accessibles depuis le fond ;
+la préparation couleur récupère les pixels contaminés au contour avant la
+palette. Le tracé multicolore partage une silhouette alpha et évite un second
+antialiasing des masques de peinture. Aucun modèle ni dépendance n'est ajouté.
+
+### Fidélité du masque
+
+Le [benchmark des masques](benchmarks/background-masks-0.5.1.json) compare
+`30c58df` à 0.5.1 sur **14 cas** : badges à fond uni, linéaire, radial ou coloré,
+compressions PNG/JPEG/WEBP, accent isolé et Pepsi fourni. Les références
+synthétiques sont connues avant composition. Pour Pepsi, la référence est un
+proxy géométrique : l'intérieur du plus grand contour sombre fermé, avec une
+tolérance de deux pixels source pour son antialiasing. Ce n'est pas une
+annotation manuelle de photographie.
+
+- Aucun pixel résiduel à plus de deux pixels de la référence sur ce corpus.
+- Aucun pixel manquant dans le noyau érodé des motifs ; IoU minimale : **99,699 %**.
+- Pepsi : **4 808 → 0** pixels parasites au-delà de cette tolérance,
+  **75 → 1** composante, blanc intérieur conservé. La suppression seule prend
+  0,264 s sur ce fichier ; temps indicatif d'une exécution.
+
+Les calculs locaux coûteux utilisent des tuiles de 512 pixels et un contexte de
+48 pixels. La fermeture du contour et la propagation restent globales : un
+badge ne change pas d'interprétation parce qu'il traverse une limite de tuile.
+
+### Conséquences sur les points de Pepsi
+
+Le [benchmark machine à 80 mm](benchmarks/background-stitches-80mm.json)
+utilise les mêmes paramètres avant/après : profil générique, quatre fils
+effectifs, douze couleurs maximum, grille 305 DPI, fil modèle 0,3 mm et tolérance
+structurelle 0,25 mm.
+
+| Mesure | 0.5.0 | 0.5.1 |
+|---|---:|---:|
+| Points | 15 084 | 12 628 |
+| Coupes | 304 | 176 |
+| Sauts | 486 | 327 |
+| Îlots après palette | 150 | 60 |
+| Régions omises | 45 | 0 |
+| Couverture structurelle par couleur | 99,99 % | 100 % |
+| Plus grand manque structurel | 0,01 mm² | 0,00 mm² |
+| Points courts / connexions dangereuses / pénétrations satin trop proches | 0 / 0 / 0 | 0 / 0 / 0 |
+| Dimensions du plan | 79,8 × 80,3 mm | 80 × 80 mm |
+
+Le liseré noir conserve le satin ; les surfaces larges gardent le tatami et
+les petits détails leur traitement sûr. Les 27 détails compacts étendus d'au
+plus 0,08 mm par extrémité sont signalés. La couverture structurelle n'est pas
+une occupation de 100 % de chaque pixel par du fil : le tatami garde son
+espacement prévu. Aucun essai sur tissu n'est revendiqué.
+
+### Vérifications et reproduction
+
+- **426 tests Python passent** (84,87 s), dont les frontières de tuiles, les
+  accents pâles, les fonds ambigus et les badges compressés. Les régressions
+  PNG/JPEG/WEBP génèrent aussi du PES et vérifient sa réimportation.
+- **40 tests frontend passent** ; TypeScript, ESLint et le build Next.js passent.
+- Ruff, formatage, `git diff --check` et distributions Python 0.5.1 validés.
+- L'atelier affiche le Pepsi nettoyé et ses diagnostics, puis la simulation
+  dans un cadre 100 × 100 mm. Le PES téléchargé contient exactement les
+  **12 628 pénétrations** et coordonnées du plan quantifié, avec quatre fils.
+
+```bash
+uv run python scripts/benchmark_background.py --baseline-ref 30c58df \
+  --pepsi /chemin/pepsi.png --output output/background-validation
+uv run python scripts/benchmark_direct.py --baseline-ref 30c58df \
+  --design-width-mm 80 --input /chemin/pepsi.png \
+  --output output/background-stitches.json
+```
+
+Le premier script utilise les fixtures synthétiques du dépôt ; le fichier
+Pepsi est optionnel et reste local. Les fichiers utilisateur ne sont pas
+ajoutés au dépôt.
+
+Les fonds texturés ou ambigus restent conservés en Auto. Il n'y a pas de
+segmentation sémantique universelle des photos. Un cas JPEG supplémentaire de
+1 040 pixels avec un liseré d'un pixel peut encore garder 38 pixels gris
+éloignés de plus de deux pixels : le moteur privilégie la conservation des
+vrais détails ambigus. L'aperçu et le choix Conserver/Retirer restent nécessaires
+pour ces entrées. Voir les [règles d'interprétation](INPUT_INTERPRETATION.md).
+
+## Historique : validation 0.5.0
+
+Les mesures et vérifications ci-dessous concernent **0.5.0** : interprétation du fond, consolidation des couleurs bitmap,
 nettoyage borné des parasites et choix Auto/Satin/Tatami/Point droit. Le moteur
 reste entièrement direct, avec PES/DST exportés par pyembroidery.
 
