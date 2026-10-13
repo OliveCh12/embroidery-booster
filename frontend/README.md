@@ -43,7 +43,12 @@ WebP, TIFF, GIF et BMP sont acceptés jusqu’à 10 Mio. Un import invalide cons
 le dessin et les résultats précédents.
 
 Les réglages occupent le panneau gauche : machine, cadre physique en millimètres,
-taille du dessin, tissu, fil et stabilisateur. L’ajustement automatique adapte
+taille du dessin, tissu, fil et stabilisateur.
+Ces réglages sont classés en cinq sections repliables avec icônes et résumés :
+dessin/cadre, tissu/fils, stratégie, interprétation et réglages avancés. Les deux
+premières sont ouvertes au départ. Une erreur de validation ouvre sa section
+et, sur mobile, le panneau de paramètres avant de focaliser le champ concerné.
+L’ajustement automatique adapte
 les paramètres au dessin et au matériau. Les réglages effectivement appliqués,
 leurs modifications et les mesures de couverture figurent dans les détails du
 résultat. Désactiver l’ajustement permet de régler les points manuellement.
@@ -81,7 +86,7 @@ points, déplacements aiguille levée, coupes et changements de fil. Le dessin
 reste centré dans son cadre physique ; la grille et les graduations sont en
 millimètres, espacées de 10 mm. Pendant la lecture, le premier point est vert et
 l’aiguille rouge ; ces marqueurs disparaissent sur l’aperçu terminé.
-Le bouton **Lire / Pause** suit le mode choisi : **Continu** traverse tous les
+Le bouton **Lire / Pause** démarre en mode **Continu** à **×150**. **Continu** traverse tous les
 changements de couleur ; **Par fil** s'arrête avant de commencer la couleur
 suivante et signale la bobine à installer sans masquer le dessin. Retour au
 départ, affichage complet et timeline restent disponibles sur une barre compacte.
@@ -97,16 +102,16 @@ Le titrage commun (30, 40 ou 60 wt) est affiché une fois pour tous les fils ;
 le moteur ne prévoit pas de changement d'épaisseur en cours de broderie. Les
 horaires de début et la durée totale comptent uniquement les cycles d'aiguille.
 
-Le cadre, la grille, les graduations et les phases utilisent des contrastes
-adaptés au thème clair/sombre. Le textile neutre garde visibles le noir et le
-blanc sans changer les couleurs des fils. Le menu d’affichage distingue couverture
-dans la couleur du fil, sous-couche neutre, liaisons cousues ambre, sauts pointillés
-et ancrages violets. La sous-couche est masquable ; liaisons, sauts et ancrages
+Le cadre, la grille, les graduations et les phases utilisent les tokens du thème
+HeroUI appliqué. Un fin contour de contraste rend les fils peu visibles lisibles
+sur les surfaces claires ou sombres, sans changer leur couleur ni les commandes.
+Le menu d’affichage distingue couverture dans la couleur du fil, sous-couche
+neutre, liaisons, sauts pointillés et ancrages. La sous-couche est masquable ; liaisons, sauts et ancrages
 se masquent ensemble. Les détails de
 qualité séparent le nombre de points de couverture, de sous-couche, de liaison
 et d’ancrage ; les commandes machine et les exports restent identiques.
 
-La cadence indicative est de 400 points/min, avec une accélération ×60 par défaut.
+La cadence indicative est de 400 points/min, avec une accélération ×150 par défaut.
 ×1 représente uniquement les cycles d’aiguille ; le temps des déplacements,
 coupes et changements manuels de fil n’est pas simulé. L’aperçu est géométrique :
 il ne prédit pas la déformation du tissu. Contrôler un essai sur le support choisi.

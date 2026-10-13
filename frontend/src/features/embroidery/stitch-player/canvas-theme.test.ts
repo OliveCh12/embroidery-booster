@@ -1,33 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { canvasTheme } from "./canvas-theme";
-
-function luminance(hex: string) {
-  const rgb = [1, 3, 5].map(offset => {
-    const channel = parseInt(hex.slice(offset, offset + 2), 16) / 255;
-    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  });
-  return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
-}
-
-function contrast(first: string, second: string) {
-  const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
-  return (values[0] + 0.05) / (values[1] + 0.05);
-}
+import { canvasTheme, threadNeedsOutline } from "./canvas-theme";
 
 describe("stitch canvas theme", () => {
-  it.each([false, true])("keeps white and black thread visible in dark=%s", dark => {
-    const colors = canvasTheme(dark);
-    expect(contrast("#ffffff", colors.textile)).toBeGreaterThanOrEqual(3);
-    expect(contrast("#000000", colors.textile)).toBeGreaterThanOrEqual(3);
-    expect(contrast(colors.label, colors.background)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(colors.hoop, colors.textile)).toBeGreaterThanOrEqual(2);
+  it.each([
+    { background: "#f5f5f5", textile: "#ffffff", foreground: "#18181b" },
+    { background: "#080808", textile: "#18181b", foreground: "#fafafa" },
+  ])("uses the applied HeroUI palette instead of a separate canvas theme", colors => {
+    const tokens: Record<string, string> = {
+      "var(--background)": colors.background,
+      "var(--surface)": colors.textile,
+      "var(--border-secondary)": colors.foreground,
+      "var(--muted)": colors.foreground,
+    };
+    const resolved = canvasTheme(expression => tokens[expression] ?? "#abcdef");
+    expect(resolved.background).toBe(colors.background);
+    expect(resolved.textile).toBe(colors.textile);
+    expect(resolved.hoop).toBe(colors.foreground);
+    expect(resolved.label).toBe(colors.foreground);
+    expect(Object.values(resolved).every(color => /^#[\da-f]{6}$/i.test(color))).toBe(true);
   });
 
-  it.each([false, true])("distinguishes optional technical paths from the textile in dark=%s", dark => {
-    const colors = canvasTheme(dark);
-    for (const kind of ["travel", "underlay", "lock"] as const) {
-      expect(contrast(colors[kind], colors.textile)).toBeGreaterThanOrEqual(3);
-    }
-    expect(contrast(colors.grid, colors.textile)).toBeLessThan(2);
+  it("adds a restrained outline only where the original thread needs contrast", () => {
+    expect(threadNeedsOutline("#ffffff", "#ffffff")).toBe(true);
+    expect(threadNeedsOutline("#000000", "#18181b")).toBe(true);
+    expect(threadNeedsOutline("#ffffff", "#18181b")).toBe(false);
+    expect(threadNeedsOutline("#000000", "#ffffff")).toBe(false);
+    expect(threadNeedsOutline("#ffec00", "#ffffff")).toBe(true);
+    expect(threadNeedsOutline("#a1001a", "#ffffff")).toBe(false);
+  });
+
+  it("resolves technical paths and contrast from the same CSS theme", () => {
+    const requested: string[] = [];
+    canvasTheme(expression => { requested.push(expression); return "#abcdef"; });
+    expect(requested).toContain("var(--warning-soft-foreground)");
+    expect(requested).toContain("var(--accent-soft-foreground)");
+    expect(requested).toContain("var(--success-soft-foreground)");
+    expect(requested).toContain("var(--danger)");
+    expect(requested).toContain("color-mix(in srgb, var(--foreground) 35%, var(--surface))");
   });
 });

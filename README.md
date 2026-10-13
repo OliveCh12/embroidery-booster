@@ -26,9 +26,13 @@ fabric, thread and stabilizer; generate, review the interpreted artwork and
 stitch playback, then download PES. The viewer lists thread passes with descriptive
 colour names, stitch counts and estimated start times; HEX values are available
 on hover. Select a pass to seek to its start. The compact Play/Pause control uses
-**Continu** to play continuously or **Par fil** to pause before the next colour.
+**Continu** by default at **×150**, or **Par fil** to pause before the next colour.
 Preview options contain simulation speed, command stepping and phase visibility.
 **Détails** opens a right-hand panel for quality checks, warnings and logs.
+Parameters are grouped into five collapsible sections, from design/hoop and
+materials to stitch strategy, image interpretation and advanced settings.
+The canvas follows the applied HeroUI palette. A subtle outline keeps low-contrast
+threads visible without changing their colours or machine files.
 In **Auto**, **Comparer les stratégies** generates qualified alternatives and
 selects a recommendation. The compact variant selector switches playback,
 diagnostics and PES/DST downloads together. Identical machine plans are shown
@@ -205,7 +209,7 @@ and command ranges for top stitches, underlay, sewn travel and locks. Exact need
 counts distinguish these phases in `analysis.stitch_breakdown`. Machine files are
 encoded with [pyembroidery](https://github.com/EmbroidePy/pyembroidery); round-trip
 tests verify sewn coordinates. Playback follows these commands and displays
-needle-up travel. Grey underlay can be hidden; amber connections, jumps and violet
+needle-up travel. Grey underlay can be hidden; themed connections, jumps and
 locks share a separate visibility control. Its timing counts needle cycles only, excluding manual thread
 changes, machine acceleration and cutting.
 

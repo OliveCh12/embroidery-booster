@@ -2,10 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
-import { canvasTheme } from "./canvas-theme";
+import { readCanvasTheme, threadNeedsOutline } from "./canvas-theme";
 import { pointAt, STITCH_PHASE, viewport, type StitchPlan } from "./model";
 
-interface CanvasOptions { dark: boolean; underlay: boolean; travel: boolean }
+interface CanvasOptions { underlay: boolean; travel: boolean }
 
 class StitchRenderer {
   private cursor = 0;
@@ -17,14 +17,16 @@ class StitchRenderer {
   private context: CanvasRenderingContext2D;
   private overlay: CanvasRenderingContext2D;
   private firstStitch: number;
-  private colors: ReturnType<typeof canvasTheme>;
+  private colors: ReturnType<typeof readCanvasTheme>;
+  private outlinedThreads: boolean[];
 
   constructor(private canvas: HTMLCanvasElement, private needle: HTMLCanvasElement, private plan: StitchPlan, private options: CanvasOptions) {
     const context = canvas.getContext("2d"), overlay = needle.getContext("2d");
     if (!context || !overlay) throw new Error("Le navigateur ne prend pas en charge l’aperçu des points.");
     this.context = context; this.overlay = overlay;
     this.firstStitch = plan.codes.indexOf(plan.command.stitch);
-    this.colors = canvasTheme(options.dark);
+    this.colors = readCanvasTheme(canvas);
+    this.outlinedThreads = plan.threads.map(color => threadNeedsOutline(color, this.colors.textile));
   }
 
   resize(width: number, height: number) {
@@ -82,7 +84,17 @@ class StitchRenderer {
     const ctx = this.context, { plan } = this;
     // Full scrubs are chunked; normal playback appends only the new stitch segments.
     const end = Math.min(this.target, this.cursor + 8_000);
-    let style = "", drawing = false;
+    let style = "", drawing = false, outline = false;
+    const stroke = () => {
+      if (outline) {
+        const color = ctx.strokeStyle, width = ctx.lineWidth;
+        ctx.strokeStyle = this.colors.threadOutline;
+        ctx.lineWidth = width + 0.55;
+        ctx.stroke();
+        ctx.strokeStyle = color; ctx.lineWidth = width;
+      }
+      ctx.stroke();
+    };
     for (let index = this.cursor; index < end; index++) {
       const sewn = plan.codes[index] === plan.command.stitch && index > 0 && plan.codes[index - 1] === plan.command.stitch;
       const jump = this.options.travel && plan.codes[index] === plan.command.jump && index > 0;
@@ -92,8 +104,9 @@ class StitchRenderer {
       if (!sewn && !jump || underlay && !this.options.underlay || (travel || lock) && !this.options.travel) continue;
       const nextStyle = jump ? "jump" : underlay ? "underlay" : travel ? "travel" : lock ? "lock" : plan.threads[plan.colors[index]];
       if (nextStyle !== style) {
-        if (drawing) ctx.stroke();
+        if (drawing) stroke();
         style = nextStyle; drawing = true;
+        outline = !jump && !underlay && !travel && !lock && this.outlinedThreads[plan.colors[index]];
         ctx.beginPath(); ctx.setLineDash(jump ? [3, 4] : []);
         ctx.strokeStyle = jump || travel ? this.colors.travel : lock ? this.colors.lock : underlay ? this.colors.underlay : nextStyle;
         ctx.lineWidth = jump ? 0.7 : underlay || travel || lock ? Math.max(0.5, 0.15 * this.transform.scale) : Math.max(0.65, 0.3 * this.transform.scale);
@@ -102,7 +115,7 @@ class StitchRenderer {
       ctx.moveTo(this.x(plan.points[(index - 1) * 2]), this.y(plan.points[(index - 1) * 2 + 1]));
       ctx.lineTo(this.x(plan.points[index * 2]), this.y(plan.points[index * 2 + 1]));
     }
-    if (drawing) ctx.stroke();
+    if (drawing) stroke();
     this.cursor = end; this.drawNeedle();
     this.canvas.dataset.ready = String(this.cursor === this.target);
     if (this.cursor < this.target) this.schedule();
@@ -114,7 +127,7 @@ class StitchRenderer {
     if (this.cursor === this.plan.count) return;
     const firstIndex = this.firstStitch;
     if (firstIndex >= 0) {
-      ctx.strokeStyle = "#fff"; ctx.lineWidth = 4; ctx.setLineDash([]); ctx.beginPath();
+      ctx.strokeStyle = this.colors.textile; ctx.lineWidth = 4; ctx.setLineDash([]); ctx.beginPath();
       ctx.arc(this.x(this.plan.points[firstIndex * 2]), this.y(this.plan.points[firstIndex * 2 + 1]), 5, 0, 2 * Math.PI); ctx.stroke();
       ctx.strokeStyle = this.colors.start; ctx.lineWidth = 2; ctx.stroke();
     }
@@ -125,7 +138,7 @@ class StitchRenderer {
       ctx.strokeStyle = this.colors.travel; ctx.setLineDash([4, 3]); ctx.lineWidth = 1; ctx.beginPath();
       ctx.moveTo(this.x(this.plan.points[(this.cursor - 2) * 2]), this.y(this.plan.points[(this.cursor - 2) * 2 + 1])); ctx.lineTo(x, y); ctx.stroke();
     }
-    ctx.setLineDash([]); ctx.fillStyle = this.colors.needle; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
+    ctx.setLineDash([]); ctx.fillStyle = this.colors.needle; ctx.strokeStyle = this.colors.textile; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(x, y, 4, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
     ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x - 9, y); ctx.lineTo(x + 9, y); ctx.moveTo(x, y - 9); ctx.lineTo(x, y + 9); ctx.stroke();
     ctx.strokeStyle = this.colors.needle; ctx.lineWidth = 1; ctx.stroke();
@@ -135,17 +148,27 @@ class StitchRenderer {
 export function StitchCanvas({ plan, cursor, underlay, travel }: { plan: StitchPlan; cursor: number; underlay: boolean; travel: boolean }) {
   const wrapper = useRef<HTMLDivElement>(null), canvas = useRef<HTMLCanvasElement>(null), needle = useRef<HTMLCanvasElement>(null);
   const renderer = useRef<StitchRenderer | null>(null);
+  const latestCursor = useRef(cursor);
   const { resolvedTheme } = useTheme();
   useEffect(() => {
     const element = wrapper.current;
     if (!element || !canvas.current || !needle.current) return;
-    const current = new StitchRenderer(canvas.current, needle.current, plan, { dark: resolvedTheme === "dark", underlay, travel });
-    renderer.current = current;
-    const observer = new ResizeObserver(([entry]) => current.resize(entry.contentRect.width, entry.contentRect.height));
-    observer.observe(element);
-    return () => { observer.disconnect(); current.destroy(); renderer.current = null; };
+    const drawing = canvas.current, overlay = needle.current;
+    let current: StitchRenderer | null = null, observer: ResizeObserver | null = null;
+    // next-themes applies its DOM class in a parent effect, after this child effect.
+    const frame = requestAnimationFrame(() => {
+      const instance = new StitchRenderer(drawing, overlay, plan, { underlay, travel });
+      current = instance; renderer.current = instance;
+      instance.setCursor(latestCursor.current);
+      observer = new ResizeObserver(([entry]) => instance.resize(entry.contentRect.width, entry.contentRect.height));
+      observer.observe(element);
+    });
+    return () => {
+      cancelAnimationFrame(frame); observer?.disconnect(); current?.destroy();
+      if (renderer.current === current) renderer.current = null;
+    };
   }, [plan, resolvedTheme, underlay, travel]);
-  useEffect(() => { renderer.current?.setCursor(cursor); }, [cursor, plan, resolvedTheme, underlay, travel]);
+  useEffect(() => { latestCursor.current = cursor; renderer.current?.setCursor(cursor); }, [cursor, plan, resolvedTheme, underlay, travel]);
   return <div ref={wrapper} className="relative min-h-64 flex-1 overflow-hidden rounded-xl border border-border @2xl:min-h-40" role="img" aria-label={`Cadre ${plan.hoop.width} par ${plan.hoop.height} mm. ${plan.stitches[cursor]} points cousus. Grille de 10 mm. Vert : premier point, rouge : aiguille.`}>
     <canvas ref={canvas} className="absolute inset-0 size-full" aria-hidden="true" />
     <canvas ref={needle} className="pointer-events-none absolute inset-0 size-full" aria-hidden="true" />

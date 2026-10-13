@@ -15,10 +15,10 @@ import styles from "./stitch-player.module.css";
 function Timeline({ plan }: { plan: StitchPlan }) {
   const [cursor, setCursor] = useState(plan.count);
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState("60");
+  const [speed, setSpeed] = useState("150");
   const [underlay, setUnderlay] = useState(true);
   const [travel, setTravel] = useState(false);
-  const [pauseAtColor, setPauseAtColor] = useState(true);
+  const [pauseAtColor, setPauseAtColor] = useState(false);
   const [waitingForThread, setWaitingForThread] = useState(false);
   const position = useRef(plan.count);
   const threads = useMemo(() => buildThreadSequence(plan), [plan]);
@@ -81,13 +81,13 @@ function Timeline({ plan }: { plan: StitchPlan }) {
           <Popover.Heading>Options de l’aperçu</Popover.Heading>
           <Select value={speed} onChange={value => { if (typeof value === "string") setSpeed(value); }} aria-label="Vitesse de simulation" variant="secondary">
             <Label>Vitesse de simulation</Label><Select.Trigger className="min-h-8 py-1"><Select.Value /><Select.Indicator /></Select.Trigger>
-            <Select.Popover><ListBox aria-label="Vitesse de simulation">{["1", "10", "60", "240"].map(value => <ListBox.Item key={value} id={value} textValue={`×${value}`}><Label>×{value}</Label><ListBox.ItemIndicator /></ListBox.Item>)}</ListBox></Select.Popover>
+            <Select.Popover><ListBox aria-label="Vitesse de simulation">{["1", "10", "60", "150", "240"].map(value => <ListBox.Item key={value} id={value} textValue={`×${value}`}><Label>×{value}</Label><ListBox.ItemIndicator /></ListBox.Item>)}</ListBox></Select.Popover>
           </Select>
           <ToggleSetting label="Afficher la sous-couche" value={underlay} onChange={setUnderlay} />
           <ToggleSetting label="Liaisons, sauts et ancrages" value={travel} onChange={setTravel} />
           <Button size="sm" variant="secondary" isDisabled={cursor === plan.count} onPress={() => seek(Math.min(plan.count, cursor + 1))}><StepForward size={16} />Commande suivante</Button>
           <p className="text-xs leading-relaxed text-muted">Continu traverse toutes les couleurs ; Par fil attend votre reprise à chaque changement. Modifier le mode ajuste les prochains arrêts et ne reprend pas une lecture en pause.</p>
-          <p className="text-xs leading-relaxed text-muted">La sous-couche utilise le même fil ; le gris sert à la distinguer dans cet aperçu. Liaisons : ambre ; sauts en pointillés. Ancrages : violet. Vert : départ, rouge : aiguille.</p>
+          <p className="text-xs leading-relaxed text-muted">La sous-couche est grisée. Le fin contour des fils peu contrastés est un repère d’affichage, pas un fil supplémentaire. Les sauts sont en pointillés. Vert : départ, rouge : aiguille.</p>
           <p className="text-xs leading-relaxed text-muted">Dessin : {formatNumber(plan.bounds[2] - plan.bounds[0])} × {formatNumber(plan.bounds[3] - plan.bounds[1])} mm. Grille de 10 mm.</p>
           <p className="text-xs leading-relaxed text-muted">Simulation à {plan.stitchesPerMinute} points/min, accélérée ×{speed}. Sauts, coupes et changements de fil ne sont pas chronométrés.</p>
         </Popover.Dialog></Popover.Content>
