@@ -1,0 +1,281 @@
+{
+  "baseline_commit": "dc8081d5768c9ff8d25c0db765ac5230cf1118d5",
+  "previous_commit": "30fdf0c",
+  "stage": "fill clipping in the original frame when rotation changes topology",
+  "settings_reference": "tracing-fidelity-2026-10-13.json",
+  "notes": [
+    "Selected machine output is unchanged on all seven samples.",
+    "Falcon diagnostics for rejected fill candidates differ slightly; do not claim all candidates or decisions are identical.",
+    "Timings are contextual single trials.",
+    "The original API exception was not reproduced; failed input had been cleaned up."
+  ],
+  "cases": [
+    {
+      "case": "pepsi",
+      "checks_against_main": {
+        "trace_bytes": false,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "checks_against_previous_lot": {
+        "trace_bytes": true,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "stitches": 12458,
+      "threads": [
+        "#ffffff",
+        "#0e0f95",
+        "#ff1301",
+        "#010101"
+      ],
+      "structural_coverage": 1.0,
+      "unsafe_connections": 0,
+      "omitted_regions": 0
+    },
+    {
+      "case": "phoenix",
+      "checks_against_main": {
+        "trace_bytes": false,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "checks_against_previous_lot": {
+        "trace_bytes": true,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "stitches": 2709,
+      "threads": [
+        "#090909"
+      ],
+      "structural_coverage": 1.0,
+      "unsafe_connections": 0,
+      "omitted_regions": 0
+    },
+    {
+      "case": "falcon",
+      "checks_against_main": {
+        "trace_bytes": false,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": false,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "checks_against_previous_lot": {
+        "trace_bytes": true,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": false,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "stitches": 4124,
+      "threads": [
+        "#131414"
+      ],
+      "structural_coverage": 1.0,
+      "unsafe_connections": 0,
+      "omitted_regions": 0
+    },
+    {
+      "case": "union-jack",
+      "checks_against_main": {
+        "trace_bytes": false,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "checks_against_previous_lot": {
+        "trace_bytes": true,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "stitches": 9880,
+      "threads": [
+        "#c8102e",
+        "#ffffff",
+        "#012169"
+      ],
+      "structural_coverage": 0.9999,
+      "unsafe_connections": 0,
+      "omitted_regions": 58
+    },
+    {
+      "case": "ring-detail",
+      "checks_against_main": {
+        "trace_bytes": true,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "checks_against_previous_lot": {
+        "trace_bytes": true,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "stitches": 343,
+      "threads": [
+        "#101010",
+        "#cf173c"
+      ],
+      "structural_coverage": 1.0,
+      "unsafe_connections": 0,
+      "omitted_regions": 0
+    },
+    {
+      "case": "alpha-counter",
+      "checks_against_main": {
+        "trace_bytes": false,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "checks_against_previous_lot": {
+        "trace_bytes": true,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "stitches": 447,
+      "threads": [
+        "#101010"
+      ],
+      "structural_coverage": 1.0,
+      "unsafe_connections": 0,
+      "omitted_regions": 0
+    },
+    {
+      "case": "overlap-counters",
+      "checks_against_main": {
+        "trace_bytes": true,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "checks_against_previous_lot": {
+        "trace_bytes": true,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "stitches": 1181,
+      "threads": [
+        "#184d90",
+        "#cf173c",
+        "#ffffff"
+      ],
+      "structural_coverage": 1.0,
+      "unsafe_connections": 0,
+      "omitted_regions": 0
+    }
+  ],
+  "falcon_rejected_candidate_changes": {
+    "missing_mm2": [
+      268.16,
+      268.18
+    ],
+    "spill_mm2": [
+      31.6,
+      31.65
+    ],
+    "jump_length_mm": [
+      [
+        250.5,
+        250.0
+      ],
+      [
+        45.3,
+        46.1
+      ]
+    ],
+    "selected_machine_output_changed": false
+  }
+}

@@ -7,6 +7,7 @@ import math
 import numpy as np
 from shapely import covers, linestrings, prepare
 from shapely.affinity import rotate
+from shapely.errors import GEOSException
 from shapely.geometry import LineString, Polygon
 
 from ..routing import _nearest_neighbour
@@ -132,7 +133,12 @@ def _subdivide(points, maximum):
 
 def fill_paths(polygon: Polygon, angle: float, spacing: float, length: float, *, minimum=0.3):
     """Staggered tatami rows clipped to a polygon, including its holes."""
+    if polygon.is_empty or not polygon.is_valid:
+        raise ValueError("Fill geometry must be a valid nonempty polygon.")
     shape = rotate(polygon, -angle, origin=(0, 0))
+    # Rotating rings can move a tangent counter across its boundary by a few
+    # ulps. Clip in the original frame instead of repairing or filling holes.
+    world_clip = not shape.is_valid
     xmin, ymin, xmax, ymax = shape.bounds
     first_row = math.floor(ymin / spacing)
     ys = (np.arange(first_row, math.ceil(ymax / spacing)) + 0.5) * spacing
@@ -142,7 +148,23 @@ def fill_paths(polygon: Polygon, angle: float, spacing: float, length: float, *,
     )
     for local_row, y in enumerate(ys):
         row = first_row + local_row
-        clipped = shape.intersection(LineString([(xmin - 1, y), (xmax + 1, y)]))
+        scanline = LineString([(xmin - 1, y), (xmax + 1, y)])
+        if not world_clip:
+            try:
+                clipped = shape.intersection(scanline)
+            except GEOSException:
+                world_clip = True
+        if world_clip:
+            try:
+                clipped = rotate(
+                    polygon.intersection(rotate(scanline, angle, origin=(0, 0))),
+                    -angle,
+                    origin=(0, 0),
+                )
+            except GEOSException as exc:
+                raise ValueError(
+                    "Fill rows could not be clipped safely to the original contours."
+                ) from exc
         segments = (
             [clipped] if clipped.geom_type == "LineString" else list(getattr(clipped, "geoms", []))
         )

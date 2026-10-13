@@ -42,6 +42,39 @@ décodage antérieur. Le diagnostic est disponible dans l'API, le JSON machine e
 pixel/physique ; elle ne mesure pas le rendu sur tissu et ne garantit pas les
 entrées photo HDR/16 bits.
 
+## Remplissage : contacts tangents et précision géométrique
+
+Un log de l'API a révélé une exception GEOS lors de l'intersection d'une rangée
+avec le contour tourné. L'entrée échouée a été effacée par le nettoyage normal
+des jobs incomplets ; cette exception exacte n'a pas été reproduite sur le
+corpus synthétique. Une faiblesse indépendante a toutefois été démontrée : un
+polygon valide avec une contreforme tangente à son enveloppe peut devenir
+invalide après une rotation numérique. Par exemple, enveloppe `(0,0)-(10,8)` et
+contreforme `(2,0),(3,2),(2,3),(1,2)` à −30° sur l'environnement de validation.
+
+Le moteur conserve son chemin habituel si la géométrie tournée est valide. Sinon,
+ou après une exception GEOS, il découpe les lignes de balayage dans le contour
+original valide, puis projette uniquement les segments obtenus. La bascule est
+conservée pour les rangées suivantes. Aucun buffer de réparation, remplissage
+de trou ou snapping des contours n'est appliqué. Si les deux repères échouent,
+une erreur explicite remplace l'exception brute.
+
+Les tests de régression couvrent le contact tangent avec une perturbation
+numérique contrôlée, un retry GEOS sur neuf angles et l'échec irréparable. Ils
+vérifient l'absence de traversée des trous, la conservation des coordonnées
+machine à 0,1 mm et un écart numérique ≤ 10⁻¹² mm sur ces exemples. Ce fallback
+renforce la robustesse du découpage ; il ne prouve pas que toutes les causes
+d'erreur géométrique sont corrigées.
+
+Le corpus Pepsi, Phénix, Falcon, drapeau et trois contrôles conserve les
+commandes, fils, statistiques, aperçu sélectionné et octets PES/DST sur **7/7**
+entrées après ce correctif. Les masques et topologies indépendants sont également
+inchangés. Sur Falcon, certaines métriques des candidats fill rejetés varient
+légèrement (`missing_mm2` 268,16 → 268,18, `spill_mm2` 31,60 → 31,65), ainsi que
+des longueurs de saut. La sélection reste identique ; l'égalité n'est pas
+revendiquée pour tous les candidats ou leurs diagnostics. Le [rapport borné](benchmarks/fill-topology-2026-10-13.json)
+conserve cette distinction.
+
 ## Parasites de couleur : image, aperçu et points machine
 
 Le Pepsi fourni révélait deux causes indépendantes : les fondations rouge/bleu
