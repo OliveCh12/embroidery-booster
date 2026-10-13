@@ -54,6 +54,9 @@ files are not stored in browser preferences. The workspace fills the available
 height below the header, without a footer. See [frontend development](frontend/README.md) for separate processes and
 production builds.
 
+The header also displays the installed frontend version beside the application
+name, including on small screens. This release is **0.6.0**.
+
 `pnpm dev` starts Next.js on port 3000 and the Python API on port 8000.
 `FRONTEND_PORT` and `API_PORT` override them. Core-only installation: `uv sync`.
 Build the Python wheel with `uv build`.
@@ -100,6 +103,14 @@ grid. Simplification that alters this reference falls back to exact contours;
 the diagnostics in **Détails** report the correction. This protects interpreted
 geometry, while the separate machine audits still identify details too small
 to sew at the requested size. See [tracing checks](docs/INPUT_INTERPRETATION.md#normalisation-et-contrôle-du-tracé).
+
+Before colour interpretation, bitmap reduction checks the source silhouette and,
+for small literal palettes, each paint. If meaningful details disappear or merge,
+the engine tries 24 pixels/mm and then nearest-neighbour sampling for those flat
+palettes only. It never enlarges the source, keeps the 2,048-pixel working limit,
+and reports unresolved differences in **Détails**. This protects graphic details;
+the machine still checks whether they can be sewn. Antialiased or compressed
+colour details and photographs currently receive silhouette checks only.
 
 Compressed flat artwork uses local colour-mixture evidence to clean tiny edge
 fragments. Weak edge shades are assigned to locally supported paints rather

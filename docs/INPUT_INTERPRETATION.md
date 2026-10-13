@@ -60,6 +60,58 @@ Le [comparatif des accents](benchmarks/colour-accent-2026-10-13.json) conserve
 la preuve avant/après de la correction des détails fins et la stabilité des
 palettes et masques sur les logos de référence.
 
+## Préserver les détails avant la palette
+
+`interpretation/sampling.py` reçoit le RGBA recadré **après** normalisation,
+retrait du fond et affinage de son contour, à la taille physique demandée ou
+ajustée au cadre. Ce contrôle ne juge donc pas la segmentation du fond.
+L'ancien thumbnail Lanczos à 12 pixels/mm reste le premier candidat. S'il
+altère un détail significatif, le moteur essaie Lanczos à 24 pixels/mm, puis
+le plus proche voisin à 24 pixels/mm pour une petite palette littérale seulement.
+Au maximum trois candidats sont évalués, sans agrandir la source et avec une
+dimension maximale de 2 048 pixels. Une source déjà assez petite reste inchangée.
+
+Les comparaisons utilisent les composantes peintes en connectivité 4 et les
+contreformes en connectivité 8. Les centres cible sont rapportés aux cellules
+source : un trou perdu et un nouveau trou ailleurs ne s'annulent pas parce que
+leur nombre est identique. Le seuil de pertinence est **0,01 mm²**, soit l'aire
+d'un carré de 0,1 mm. C'est une politique de conservation graphique, pas une
+largeur brodable. Des poussières cible sous ce seuil détachées d'un corps encore
+présent ne suffisent pas à déclencher une adaptation.
+
+Lorsque tous les pixels visibles de la source utilisent au plus `max_colors`
+RGB distincts, chaque peinture littérale est auditée séparément. La réduction
+doit aussi conserver assez de pixels intérieurs littéraux d'un petit aplat pour
+qu'il ne soit pas ensuite confondu avec un mélange de bord par la palette. Les
+RGB cachés sous l'alpha ne participent pas à la détection. Les photos, dégradés
+et contours antialiasés dépassant cette palette reçoivent seulement le contrôle
+de silhouette. Le moteur n'invente pas de palette source pour ces images ; la
+récupération de leurs accents colorés reste une amélioration à venir.
+
+`input_analysis.resampling` enregistre les grilles source/travail, leur repère
+physique incluant le padding historique, le mode choisi, les tentatives et les
+composantes perdues, fusionnées, fragmentées ou créées. `passed` et
+`unresolved_issues` portent sur les détails au-dessus du seuil. Une différence
+de topologie sous le seuil peut donc coexister avec `passed=true`. Les écarts
+alpha et couleur peuvent concerner le même détail ; leur somme n'est pas un
+nombre de détails distincts. Le rapport reste déterministe, sans durée mesurée.
+
+Si aucun candidat ne passe, celui qui présente le moins d'écarts est retenu
+avec un avertissement. Après quantification et nettoyage, `interpreted_palette`
+liste les peintures effectivement présentes et `missing_source_paints` signale
+les couleurs littérales significatives entièrement absentes. Ce dernier champ
+vaut `null` lorsqu'aucune comparaison de palette source n'a été faite. Il ne
+vérifie pas la conservation de chaque sous-région d'une même couleur.
+L'API d'analyse, `generate()`, le CLI JSON et Détails utilisent le même rapport.
+Les contrôles de tracé puis de points machine restent indépendants : une bonne
+réduction ne prouve ni une interprétation parfaite ni une couture qualifiée.
+
+Cette adaptation est automatique, sans nouveau réglage. Les SVG natifs Auto/Keep
+et le chemin monochrome, qui conserve déjà sa grille source, sont inchangés.
+Le mode SVG Remove utilise le même chemin bitmap couleur. Désactiver le nettoyage
+ne désactive pas le contrôle de réduction ; seules les opérations de nettoyage
+en aval sont désactivées.
+
 ## Fond extérieur, peinture intérieure et transparence
 
 Le fond n'est pas une couleur à effacer partout. Un badge blanc fermé peut être

@@ -17,6 +17,7 @@ from .colors import bitmap_colors, clean_color_regions
 from .input_quality import raster_quality
 from .interpretation import RasterArtwork
 from .interpretation.normalize import normalize_image
+from .interpretation.sampling import sample_bitmap
 from .interpretation.tracing import serialize_bitmap
 from .svg_manager import MAX_INPUT_BYTES, UNITS_PER_MM, load_svg_paths
 
@@ -176,13 +177,9 @@ def _color_bitmap_svg(
     physical_width = _fitted_width(
         physical_width, source_width + 2, source_height + 2, hoop_size_mm, diagnostics
     )
-    # Crop first so blank canvas cannot consume the physical detail budget.
-    image = Image.fromarray(rgba)
-    physical_longest = physical_width * max(source_width, source_height) / source_width
-    image.thumbnail(
-        (min(2048, max(1, round(physical_longest * 12))),) * 2, Image.Resampling.LANCZOS
-    )
-    rgba = np.asarray(image)
+    # Inspect source details before interpolation can remove them or blend a
+    # literal accent into neighbouring paints used by palette recovery.
+    rgba, diagnostics["resampling"] = sample_bitmap(rgba, physical_width, max_colors=max_colors)
     cleanup_info = {
         "enabled": cleanup,
         "changed_pixels": 0,
@@ -221,6 +218,7 @@ def _color_bitmap_svg(
         label(labels == index)[1] for index in range(1, len(colors) + 1)
     )
     _check_trace_budget(cleanup_info["regions_after"])
+    _record_interpreted_palette(diagnostics["resampling"], labels, colors)
     diagnostics.update(background=background_info, cleanup=cleanup_info)
     diagnostics["quality"] = raster_quality(
         source_pixels=image_size,
@@ -242,6 +240,24 @@ def _color_bitmap_svg(
     root, diagnostics["tracing"] = serialize_bitmap(artwork, tolerance, crisp_edges=True)
     ET.ElementTree(root).write(svg_path, encoding="utf-8", xml_declaration=True)
     return str(svg_path)
+
+
+def _record_interpreted_palette(report: dict, labels: np.ndarray, colors: list[str]) -> None:
+    used = sorted(colors[index - 1] for index in np.unique(labels[labels > 0]))
+    reference = report.get("source_palette")
+    significant = (
+        [
+            color
+            for color in reference
+            if report["attempts"][0]["masks"][color]["components"]["relevant_source"]
+        ]
+        if reference is not None and report["attempts"]
+        else None
+    )
+    report["interpreted_palette"] = used
+    report["missing_source_paints"] = (
+        sorted(set(significant) - set(used)) if significant is not None else None
+    )
 
 
 def _remove_alpha_fragments(labels, rgba, pixels_per_mm, diagnostics):
@@ -477,6 +493,15 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
     if tracing.get("fallback"):
         warnings.append(
             f"Contour simplification altered {tracing['initial']['changed_pixels']} native pixels; exact contours restored the interpreted paint and counters. Very fine details still need a sewing-size check."
+        )
+    resampling = input_analysis.get("resampling", {})
+    if resampling.get("unresolved_issues", 0):
+        warnings.append(
+            "Some source details could not be preserved within the bitmap sampling budget. Check the interpreted drawing or use the original vector SVG."
+        )
+    if resampling.get("missing_source_paints"):
+        warnings.append(
+            "Some significant literal source paints are absent after palette interpretation and cleanup. Check the interpreted drawing; disable bitmap cleanup to retain intentional paint."
         )
     if input_analysis["background"]["applied"]:
         model = input_analysis["background"].get("model")

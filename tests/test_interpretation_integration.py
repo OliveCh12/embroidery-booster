@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
+from embroidery_rungs import GenerationParams, StitchParams, generate
 from embroidery_rungs.input_quality import complete_input_analysis
 from embroidery_rungs.inputs import raster_to_svg
 from embroidery_rungs.svg_manager import load_svg_paths
@@ -89,3 +90,26 @@ def test_embedded_profile_is_normalized_in_the_shared_raster_entry_point(tmp_pat
     assert diagnostics["normalization"]["icc_status"] == "converted"
     assert diagnostics["tracing"]["final"]["passed"]
     assert ET.parse(target).find("{http://www.w3.org/2000/svg}path").attrib["fill"] == "#ff0000"
+
+
+@pytest.mark.parametrize("accent_height", [0.5, 2.5])
+def test_half_millimetre_literal_accent_reaches_machine_plan(tmp_path, accent_height):
+    pixels_per_mm = 48
+    image = Image.new("RGBA", (20 * pixels_per_mm, 5 * pixels_per_mm), "#ee2020")
+    image.paste("#2020ee", (15 * pixels_per_mm, 0, 20 * pixels_per_mm, 5 * pixels_per_mm))
+    x0, y0 = 320, 60
+    image.paste("#872087", (x0, y0, x0 + 24, y0 + round(accent_height * pixels_per_mm)))
+    source = tmp_path / "accent.png"
+    image.save(source)
+    result = generate(
+        source,
+        tmp_path / "result",
+        GenerationParams(design_width_mm=20, background_mode="keep"),
+        stitch_params=StitchParams.for_fabric("stable", machine="brother-skitch-pp1"),
+    )
+    assert "#872087" in result.direct.threads
+    assert result.direct.stats["omitted_colors"] == 0
+    assert result.direct.stats["unsafe_connections"] == 0
+    decisions = [decision for decision in result.direct.decisions if decision["color"] == "#872087"]
+    assert decisions
+    assert all(decision["method"] != "omitted" for decision in decisions)

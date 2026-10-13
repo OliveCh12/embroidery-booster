@@ -1,5 +1,74 @@
 # Validation du moteur direct — 13 octobre 2026
 
+## Version 0.6.0 : détails conservés avant réduction
+
+Le troisième lot inspecte le bitmap source avant le thumbnail et la palette.
+Il conserve le candidat historique quand les détails significatifs subsistent,
+et adapte la grille seulement en présence de pertes mesurées. Les règles,
+seuils et limites sont décrits dans [l'interprétation](INPUT_INTERPRETATION.md#préserver-les-détails-avant-la-palette).
+Le header affiche **v0.6.0**, depuis le package frontend, en light/dark et sur
+écran étroit. Le rapport de réduction rejoint les diagnostics existants.
+
+Le [corpus avant/après](benchmarks/adaptive-sampling-2026-10-13.json) compare
+**47 entrées** à la référence `a11df08` : aplats avec accents et traits de
+0,1/0,25/0,5/1 mm, contreformes alpha, rotations/reflets/marges, JPEG à trois
+qualités, badge sur dégradé, cercles antialiasés et quatre logos réels.
+Les sources sont identiques par empreinte. Les 47 conversions aboutissent ;
+19 adaptent utilement leur grille, dont **18 récupèrent une peinture violette**
+et une récupère une contreforme alpha. Aucun écart significatif n'est laissé
+sans résolution dans le périmètre audité. Cela ne certifie pas les couleurs
+des images dont seul l'alpha a été comparé.
+
+Deux contrôles brodables à 20 mm démontrent une correction jusqu'aux points :
+
+| Détail violet littéral de 0,5 mm | PNG avant | PNG après | SVG natif |
+|---|---:|---:|---:|
+| Trait de 2,5 mm de haut | 2 fils, 255 points | 3 fils, 260 points | 3 fils, 280 points |
+| Carré | 2 fils, 270 points | 3 fils, 243 points | 3 fils, 340 points |
+
+Avant, une couverture structurelle proche de 100 % masquait la disparition
+complète du violet dans l'interprétation. Après, les deux PNG conservent ce fil,
+sans omission, et la relecture PES/DST confirme les points, deux changements
+de couleur et des coordonnées finies dans le cadre PP1. PNG et SVG ne produisent
+pas les mêmes commandes ; la correction ne prétend pas les rendre identiques.
+
+Sur **7/7 références**, SVG interprétés, labels, topologie, commandes, fils,
+décisions, statistiques, aperçu SVG et octets PES/DST restent exactement
+identiques. Phénix conserve 2 709 points et 18 coupes. Les 58 micro-régions
+omises du drapeau restent présentes dans les diagnostics de référence : ce lot
+ne modifie pas le planificateur de points. Les poussières sous 0,01 mm² ne
+déclenchent plus un faux split si le corps principal subsiste ; une fragmentation
+entière en poussières et une nouvelle contreforme significative restent détectées.
+
+Les performances ci-dessous mesurent uniquement la préparation, dans des
+processus séparés, après une chauffe et sur sept passages. Le p95 est empirique
+sur cet échantillon court. La charge de la machine de développement n'est pas
+contrôlée ; ces résultats documentent le coût, sans prouver une accélération.
+
+| Entrée | Médiane avant → après | p95 avant → après |
+|---|---:|---:|
+| Trait violet 0,5 mm, motif 20 mm | 0,011 → 0,079 s | 0,012 → 0,081 s |
+| Même détail, motif 80 mm | 0,178 → 1,250 s | 0,182 → 1,295 s |
+| Phénix | 0,287 → 0,328 s | 0,290 → 0,339 s |
+| JPEG qualité 35 | 0,169 → 0,182 s | 0,207 → 0,189 s |
+
+Le cas 80 mm paie une grille quatre fois plus grande et les contrôles source,
+avec un pic RSS total de 260,9 → 350,4 Mio. Un stress indépendant de 16 MP donne
+574 Mio pour un damier très fragmenté et 261 Mio pour du RGB opaque à nombreuses
+nuances ; ces pics incluent Python, les imports et les bibliothèques natives.
+Le second stress n'est pas une photo sémantique. Le plafond de travail reste
+2 048 pixels et celui de la source 16 MP ; aucune super-résolution n'est appliquée.
+
+**Limite importante : quatre cercles violets antialiasés de 0,25/0,5 mm restent
+absents après palette.** Leurs nombreuses nuances les placent dans le contrôle
+alpha seul. Récupérer ces couleurs avant réduction est le prochain lot ; aucune
+garantie de fidélité complète des photos ou JPEG difficiles n'est annoncée.
+
+Validation : **786 tests Python**, **130 tests frontend**, Ruff, TypeScript,
+ESLint, build Next.js et wheel 0.6.0. Le parcours web a généré les trois fils du
+PNG de contrôle ; le header reste visible en light/dark et à 320 px de largeur.
+Ces contrôles logiciels ne remplacent pas un essai sur tissu.
+
 ## Consolidation : contrat d'interprétation
 
 Le premier lot de `engine-consolidation` conserve le comportement de `dc8081d`
@@ -359,7 +428,7 @@ affichés. Les diagnostics de nettoyage ont été recalculés après correction 
 compteur sans changement ; les SVG interprétés sont identiques octet pour octet
 à ceux de la matrice, donc ses mesures machine restent valides.
 
-## Version actuelle : 0.5.1
+## Nettoyage du fond : version 0.5.1
 
 La suppression du fond distingue maintenant les aplats, les dégradés doux
 affines et les dégradés non linéaires. Une propagation depuis l'extérieur et

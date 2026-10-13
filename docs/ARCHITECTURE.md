@@ -1,6 +1,6 @@
 # Architecture
 
-La version 0.5 utilise un seul moteur direct. `generate()` prépare l'entrée,
+La version 0.6 utilise un seul moteur direct. `generate()` prépare l'entrée,
 applique la taille demandée et publie les fichiers après réussite des exports.
 La classification, les rails internes, les points et les contrôles machine
 appartiennent au package `stitching/`.
@@ -12,6 +12,7 @@ src/embroidery_rungs/
   interpretation/
     types.py               Masques immuables, palette et repère physique du bitmap
     normalize.py           Orientation EXIF et profils ICC vers sRGB, alpha conservé
+    sampling.py            Réduction bornée, contrôle des détails source et adaptation
     tracing.py             Sérialisation commune et fallback vers contours exacts
     audit.py               Fidélité catégorielle, topologie et distances de contours
   svg_manager.py           Validation SVG et transformations physiques
@@ -54,8 +55,10 @@ output/                   Jobs et artefacts générés, ignorés par Git
 
 1. Valider les réglages et le fichier ; orienter le bitmap et appliquer son
    profil ICC vers sRGB avant de séparer les peintures. Interpréter le fond connecté au bord,
-   affiner ses mélanges avec le contour avant tout redimensionnement,
-   consolider la palette bitmap et réduire les petits parasites adjacents avant
+   affiner ses mélanges avec le contour avant tout redimensionnement. Comparer
+   la silhouette et les petites palettes littérales avant/après réduction ;
+   adapter la grille uniquement si des détails significatifs sont altérés.
+   Consolider la palette bitmap et réduire les petits parasites adjacents avant
    le tracé. Auditer les contours sur la grille du contrat immuable ; revenir
    aux contours non simplifiés si des pixels ou des contreformes changent.
    Exposer chaque modification dans `input_analysis`.

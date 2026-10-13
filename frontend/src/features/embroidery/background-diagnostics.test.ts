@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeBackground, describeBitmapCleanup, describeNormalization, describeTraceAudit } from "./background-diagnostics";
+import { describeBackground, describeBitmapCleanup, describeNormalization, describeResampling, describeTraceAudit } from "./background-diagnostics";
 import type { InputAnalysis } from "./types";
 
 const legacy: NonNullable<InputAnalysis["background"]> = {
@@ -147,5 +147,80 @@ describe("source colour normalization feedback", () => {
 
   it("makes the assumption explicit for an unprofiled CMYK source", () => {
     expect(describeNormalization({ ...normalization, source_mode: "CMYK" })).toContain("sans profil couleur");
+  });
+});
+
+describe("source resampling feedback", () => {
+  const resampling: NonNullable<InputAnalysis["resampling"]> = {
+    source_pixels: [1600, 1000], working_pixels: [960, 600], reference: "source_alpha_and_literal_paints",
+    resampling: "lanczos", adapted: false, detail_area_mm2: 0.01,
+    passed: true, topology_preserved: true, unresolved_issues: 0,
+  };
+
+  it("keeps older results without resampling metadata silent", () => {
+    expect(describeResampling(undefined)).toBeNull();
+  });
+
+  it("reports an unchanged source without inventing a reduction audit", () => {
+    const summary = describeResampling({ ...resampling, source_pixels: [960, 600], reference: "source_unchanged", resampling: "none" });
+    expect(summary).toEqual({ message: "Grille d’analyse : source conservée (960 × 600 px).", needsReview: false });
+  });
+
+  it("explains adapted resolution and the measured scope before stitch generation", () => {
+    const summary = describeResampling({ ...resampling, adapted: true });
+    expect(summary?.message).toContain("1 600 × 1 000 px → 960 × 600 px");
+    expect(summary?.message).toContain("résolution ajustée pour préserver les détails");
+    expect(summary?.message).toContain("Silhouette et aplats comparés");
+    expect(summary?.message).toContain("d’au moins 0,01 mm²");
+    expect(summary?.message).toContain("avant le calcul des points");
+    expect(summary?.message).not.toContain("brodable");
+  });
+
+  it("does not claim colour fidelity when only silhouette was compared", () => {
+    const summary = describeResampling({ ...resampling, reference: "source_alpha" });
+    expect(summary?.message).toContain("Silhouette comparée");
+    expect(summary?.message).not.toContain("aplats");
+    expect(summary?.message).not.toContain("couleurs");
+  });
+
+  it("does not flag negligible topology changes below the measured detail threshold", () => {
+    const summary = describeResampling({ ...resampling, topology_preserved: false });
+    expect(summary?.needsReview).toBe(false);
+    expect(summary?.message).toContain("d’au moins 0,01 mm²");
+    expect(summary?.message).not.toContain("trous préservés");
+  });
+
+  it("reports overlapping anomalies as measured differences instead of unique details", () => {
+    const summary = describeResampling({ ...resampling, passed: false, topology_preserved: false, unresolved_issues: 3 });
+    expect(summary?.needsReview).toBe(true);
+    expect(summary?.message).toContain("3 écarts mesurés après réduction");
+    expect(summary?.message).not.toContain("3 détails");
+    expect(summary?.message).toContain("vérifiez le dessin interprété");
+  });
+
+  it("does not approve contradictory success and unresolved anomaly metadata", () => {
+    const summary = describeResampling({ ...resampling, unresolved_issues: 1 });
+    expect(summary?.needsReview).toBe(true);
+    expect(summary?.message).toContain("1 écart mesuré");
+    const failed = describeResampling({ ...resampling, passed: false });
+    expect(failed?.needsReview).toBe(true);
+    expect(failed?.message).toContain("Réduction à vérifier");
+  });
+
+  it("flags missing literal paints after interpretation independently of a faithful reduction", () => {
+    const summary = describeResampling({ ...resampling, interpreted_palette: ["#000000"], missing_source_paints: ["#ffffff"] });
+    expect(summary?.needsReview).toBe(true);
+    expect(summary?.message).toContain("aplats de couleur de la source sont absents après interprétation et nettoyage");
+    expect(summary?.message).not.toContain("Réduction à vérifier");
+    expect(summary?.message).not.toContain("écart");
+  });
+
+  it("does not invent a paint-presence audit for unknown or unavailable palette metadata", () => {
+    for (const missing_source_paints of [undefined, null, []]) {
+      const summary = describeResampling({ ...resampling, missing_source_paints });
+      expect(summary?.needsReview).toBe(false);
+      expect(summary?.message).not.toContain("absents après interprétation");
+      expect(summary?.message).not.toContain("couleurs conservées");
+    }
   });
 });

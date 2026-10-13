@@ -64,8 +64,16 @@ export interface TraceAudit {
   changed_pixels: number; topology_preserved: boolean; passed: boolean;
   nodes: number; serialized_bytes: number;
 }
+export interface ResamplingAnalysis {
+  source_pixels: [number, number]; working_pixels: [number, number];
+  reference: "source_unchanged" | "source_alpha" | "source_alpha_and_literal_paints";
+  resampling: "none" | "lanczos" | "nearest"; adapted: boolean;
+  detail_area_mm2: number; passed: boolean; topology_preserved: boolean; unresolved_issues: number;
+  interpreted_palette?: string[]; missing_source_paints?: string[] | null;
+}
 export interface InputAnalysis {
   quality?: InputQuality;
+  resampling?: ResamplingAnalysis;
   geometry?: {
     canvas_size_mm: [number, number]; visible_bounds_mm: [number, number, number, number];
     visible_size_mm: [number, number]; pixel_size_mm: [number, number];
