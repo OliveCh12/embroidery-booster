@@ -120,6 +120,15 @@ de l'atelier, les recommandations machine et matière de l'API sont appliquées
 une seule fois. Une modification utilisateur garde la priorité sur cette
 initialisation. Aucun dessin, résultat ou réglage avancé n'est persisté.
 
+`input_quality.py` sépare l’échantillonnage de la source des audits de couverture
+du moteur. `inputs.py` conserve les dimensions avant réduction, après recadrage
+et sur la grille de travail ; le pipeline complète le rapport avec la taille
+physique finale. L’API `/api/analyze` et `/api/convert` partagent le parseur de
+réglages et la préparation d’image, sans lancer le digitizer pendant l’analyse.
+Les uploads d’analyse restent dans un répertoire temporaire supprimé à la fin.
+Le front limite les demandes aux changements d’interprétation et de taille ;
+chaque sélection de fichier a sa propre révision, indépendante du nom du fichier.
+
 Le modèle du lecteur dérive chaque passage des commandes `COLOR_CHANGE`, avec
 plage de curseur, compte exact des points et temps cumulés de cycles d'aiguille.
 La liste des fils et les modes de lecture partagent ces limites ; aucun

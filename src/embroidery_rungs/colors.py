@@ -4,12 +4,44 @@ from __future__ import annotations
 
 import numpy as np
 from PIL import Image
-from scipy.ndimage import binary_dilation, distance_transform_edt, find_objects, label
+from scipy.ndimage import (
+    binary_dilation,
+    binary_erosion,
+    distance_transform_edt,
+    find_objects,
+    label,
+)
 from scipy.optimize import nnls
 from scipy.spatial import cKDTree
 from skimage.color import rgb2lab
 
 from .background import bitmap_foreground as bitmap_foreground
+
+
+def _interior_flat_accents(
+    rgba: np.ndarray,
+    packed: np.ndarray,
+    visible: np.ndarray,
+    paints: np.ndarray,
+    candidates: list[np.uint32],
+) -> np.ndarray:
+    """Keep literal thin paint inside one body, not a blend of nearby bodies."""
+    eligible = visible & (rgba[..., 3] == 255) & np.isin(packed, candidates)
+    if not eligible.any():
+        return np.empty(0, dtype=np.uint32)
+    neighbourhood = np.ones((3, 3), dtype=bool)
+    eligible &= binary_erosion(rgba[..., 3] == 255, structure=neighbourhood, iterations=2)
+    if not eligible.any():
+        return np.empty(0, dtype=np.uint32)
+    neighbours = np.zeros(visible.shape, dtype=np.uint8)
+    for paint in paints:
+        neighbours += binary_dilation(
+            visible & (packed == paint), structure=neighbourhood, iterations=2
+        )
+    # An RGB convex hull is not spatial evidence. A violet line within red paint
+    # remains a valid source colour even if blue occurs elsewhere in the design.
+    # A literal transition within two pixels of both paints remains an edge.
+    return np.unique(packed[eligible & (neighbours <= 1)])
 
 
 def separate_colors(rgba: np.ndarray, max_colors: int = 12) -> tuple[np.ndarray, list[str], bool]:
@@ -53,10 +85,15 @@ def separate_colors(rgba: np.ndarray, max_colors: int = 12) -> tuple[np.ndarray,
         adjacent = binary_dilation(visible & np.isin(packed, values))
         touching_values = np.unique(packed[visible & adjacent])
         accents = []
+        ambiguous = []
         for value in np.setdiff1d(visible_values, values):
             color = np.array([value >> 16, (value >> 8) & 255, value & 255, 255])
             if value not in touching_values or nnls(blends, color)[1] > 2:
                 accents.append(value)
+            else:
+                ambiguous.append(value)
+        if ambiguous:
+            accents.extend(_interior_flat_accents(rgba, packed, visible, values, ambiguous))
         if accents:
             values = np.union1d(values, accents)
             counts = visible_counts[np.searchsorted(visible_values, values)]

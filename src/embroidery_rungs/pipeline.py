@@ -11,6 +11,7 @@ import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+from .input_quality import complete_input_analysis, quality_warnings
 from .inputs import prepare_artwork
 from .stitching.export import DirectGenerationResult, export_direct, export_plan
 from .stitching.params import StitchParams
@@ -129,6 +130,10 @@ def generate(
             preserve_colors=stitch_params.preserve_colors,
         )
         svg, _ = load_svg_paths(source)
+        complete_input_analysis(
+            svg, input_analysis, source_is_vector=input_source.suffix.lower() == ".svg"
+        )
+        warnings.extend(quality_warnings(input_analysis["quality"]))
         prepared = time.perf_counter()
         artwork_name = f"{input_source.stem}_artwork.svg"
         stage_parent = output

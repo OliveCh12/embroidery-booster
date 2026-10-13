@@ -1,0 +1,498 @@
+{
+  "schema": 1,
+  "basis": "advisory source quality after identical artwork preparation; no stitch quality prediction",
+  "target_pixels_per_mm": 12,
+  "caution_below_pixels_per_mm": 6,
+  "poor_below_pixels_per_mm": 3,
+  "cases": [
+    {
+      "input": "badge-64.png",
+      "sha256": "24756ee67a2806f73e01e82af73d5e4093611715993a7cd8695c3233c876fd6f",
+      "design_width_mm": 80,
+      "seconds": 0.011,
+      "http_status": 200,
+      "quality": {
+        "artwork_pixels": [
+          49,
+          49
+        ],
+        "color_count": 2,
+        "detail_sample_mm": 4.897959183673469,
+        "effective_dpi": 15.557500000000001,
+        "format": "PNG",
+        "issues": [
+          "very_low_resolution"
+        ],
+        "kind": "flat_artwork",
+        "physical_size_mm": [
+          80.0,
+          80.0
+        ],
+        "pixels_per_mm": 0.6125,
+        "recommended_pixels": [
+          960,
+          960
+        ],
+        "recommended_width_mm": 4.083333333333333,
+        "region_count": 2,
+        "source_pixels": [
+          64,
+          64
+        ],
+        "source_type": "raster",
+        "status": "poor",
+        "working_pixels": [
+          49,
+          49
+        ]
+      }
+    },
+    {
+      "input": "badge-256.png",
+      "sha256": "b6329244201783855aeb671f4cb5b0e1327a97812274545d1f63ca07e072046c",
+      "design_width_mm": 80,
+      "seconds": 0.0299,
+      "http_status": 200,
+      "quality": {
+        "artwork_pixels": [
+          193,
+          193
+        ],
+        "color_count": 2,
+        "detail_sample_mm": 1.2435233160621761,
+        "effective_dpi": 61.277499999999996,
+        "format": "PNG",
+        "issues": [
+          "very_low_resolution"
+        ],
+        "kind": "flat_artwork",
+        "physical_size_mm": [
+          80.0,
+          80.0
+        ],
+        "pixels_per_mm": 2.4125,
+        "recommended_pixels": [
+          960,
+          960
+        ],
+        "recommended_width_mm": 16.083333333333332,
+        "region_count": 2,
+        "source_pixels": [
+          256,
+          256
+        ],
+        "source_type": "raster",
+        "status": "poor",
+        "working_pixels": [
+          193,
+          193
+        ]
+      }
+    },
+    {
+      "input": "badge-1024.png",
+      "sha256": "571dfbbafbb933eafca8f4e88dde10c06f6767c310009be674d227d368c0ad37",
+      "design_width_mm": 80,
+      "seconds": 0.3174,
+      "http_status": 200,
+      "quality": {
+        "artwork_pixels": [
+          769,
+          769
+        ],
+        "color_count": 2,
+        "detail_sample_mm": 0.3120936280884265,
+        "effective_dpi": 244.1575,
+        "format": "PNG",
+        "issues": [],
+        "kind": "flat_artwork",
+        "physical_size_mm": [
+          80.0,
+          80.0
+        ],
+        "pixels_per_mm": 9.6125,
+        "recommended_pixels": [
+          960,
+          960
+        ],
+        "recommended_width_mm": 64.08333333333333,
+        "region_count": 2,
+        "source_pixels": [
+          1024,
+          1024
+        ],
+        "source_type": "raster",
+        "status": "good",
+        "working_pixels": [
+          769,
+          769
+        ]
+      }
+    },
+    {
+      "input": "badge-64.png",
+      "sha256": "24756ee67a2806f73e01e82af73d5e4093611715993a7cd8695c3233c876fd6f",
+      "design_width_mm": 20,
+      "seconds": 0.0069,
+      "http_status": 200,
+      "quality": {
+        "artwork_pixels": [
+          49,
+          49
+        ],
+        "color_count": 2,
+        "detail_sample_mm": 1.2244897959183672,
+        "effective_dpi": 62.230000000000004,
+        "format": "PNG",
+        "issues": [
+          "very_low_resolution"
+        ],
+        "kind": "flat_artwork",
+        "physical_size_mm": [
+          20.0,
+          20.0
+        ],
+        "pixels_per_mm": 2.45,
+        "recommended_pixels": [
+          240,
+          240
+        ],
+        "recommended_width_mm": 4.083333333333333,
+        "region_count": 2,
+        "source_pixels": [
+          64,
+          64
+        ],
+        "source_type": "raster",
+        "status": "poor",
+        "working_pixels": [
+          49,
+          49
+        ]
+      }
+    },
+    {
+      "input": "large-canvas-tiny-logo.png",
+      "sha256": "f6853b0687349474a15ccb5ab7666a1945830764861dda4307ec59e8e7959d74",
+      "design_width_mm": 80,
+      "seconds": 0.0214,
+      "http_status": 200,
+      "quality": {
+        "artwork_pixels": [
+          49,
+          49
+        ],
+        "color_count": 2,
+        "detail_sample_mm": 4.897959183673469,
+        "effective_dpi": 15.557500000000001,
+        "format": "PNG",
+        "issues": [
+          "very_low_resolution"
+        ],
+        "kind": "flat_artwork",
+        "physical_size_mm": [
+          80.0,
+          80.0
+        ],
+        "pixels_per_mm": 0.6125,
+        "recommended_pixels": [
+          960,
+          960
+        ],
+        "recommended_width_mm": 4.083333333333333,
+        "region_count": 2,
+        "source_pixels": [
+          1500,
+          1500
+        ],
+        "source_type": "raster",
+        "status": "poor",
+        "working_pixels": [
+          49,
+          49
+        ]
+      }
+    },
+    {
+      "input": "compressed-badge.jpg",
+      "sha256": "d33e2c9caaba46c38c6239f84a80f10c60d4109ad6424d45a45fc408bd4a29d8",
+      "design_width_mm": 80,
+      "seconds": 0.7432,
+      "http_status": 200,
+      "quality": {
+        "artwork_pixels": [
+          769,
+          769
+        ],
+        "color_count": 3,
+        "detail_sample_mm": 0.3120936280884265,
+        "effective_dpi": 244.1575,
+        "format": "JPEG",
+        "issues": [
+          "many_shades",
+          "palette_reduced",
+          "lossy_source"
+        ],
+        "kind": "many_shades",
+        "physical_size_mm": [
+          80.0,
+          80.0
+        ],
+        "pixels_per_mm": 9.6125,
+        "recommended_pixels": [
+          960,
+          960
+        ],
+        "recommended_width_mm": 64.08333333333333,
+        "region_count": 37,
+        "source_pixels": [
+          1024,
+          1024
+        ],
+        "source_type": "raster",
+        "status": "caution",
+        "working_pixels": [
+          769,
+          769
+        ]
+      }
+    },
+    {
+      "input": "badge.svg",
+      "sha256": "e2725334a8fa70742f6a99e3a95c491f9210a839a8202a62da13d3ae8b2c7aee",
+      "design_width_mm": 80,
+      "seconds": 0.0015,
+      "http_status": 200,
+      "quality": {
+        "artwork_pixels": null,
+        "color_count": null,
+        "detail_sample_mm": null,
+        "effective_dpi": null,
+        "format": "SVG",
+        "issues": [],
+        "kind": "vector",
+        "physical_size_mm": [
+          80.0,
+          80.0
+        ],
+        "pixels_per_mm": null,
+        "recommended_pixels": null,
+        "recommended_width_mm": null,
+        "region_count": null,
+        "source_pixels": null,
+        "source_type": "vector",
+        "status": "good",
+        "working_pixels": null
+      }
+    },
+    {
+      "input": "logo_phoenix.png",
+      "sha256": "d890630cb7afe0c5b0a8c2ae426024526c5ac0e72cf7863ae0639a3862a98d28",
+      "design_width_mm": 80,
+      "seconds": 0.2518,
+      "http_status": 200,
+      "quality": {
+        "artwork_pixels": [
+          1018,
+          871
+        ],
+        "color_count": 1,
+        "detail_sample_mm": 0.2357563850687623,
+        "effective_dpi": 323.215,
+        "format": "PNG",
+        "issues": [
+          "palette_reduced"
+        ],
+        "kind": "flat_artwork",
+        "physical_size_mm": [
+          80.0,
+          68.4407
+        ],
+        "pixels_per_mm": 12.725,
+        "recommended_pixels": [
+          960,
+          822
+        ],
+        "recommended_width_mm": 84.83333333333333,
+        "region_count": 3,
+        "source_pixels": [
+          1254,
+          1254
+        ],
+        "source_type": "raster",
+        "status": "good",
+        "working_pixels": [
+          960,
+          821
+        ]
+      }
+    },
+    {
+      "input": "logo_falcon.png",
+      "sha256": "978d667147e52bc5b304aff3ad7316a2cda0c43129e49ee2a24403e3fb5bc635",
+      "design_width_mm": 80,
+      "seconds": 0.1525,
+      "http_status": 200,
+      "quality": {
+        "artwork_pixels": [
+          488,
+          452
+        ],
+        "color_count": 1,
+        "detail_sample_mm": 0.49196283185840706,
+        "effective_dpi": 154.88974992714753,
+        "format": "PNG",
+        "issues": [
+          "palette_reduced"
+        ],
+        "kind": "flat_artwork",
+        "physical_size_mm": [
+          80.0,
+          74.1224
+        ],
+        "pixels_per_mm": 6.0980216506751,
+        "recommended_pixels": [
+          960,
+          890
+        ],
+        "recommended_width_mm": 40.666666666666664,
+        "region_count": 3,
+        "source_pixels": [
+          1024,
+          1024
+        ],
+        "source_type": "raster",
+        "status": "good",
+        "working_pixels": [
+          488,
+          452
+        ]
+      }
+    },
+    {
+      "input": "Flag_of_the_United_Kingdom_(3-5).svg.webp",
+      "sha256": "addfba49b4a34f7e32a75ac817666d10b47314fa38642c2dcdc40a9f8f087c5f",
+      "design_width_mm": 80,
+      "seconds": 0.6478,
+      "http_status": 200,
+      "quality": {
+        "artwork_pixels": [
+          3840,
+          2304
+        ],
+        "color_count": 3,
+        "detail_sample_mm": 0.06258658854166667,
+        "effective_dpi": 1217.5132368697532,
+        "format": "WEBP",
+        "issues": [
+          "palette_reduced"
+        ],
+        "kind": "flat_artwork",
+        "physical_size_mm": [
+          80.0,
+          48.0665
+        ],
+        "pixels_per_mm": 47.933592002746195,
+        "recommended_pixels": [
+          960,
+          577
+        ],
+        "recommended_width_mm": 320.0,
+        "region_count": 17,
+        "source_pixels": [
+          3840,
+          2304
+        ],
+        "source_type": "raster",
+        "status": "good",
+        "working_pixels": [
+          960,
+          576
+        ]
+      }
+    },
+    {
+      "input": "pepsi.png",
+      "sha256": "17e2389f415170ef8340e7f044139fc86f39d339e45ab5de75d5101c74356979",
+      "design_width_mm": 80,
+      "seconds": 0.6397,
+      "http_status": 200,
+      "quality": {
+        "artwork_pixels": [
+          436,
+          436
+        ],
+        "color_count": 4,
+        "detail_sample_mm": 0.5504587155963303,
+        "effective_dpi": 138.43,
+        "format": "PNG",
+        "issues": [
+          "low_resolution",
+          "palette_reduced"
+        ],
+        "kind": "flat_artwork",
+        "physical_size_mm": [
+          80.0,
+          80.0
+        ],
+        "pixels_per_mm": 5.45,
+        "recommended_pixels": [
+          960,
+          960
+        ],
+        "recommended_width_mm": 36.333333333333336,
+        "region_count": 58,
+        "source_pixels": [
+          1280,
+          896
+        ],
+        "source_type": "raster",
+        "status": "caution",
+        "working_pixels": [
+          436,
+          436
+        ]
+      }
+    },
+    {
+      "input": "badge-256.png",
+      "sha256": "b6329244201783855aeb671f4cb5b0e1327a97812274545d1f63ca07e072046c",
+      "design_width_mm": 20,
+      "seconds": 0.0274,
+      "http_status": 200,
+      "quality": {
+        "artwork_pixels": [
+          193,
+          193
+        ],
+        "color_count": 2,
+        "detail_sample_mm": 0.31088082901554404,
+        "effective_dpi": 245.10999999999999,
+        "format": "PNG",
+        "issues": [],
+        "kind": "flat_artwork",
+        "physical_size_mm": [
+          20.0,
+          20.0
+        ],
+        "pixels_per_mm": 9.65,
+        "recommended_pixels": [
+          240,
+          240
+        ],
+        "recommended_width_mm": 16.083333333333332,
+        "region_count": 2,
+        "source_pixels": [
+          256,
+          256
+        ],
+        "source_type": "raster",
+        "status": "good",
+        "working_pixels": [
+          193,
+          193
+        ]
+      }
+    }
+  ]
+}

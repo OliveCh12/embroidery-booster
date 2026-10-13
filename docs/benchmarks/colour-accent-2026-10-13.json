@@ -1,0 +1,150 @@
+[
+  {
+    "case": "literal-thin-accent-160x100",
+    "before": {
+      "palette": [
+        "#0000ff",
+        "#ff0000"
+      ],
+      "accent_thread": "#0000ff",
+      "seconds_min": 0.00648,
+      "seconds_median": 0.00665,
+      "alpha_preserved": true
+    },
+    "after": {
+      "palette": [
+        "#0000ff",
+        "#ff0000",
+        "#800080"
+      ],
+      "accent_thread": "#800080",
+      "seconds_min": 0.00675,
+      "seconds_median": 0.00688,
+      "alpha_preserved": true
+    }
+  },
+  {
+    "case": "literal-thin-accent-960x600",
+    "before": {
+      "palette": [
+        "#0000ff",
+        "#ff0000"
+      ],
+      "accent_thread": "#0000ff",
+      "seconds_min": 0.303,
+      "seconds_median": 0.30361,
+      "alpha_preserved": true
+    },
+    "after": {
+      "palette": [
+        "#0000ff",
+        "#ff0000",
+        "#800080"
+      ],
+      "accent_thread": "#800080",
+      "seconds_min": 0.3183,
+      "seconds_median": 0.32164,
+      "alpha_preserved": true
+    }
+  },
+  {
+    "case": "pepsi",
+    "before": {
+      "palette": [
+        "#ffffff",
+        "#ff1301",
+        "#0e0f95",
+        "#010101"
+      ],
+      "seconds": 0.0428,
+      "regions": 5,
+      "alpha_preserved": true
+    },
+    "after": {
+      "palette": [
+        "#ffffff",
+        "#ff1301",
+        "#0e0f95",
+        "#010101"
+      ],
+      "seconds": 0.04178,
+      "regions": 5,
+      "alpha_preserved": true
+    },
+    "identical_labels_and_palette": true
+  },
+  {
+    "case": "phoenix",
+    "before": {
+      "palette": [
+        "#090909"
+      ],
+      "seconds": 0.05255,
+      "regions": 2,
+      "alpha_preserved": true
+    },
+    "after": {
+      "palette": [
+        "#090909"
+      ],
+      "seconds": 0.05432,
+      "regions": 2,
+      "alpha_preserved": true
+    },
+    "identical_labels_and_palette": true
+  },
+  {
+    "case": "falcon",
+    "before": {
+      "palette": [
+        "#131414",
+        "#333433",
+        "#444242",
+        "#525053",
+        "#4d514a",
+        "#646063"
+      ],
+      "seconds": 0.03413,
+      "regions": 7,
+      "alpha_preserved": true
+    },
+    "after": {
+      "palette": [
+        "#131414",
+        "#333433",
+        "#444242",
+        "#525053",
+        "#4d514a",
+        "#646063"
+      ],
+      "seconds": 0.03492,
+      "regions": 7,
+      "alpha_preserved": true
+    },
+    "identical_labels_and_palette": true
+  },
+  {
+    "case": "badge-jpeg",
+    "before": {
+      "palette": [
+        "#000103",
+        "#fefefe",
+        "#868888"
+      ],
+      "seconds": 0.2068,
+      "regions": 4,
+      "alpha_preserved": true
+    },
+    "after": {
+      "palette": [
+        "#000103",
+        "#fefefe",
+        "#868888"
+      ],
+      "seconds": 0.21122,
+      "regions": 4,
+      "alpha_preserved": true
+    },
+    "identical_labels_and_palette": true
+  }
+]

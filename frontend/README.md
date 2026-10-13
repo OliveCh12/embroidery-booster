@@ -50,6 +50,13 @@ ou collage avec Ctrl+V / Cmd+V après avoir cliqué dans la zone. SVG, PNG, JPEG
 WebP, TIFF, GIF et BMP sont acceptés jusqu’à 10 Mio. Un import invalide conserve
 le dessin et les résultats précédents.
 
+Un diagnostic compact **Qualité de la source** apparaît avant génération : motif
+utile après retrait du fond, taille physique, résolution conseillée et difficulté
+de séparation des nuances. SVG vectoriel et PNG transparent sont conseillés pour
+les logos. Les alertes de résolution restent informatives ; agrandir le fichier
+ne crée pas de détails. Les détails du résultat conservent le rapport exact de
+la génération, même si les réglages du prochain dessin sont ensuite modifiés.
+
 Les réglages occupent le panneau gauche : machine, cadre physique en millimètres,
 taille du dessin, tissu, fil et stabilisateur.
 Ces réglages sont classés en cinq sections repliables avec icônes et résumés :

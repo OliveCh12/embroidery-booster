@@ -6,6 +6,7 @@ import { useState, type ReactNode } from "react";
 import { formatNumber } from "@/lib/format";
 import { describeBackground, describeBitmapCleanup } from "./background-diagnostics";
 import { FileUpload } from "./file-upload";
+import { InputQualitySummary } from "./input-quality-feedback";
 import { BACKGROUND_MODE_LABELS, STITCH_TYPE_LABELS } from "./settings";
 import { StitchPlayer } from "./stitch-player/stitch-player";
 import type { GenerationResult, VariantId } from "./types";
@@ -24,6 +25,7 @@ function InputDiagnostics({ result }: { result: GenerationResult }) {
   const background = result.input_analysis?.background, cleanup = result.input_analysis?.cleanup;
   const description = background ? describeBackground(background) : null;
   return <div className="flex flex-col gap-4 text-xs text-muted">
+    {result.input_analysis?.quality && <InputQualitySummary quality={result.input_analysis.quality} />}
     <dl className="grid grid-cols-2 gap-4">
       <div><dt>Type de points</dt><dd className="mt-1 font-medium text-foreground">{STITCH_TYPE_LABELS[result.direct.params.stitch_type ?? "auto"]}</dd></div>
       {background && <><div><dt>Fond demandé</dt><dd className="mt-1 font-medium text-foreground">{background.mode ? BACKGROUND_MODE_LABELS[background.mode] : "—"}</dd></div><div><dt>Fond interprété</dt><dd className="mt-1 font-medium text-foreground">{background.applied === true ? "Retiré" : background.applied === false ? "Conservé" : "—"}</dd></div></>}
@@ -123,9 +125,9 @@ function SourcePreview({ sourcePreview, result }: { sourcePreview: string | null
     : <div className="flex min-h-64 flex-1 flex-col items-center justify-center gap-4 text-center text-muted"><FileImage size={32} aria-hidden="true" /><p className="text-sm">Le dessin sera visible après génération.</p></div>;
 }
 
-export function ResultPane({ file, sourcePreview, result, busy, importError, onSelect, onClear, hoop }: {
+export function ResultPane({ file, sourcePreview, result, busy, importError, onSelect, onClear, hoop, inputFeedback }: {
   file: File | null; sourcePreview: string | null; result?: GenerationResult; busy: boolean;
-  importError: string | null; onSelect: (file: File) => void; onClear: () => void; hoop: [number, number];
+  importError: string | null; onSelect: (file: File) => void; onClear: () => void; hoop: [number, number]; inputFeedback?: ReactNode;
 }) {
   const [selection, setSelection] = useState<{ job: string; id: VariantId } | null>(null);
   const selectedId = result && selection?.job === result.job ? selection.id : result?.recommended_variant ?? null;
@@ -133,7 +135,7 @@ export function ResultPane({ file, sourcePreview, result, busy, importError, onS
   const options = selected ? variantOptions(selected) : [];
   const hoopChanged = selected && (hoop[0] !== selected.direct.params.hoop_width_mm || hoop[1] !== selected.direct.params.hoop_height_mm);
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4" aria-busy={busy}>
-    <FileUpload file={file} onSelect={onSelect} onClear={onClear} disabled={busy} error={importError} showHint={!result}
+    <FileUpload file={file} onSelect={onSelect} onClear={onClear} disabled={busy} error={importError} showHint={!result} feedback={inputFeedback}
       headerContent={<div className="flex shrink-0 items-center gap-4"><Chip size="sm" variant="soft" className="hidden shrink-0 @xl:flex">Cadre {hoop.map(value => Number.isFinite(value) ? formatNumber(value) : "—").join(" × ")} mm</Chip>{!busy && selected && <ActivityPanel key={selected.direct.files.plan_json} result={selected} />}</div>}>
       {busy ? <div className="flex min-h-64 flex-1 flex-col items-center justify-center gap-4 text-center text-muted md:min-h-0" role="status"><Spinner size="lg" /><p>Génération de la broderie…</p><p className="text-xs">Analyse du dessin, placement des points et exports.</p></div>
         : !selected ? <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"><SourcePreview sourcePreview={sourcePreview} /></div>

@@ -5,9 +5,9 @@ import { CheckCircle2, ImagePlus, Upload, X } from "lucide-react";
 import { useId, useRef, useState, type ReactNode } from "react";
 import { ACCEPTED_FILES, clipboardFile } from "./file-import";
 
-export function FileUpload({ file, onSelect, onClear, disabled, error, headerContent, children, showHint = true }: {
+export function FileUpload({ file, onSelect, onClear, disabled, error, headerContent, feedback, children, showHint = true }: {
   file: File | null; onSelect: (file: File) => void; onClear: () => void; disabled: boolean;
-  error: string | null; headerContent?: ReactNode; children: ReactNode; showHint?: boolean;
+  error: string | null; headerContent?: ReactNode; feedback?: ReactNode; children: ReactNode; showHint?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
@@ -60,12 +60,14 @@ export function FileUpload({ file, onSelect, onClear, disabled, error, headerCon
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-4">
         {importError && <Alert status="danger" className="shrink-0"><Alert.Indicator /><Alert.Content><Alert.Title>Import impossible</Alert.Title><Alert.Description>{importError}</Alert.Description></Alert.Content></Alert>}
+        {file && feedback}
         {file ? children : <div className={`flex min-h-64 flex-1 flex-col items-center justify-center gap-4 rounded-xl border border-dashed p-4 text-center transition-colors hover:border-accent hover:bg-accent-soft/30 ${importError ? "border-danger" : "border-border"}`}>
           <span className="flex size-14 items-center justify-center rounded-2xl bg-accent-soft text-accent"><ImagePlus size={28} aria-hidden="true" /></span>
           <div className="flex flex-col gap-4">
             <p className="text-base font-medium text-foreground">Déposez votre dessin</p>
             <p className="text-sm text-muted">SVG, PNG ou image · 10 Mio maximum</p>
           </div>
+          <p className="max-w-sm text-xs leading-relaxed text-muted">Pour un logo, privilégiez un SVG vectoriel ou un PNG transparent net. Évitez les captures d’écran et les JPEG compressés.</p>
           <Button variant="primary" isDisabled={disabled} onPress={() => input.current?.click()}><Upload size={16} />Choisir un fichier</Button>
           <p id={hintId} className="max-w-sm text-xs leading-relaxed text-muted">Ou cliquez ici et collez une image avec <kbd className="font-medium text-foreground">Ctrl+V</kbd> / <kbd className="font-medium text-foreground">⌘V</kbd>.</p>
         </div>}

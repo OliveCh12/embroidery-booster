@@ -1,5 +1,65 @@
 # Interprétation du fond et stratégie de couture
 
+## Qualité de source et résolution utile
+
+Pour un logo, privilégier le SVG vectoriel d’origine ou un PNG transparent net,
+avec des aplats et des contours distincts. Une photo encodée dans un fichier SVG
+reste une image raster ; les éléments SVG `<image>` sont refusés par le moteur.
+La [documentation Wilcom sur les entrées adaptées](https://docs.wilcom.com/embroiderystudio/26/en/OnlineHelp/Automatic/bitmaps/Choosing_suitable_artwork.htm)
+recommande les PNG transparents, les aplats et une source détaillée. Ses
+[conseils de numérisation](https://docs.wilcom.com/embroiderystudio/28/en/OnlineHelp/Automatic/bitmaps/bitmaps-4.htm)
+varient selon le dessin : une illustration simple peut demander moins de pixels
+qu’une photo ou de petits détails. Un minimum fixe en pixels ou une métadonnée
+DPI ne constitue donc pas une règle fiable pour toutes les broderies.
+
+`input_quality.py` mesure les pixels **du motif après retrait du fond et avant
+réduction de la grille**, rapportés aux dimensions physiques finales, y compris
+l’ajustement au cadre. Les dimensions source, utiles et de travail sont distinctes.
+Une grande marge transparente ne donne pas artificiellement une bonne note à
+un petit logo, et un fichier marqué « 1200 dpi » ne bénéficie d’aucun bonus.
+La politique de conseil du moteur est :
+
+| Pixels utiles par mm | Retour utilisateur |
+|---|---|
+| moins de 3 | Source très peu définie à cette taille |
+| de 3 à moins de 6 | Source limitée pour des contours fins |
+| à partir de 6 | Définition exploitable ; la complexité reste à vérifier |
+| cible de 12 | Environ 305 dpi, adaptée à l’échantillonnage de contours fins |
+
+Ces seuils sont indicatifs, sans blocage d’une source simple. À 80 mm, la cible
+correspond à environ 960 pixels utiles. Le moteur propose aussi une largeur
+compatible avec cette cible quand le fichier est trop petit. Trois pixels
+d’échantillonnage d’un détail sont un repère de résolution de l’image, pas une
+largeur minimale de point ou une garantie de brodabilité. La résolution n’augmente
+ni la densité de couture ni le nombre de sous-couches. Une source peut avoir
+été agrandie avant import ; cette analyse ne retrouve pas sa résolution d’origine.
+
+`POST /api/analyze` utilise la même préparation que `generate()`, mais ne calcule
+aucun point et ne conserve aucun job. Une analyse simultanée est autorisée,
+indépendamment des jobs de génération. L’interface attend 300 ms après une
+modification de taille/interprétation pour éviter des requêtes à chaque frappe ;
+elle annule les requêtes dépassées et reprend au plus deux fois une réponse
+temporaire 503, sans réessayer une erreur d’entrée. Elle ne bloque pas la génération
+si le diagnostic est indisponible. Après génération, les détails utilisent exclusivement le rapport
+du fichier produit. Le rapport est aussi présent dans la bibliothèque, le CLI JSON
+et le plan machine, sous `input_analysis.quality`.
+
+Les nombreuses nuances et les dégradés sont signalés séparément de la résolution.
+La palette réduite et les JPEG sont identifiés, sans prétendre reconnaître
+sémantiquement le sujet ou mesurer automatiquement le flou. Le nettoyage reste
+local et contrôlé. Un accent opaque fin dont la couleur appartient au mélange
+de deux aplats est conservé lorsqu’il se trouve à l’intérieur d’un seul aplat,
+loin de la limite alpha. Un mélange au contact des deux peintures reste une
+transition de bord ; leurs couleurs ailleurs dans le dessin ne suffisent plus
+à supprimer un détail. Les palettes JPEG/photos suivent leurs règles existantes.
+
+Le [corpus de diagnostic](benchmarks/source-quality-2026-10-13.json) couvre
+résolutions, marges, taille physique, SVG, JPEG et logos réels. Il mesure la qualité
+de la source et le temps d’analyse, pas la qualité d’une couture réelle.
+Le [comparatif des accents](benchmarks/colour-accent-2026-10-13.json) conserve
+la preuve avant/après de la correction des détails fins et la stabilité des
+palettes et masques sur les logos de référence.
+
 ## Fond extérieur, peinture intérieure et transparence
 
 Le fond n'est pas une couleur à effacer partout. Un badge blanc fermé peut être

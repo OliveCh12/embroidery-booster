@@ -1,3 +1,5 @@
+import type { InputQuality } from "./input-quality";
+
 export type Fabric = "custom" | "stable" | "stretch" | "textured";
 export type Stabilizer = "unspecified" | "cutaway" | "tearaway" | "washaway";
 export type ThreadWeight = "30" | "40" | "60";
@@ -59,6 +61,7 @@ export interface DesignAnalysis {
   stitch_breakdown?: { entry: number; top: number; underlay: number; travel: number; lock: number };
 }
 export interface InputAnalysis {
+  quality?: InputQuality;
   background?: {
     mode: BackgroundMode | null; applied: boolean | null; reason: string | null;
     background_color: string | null; border_confidence: number | null;

@@ -15,6 +15,7 @@ from skimage.measure import approximate_polygon, find_contours
 
 from .background import bitmap_foreground
 from .colors import bitmap_colors, clean_color_regions
+from .input_quality import raster_quality
 from .svg_manager import MAX_INPUT_BYTES, UNITS_PER_MM, load_svg_paths
 
 RASTER_EXT = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
@@ -57,6 +58,7 @@ def raster_to_svg(
                     cleanup,
                     diagnostics,
                     hoop_size_mm=hoop_size_mm,
+                    source_format=original.format or Path(input_path).suffix[1:],
                 )
             background_info = {}
             if threshold is None and not invert:
@@ -95,12 +97,25 @@ def raster_to_svg(
         raise ValueError(f"Invalid raster image: {exc}") from exc
     if not mask.any():
         raise ValueError("No shapes found in a uniform or fully transparent image.")
-    _check_trace_budget(label(mask)[1])
+    regions = label(mask)[1]
+    _check_trace_budget(regions)
+    diagnostics["cleanup"].update(regions_before=regions, regions_after=regions, palette_colors=1)
     ys, xs = np.nonzero(mask)
-    mask = np.pad(mask[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1], 1)
+    mask = mask[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
+    artwork_pixels = (mask.shape[1], mask.shape[0])
+    mask = np.pad(mask, 1)
     height, width = mask.shape
     physical_width = width_mm if width_mm is not None else 80 * width / max(width, height)
     physical_width = _fitted_width(physical_width, width, height, hoop_size_mm, diagnostics)
+    diagnostics["quality"] = raster_quality(
+        source_pixels=image.size,
+        artwork_pixels=artwork_pixels,
+        working_pixels=artwork_pixels,
+        physical_size_mm=(physical_width, physical_width * height / width),
+        source_format=original.format or Path(input_path).suffix[1:],
+        cleanup=diagnostics["cleanup"],
+        monochrome=True,
+    )
     # Scale simplification to physical size, with a half-pixel upper bound.
     tolerance = min(0.5, 0.05 * width / physical_width)
     path = _trace_path(mask, tolerance)
@@ -131,7 +146,9 @@ def _color_bitmap_svg(
     hoop_size_mm=None,
     infer_counters=True,
     recover_alpha_fragments=True,
+    source_format="PNG",
 ):
+    image_size = image.size
     background_info = {}
     # Flood the source before resampling: Lanczos otherwise mixes opaque blank
     # margins into the artwork and makes background-coloured islands.
@@ -202,6 +219,14 @@ def _color_bitmap_svg(
     )
     _check_trace_budget(cleanup_info["regions_after"])
     diagnostics.update(background=background_info, cleanup=cleanup_info)
+    diagnostics["quality"] = raster_quality(
+        source_pixels=image_size,
+        artwork_pixels=(source_width, source_height),
+        working_pixels=(labels.shape[1], labels.shape[0]),
+        physical_size_mm=(physical_width, physical_width * height / width),
+        source_format=source_format,
+        cleanup=cleanup_info,
+    )
     labels = np.pad(labels, 1)
     height, width = labels.shape
     root = ET.Element(

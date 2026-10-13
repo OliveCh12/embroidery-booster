@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import shutil
+import tempfile
 import threading
 from dataclasses import asdict
 from pathlib import Path
@@ -17,7 +18,10 @@ from werkzeug.utils import secure_filename
 
 from embroidery_rungs import GenerationParams, StitchParams, generate
 from embroidery_rungs.image_processor import render_preview
+from embroidery_rungs.input_quality import complete_input_analysis
+from embroidery_rungs.inputs import prepare_artwork
 from embroidery_rungs.stitching.params import MACHINE_PROFILES
+from embroidery_rungs.svg_manager import load_svg_paths
 
 
 class _RequestLogs(logging.Filter):
@@ -27,6 +31,72 @@ class _RequestLogs(logging.Filter):
 
     def filter(self, record):
         return record.thread == self.thread
+
+
+def _generation_settings(form):
+    if form.get("method", "direct") != "direct":
+        raise ValueError("Only the direct stitch engine is supported.")
+    retired = {
+        "spacing",
+        "density",
+        "dpi",
+        "auto_optimize",
+        "debug",
+        "export",
+        "wide_mode",
+        "fill_gaps",
+        "auto_select",
+    } & form.keys()
+    if retired:
+        raise ValueError("Unsupported settings: " + ", ".join(sorted(retired)))
+
+    def boolean(name, default):
+        value = form.get(name)
+        if value is None:
+            return default
+        if value not in ("true", "false"):
+            raise ValueError(f"{name} must be true or false.")
+        return value == "true"
+
+    params = GenerationParams(
+        design_width_mm=float(form["design_width"]) if form.get("design_width") else None,
+        fit_to_hoop=boolean("fit_to_hoop", False),
+        raster_threshold=int(form["raster_threshold"]) if form.get("raster_threshold") else None,
+        raster_invert=boolean("raster_invert", False),
+        background_mode=form.get("background_mode", "auto"),
+        raster_cleanup=boolean("raster_cleanup", True),
+    )
+    params.validate()
+    stitch_params = StitchParams.for_fabric(
+        form.get("fabric", "custom"),
+        thread_weight=int(form.get("thread_weight", 40)),
+        stabilizer=form.get("stabilizer", "unspecified"),
+        machine=form.get("machine", "generic"),
+    )
+    for field, name in (
+        ("hoop_width", "hoop_width_mm"),
+        ("hoop_height", "hoop_height_mm"),
+        ("stitch_spacing", "satin_spacing_mm"),
+        ("running_length", "running_length_mm"),
+        ("fill_spacing", "fill_spacing_mm"),
+        ("fill_angle", "fill_angle_deg"),
+        ("max_stitch", "max_stitch_mm"),
+        ("max_satin_width", "max_satin_width_mm"),
+        ("pull_compensation", "pull_compensation_mm"),
+    ):
+        if field in form:
+            setattr(stitch_params, name, float(form[field]))
+    if "max_colors" in form:
+        stitch_params.max_colors = int(form["max_colors"])
+    if "density_percent" in form:
+        stitch_params.density_percent = int(form["density_percent"])
+    for name in ("preserve_colors", "underlay", "auto_adjust", "auto_fill_angle"):
+        setattr(stitch_params, name, boolean(name, getattr(stitch_params, name)))
+    stitch_params.thread_color = form.get("thread_color", stitch_params.thread_color)
+    stitch_params.stitch_type = form.get("stitch_type", "auto")
+    stitch_params.validate()
+    compare_strategies = boolean("compare_strategies", False)
+    return params, stitch_params, compare_strategies
 
 
 def create_app(config=None):
@@ -40,6 +110,7 @@ def create_app(config=None):
     if config:
         app.config.update(config)
     semaphore = threading.BoundedSemaphore(app.config["MAX_JOBS"])
+    analysis_slots = threading.BoundedSemaphore(1)
     lib_logger = logging.getLogger("embroidery_rungs")
     lib_logger.setLevel(logging.INFO)
 
@@ -99,74 +170,7 @@ def create_app(config=None):
         if not upload or not upload.filename:
             return jsonify(error="Aucun fichier fourni."), 400
         try:
-            if request.form.get("method", "direct") != "direct":
-                raise ValueError("Only the direct stitch engine is supported.")
-            retired = {
-                "spacing",
-                "density",
-                "dpi",
-                "auto_optimize",
-                "debug",
-                "export",
-                "wide_mode",
-                "fill_gaps",
-                "auto_select",
-            } & request.form.keys()
-            if retired:
-                raise ValueError("Unsupported settings: " + ", ".join(sorted(retired)))
-
-            def boolean(name, default):
-                value = request.form.get(name)
-                if value is None:
-                    return default
-                if value not in ("true", "false"):
-                    raise ValueError(f"{name} must be true or false.")
-                return value == "true"
-
-            params = GenerationParams(
-                design_width_mm=float(request.form["design_width"])
-                if request.form.get("design_width")
-                else None,
-                fit_to_hoop=boolean("fit_to_hoop", False),
-                raster_threshold=int(request.form["raster_threshold"])
-                if request.form.get("raster_threshold")
-                else None,
-                raster_invert=boolean("raster_invert", False),
-                background_mode=request.form.get("background_mode", "auto"),
-                raster_cleanup=boolean("raster_cleanup", True),
-            )
-            params.validate()
-            stitch_params = StitchParams.for_fabric(
-                request.form.get("fabric", "custom"),
-                thread_weight=int(request.form.get("thread_weight", 40)),
-                stabilizer=request.form.get("stabilizer", "unspecified"),
-                machine=request.form.get("machine", "generic"),
-            )
-            for field, name in (
-                ("hoop_width", "hoop_width_mm"),
-                ("hoop_height", "hoop_height_mm"),
-                ("stitch_spacing", "satin_spacing_mm"),
-                ("running_length", "running_length_mm"),
-                ("fill_spacing", "fill_spacing_mm"),
-                ("fill_angle", "fill_angle_deg"),
-                ("max_stitch", "max_stitch_mm"),
-                ("max_satin_width", "max_satin_width_mm"),
-                ("pull_compensation", "pull_compensation_mm"),
-            ):
-                if field in request.form:
-                    setattr(stitch_params, name, float(request.form[field]))
-            if "max_colors" in request.form:
-                stitch_params.max_colors = int(request.form["max_colors"])
-            if "density_percent" in request.form:
-                stitch_params.density_percent = int(request.form["density_percent"])
-            for name in ("preserve_colors", "underlay", "auto_adjust", "auto_fill_angle"):
-                setattr(stitch_params, name, boolean(name, getattr(stitch_params, name)))
-            stitch_params.thread_color = request.form.get(
-                "thread_color", stitch_params.thread_color
-            )
-            stitch_params.stitch_type = request.form.get("stitch_type", "auto")
-            stitch_params.validate()
-            compare_strategies = boolean("compare_strategies", False)
+            params, stitch_params, compare_strategies = _generation_settings(request.form)
         except ValueError as exc:
             return jsonify(error=str(exc)), 400
         if not semaphore.acquire(blocking=False):
@@ -262,6 +266,48 @@ def create_app(config=None):
             semaphore.release()
             if not succeeded:
                 shutil.rmtree(directory, ignore_errors=True)
+
+    @app.post("/api/analyze")
+    def analyze():
+        upload = request.files.get("file")
+        if not upload or not upload.filename:
+            return jsonify(error="Aucun fichier fourni."), 400
+        try:
+            params, stitch_params, _ = _generation_settings(request.form)
+            filename = secure_filename(upload.filename)
+            if not filename:
+                raise ValueError("Nom de fichier invalide.")
+        except ValueError as exc:
+            return jsonify(error=str(exc)), 400
+        if not analysis_slots.acquire(blocking=False):
+            return jsonify(error="Une analyse est en cours. La génération reste disponible."), 503
+        try:
+            # Share interpretation and sizing with generate(), without planning
+            # stitches or persisting an upload/job for this advisory request.
+            with tempfile.TemporaryDirectory(prefix="embroidery-analysis-") as temporary:
+                folder = Path(temporary)
+                source = folder / filename
+                upload.save(source)
+                (folder / "prepared").mkdir()
+                prepared, _, diagnostics = prepare_artwork(
+                    source,
+                    folder / "prepared",
+                    params,
+                    stitch_params,
+                    preserve_colors=stitch_params.preserve_colors,
+                )
+                svg, _ = load_svg_paths(prepared)
+                complete_input_analysis(
+                    svg, diagnostics, source_is_vector=source.suffix.lower() == ".svg"
+                )
+            return jsonify(success=True, input_analysis=diagnostics)
+        except (ValueError, RuntimeError) as exc:
+            return jsonify(error=str(exc)), 400
+        except Exception:
+            app.logger.exception("Input quality analysis failed")
+            return jsonify(error="Analyse indisponible. La génération reste disponible."), 500
+        finally:
+            analysis_slots.release()
 
     @app.get("/api/file/<job>/<path:filename>")
     def serve_file(job, filename):

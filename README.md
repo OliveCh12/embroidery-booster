@@ -56,6 +56,17 @@ Build the Python wheel with `uv build`.
 
 ## Inputs and physical size
 
+For logos, prefer the **original vector SVG**, or a crisp PNG with a transparent
+background. A photo placed inside an SVG is not vector artwork. Before generating,
+the web app analyses the interpreted image at its requested embroidery size:
+useful pixels after background removal, thread-colour complexity and actual
+physical dimensions. A suggested target for fine contours is **12 pixels/mm**
+(about 305 dpi): roughly **960 useful pixels for an 80 mm motif**, excluding
+blank margins. Lower-resolution simple graphics remain accepted; advice below
+6 pixels/mm, and especially below 3, suggests a better original or a smaller
+physical design. Source resolution does not determine stitch density, and
+upsampling cannot recover lost details. See [source-quality rules and sources](docs/INPUT_INTERPRETATION.md#qualité-de-source-et-résolution-utile).
+
 SVG dimensions, transforms, viewBoxes and intentional holes are preserved. Text
 must be converted to vector paths; scripts, external resources and embedded
 images are rejected. PDF, EPS, PS and AI must be exported to SVG before import.

@@ -364,3 +364,49 @@ def test_alpha_edge_fragment_cleanup_is_reported_in_bitmap_preparation(tmp_path)
     assert diagnostics["cleanup"]["regions_after"] == 1
     assert any("partially transparent fragments" in warning for warning in warnings)
     assert ET.parse(prepared).getroot().find("{*}path").get("d").count("M ") == 1
+
+
+@pytest.mark.parametrize("orient", [lambda image: image, np.rot90, np.flipud, np.fliplr])
+@pytest.mark.parametrize("accent", [[128, 0, 128], [128, 128, 128]])
+def test_literal_thin_interior_paint_is_not_mistaken_for_a_remote_edge_blend(orient, accent):
+    rgba = np.zeros((100, 160, 4), dtype=np.uint8)
+    rgba[5:-5, 5:-5, 3] = 255
+    if accent[1]:
+        rgba[:, 80:, :3] = 255
+    else:
+        rgba[:, :80, :3] = [255, 0, 0]
+        rgba[:, 80:, :3] = [0, 0, 255]
+    rgba[40, 20:60, :3] = accent
+    rgba[20:30, 25:35, 3] = 0
+    source = orient(rgba)
+    before = source.copy()
+    labels, colors, _ = bitmap_colors(source, 6)
+    expected = "#" + "".join(f"{channel:02x}" for channel in accent)
+    assert expected in colors
+    selected = orient(np.indices(rgba.shape[:2])[0] == 40) & orient(
+        (np.indices(rgba.shape[:2])[1] >= 20) & (np.indices(rgba.shape[:2])[1] < 60)
+    )
+    assert np.all(labels[selected] == colors.index(expected) + 1)
+    assert np.array_equal(labels > 0, source[..., 3] >= 128)
+    np.testing.assert_array_equal(source, before)
+
+
+@pytest.mark.parametrize("blend_width", [1, 2])
+def test_literal_transition_next_to_both_paints_does_not_add_a_thread(blend_width):
+    rgba = np.full((80, 120, 4), 255, dtype=np.uint8)
+    rgba[:, :60, :3] = [255, 0, 0]
+    rgba[:, 60:, :3] = [0, 0, 255]
+    rgba[:, 60 - blend_width : 60, :3] = [128, 0, 128]
+    labels, colors, _ = bitmap_colors(rgba, 6)
+    assert set(colors) == {"#ff0000", "#0000ff"}
+    assert np.all(labels > 0)
+
+
+def test_partially_transparent_edge_blend_never_becomes_an_opaque_interior_accent():
+    rgba = np.zeros((80, 120, 4), dtype=np.uint8)
+    rgba[10:70, 10:60] = [255, 0, 0, 255]
+    rgba[10:70, 70:110] = [0, 0, 255, 255]
+    rgba[10:70, 9] = [128, 0, 128, 180]
+    labels, colors, _ = bitmap_colors(rgba, 6)
+    assert set(colors) == {"#ff0000", "#0000ff"}
+    assert np.array_equal(labels > 0, rgba[..., 3] >= 128)
