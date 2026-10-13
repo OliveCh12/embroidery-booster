@@ -15,6 +15,7 @@ export interface MaterialPreset {
 export interface Capabilities {
   engine: "direct"; direct: boolean; direct_formats: string[]; accepted_formats: string[];
   quality_report: boolean;
+  automatic_variants?: boolean;
   material_presets: Record<Fabric, Record<ThreadWeight, MaterialPreset>>;
   machine_profiles: Record<Machine, MachineProfile>;
 }
@@ -26,6 +27,7 @@ export interface GenerationSettings {
   auto_adjust: boolean; auto_fill_angle: boolean; fill_angle: number;
   raster_threshold: number | null; raster_invert: boolean; max_colors: number; preserve_colors: boolean;
   background_mode: BackgroundMode; stitch_type: StitchType; raster_cleanup: boolean;
+  compare_strategies: boolean;
 }
 export interface StitchParams {
   satin_spacing_mm: number; fill_spacing_mm: number; pull_compensation_mm: number;
@@ -34,6 +36,7 @@ export interface StitchParams {
   fill_angle_deg: number; auto_fill_angle: boolean; machine: Machine; fabric: Fabric;
   thread_weight: number; stabilizer: Stabilizer;
   stitch_type: StitchType;
+  auto_strategy?: "balanced" | "satin_preferred";
 }
 export interface StitchStats {
   stitches: number; trims: number; jumps: number; color_changes: number;
@@ -80,10 +83,21 @@ export interface DirectResult {
   files: { pes: string; dst: string; plan_json: string; preview_svg: string };
   preview: string; stats: StitchStats; decisions: Decision[]; threads: string[];
   params: StitchParams; requested_params: StitchParams; analysis: DesignAnalysis; adjustments: Adjustment[];
+  warnings?: string[];
+}
+export type VariantId = "balanced" | "satin_preferred" | "uniform_fill";
+export interface GenerationVariant {
+  id: VariantId; direct: DirectResult;
+  quality: { status: DesignAnalysis["quality_status"]; ranking_basis: string; method_area_mm2: Record<"satin" | "fill" | "running" | "omitted", number>; structural_coverage: number; largest_gap_mm2: number };
+  reasons: string[]; equivalent_strategies: VariantId[];
 }
 export interface GenerationResult {
   success: true; job: string; artwork_preview: string; artwork_svg: string;
   artwork_size_mm: [number, number]; converted_from: string | null; warnings: string[];
   logs: string; stats: { total_seconds: number }; direct: DirectResult;
   input_analysis?: InputAnalysis;
+  input_warnings?: string[];
+  variants?: GenerationVariant[];
+  recommended_variant?: VariantId | null;
+  skipped_variants?: { id: VariantId; reason: string }[];
 }

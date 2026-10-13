@@ -27,6 +27,7 @@ src/embroidery_rungs/
     underlay.py            Fondations en retrait et soutien du satin
     planner.py             Trajets, verrouillages, coupes et grille de 0,1 mm
     digitizer.py           Couleurs, plans régionaux et changements de fil
+    variants.py            Comparaison bornée et recommandation de stratégies auditées
     quality.py             Couverture des vrais points supérieurs et crowding
     export.py              PES/DST, JSON schema 3 et previews
   web/app.py               API Flask et jobs isolés
@@ -62,6 +63,24 @@ output/                   Jobs et artefacts générés, ignorés par Git
    quantifier une seule fois sur une grille commune et vérifier la couverture.
 7. Assembler les couleurs, encoder PES/DST et écrire previews/JSON en staging.
    Publier les fichiers seulement après réussite de la génération.
+
+Avec `compare_strategies=True`, la préparation d'image et de palette est commune
+aux propositions équilibrée, priorité satin et tatami uniforme. Les repères
+canoniques, contours et axes médians réutilisables sont mis en cache uniquement
+pour cette génération. Chaque proposition construit et audite son propre plan ;
+aucun plan mutable n'est partagé. `variants.py` classe les diagnostics avant les
+préférences de texture, conserve le choix équilibré à égalité et déduplique les
+commandes machine identiques. Le résultat principal pointe vers la recommandation,
+les alternatives conservent leurs propres fichiers et diagnostics. Un mode forcé
+ne déclenche pas de comparaison.
+Au-delà de 256 régions visibles, seule la proposition équilibrée est calculée
+et les deux alternatives non calculées sont signalées. Ce budget opérationnel
+borne la répétition des audits ; il ne modifie ni l'image ni les limites machine.
+
+Le visualisateur choisit une proposition sans requête de génération supplémentaire.
+Cette sélection change ensemble les commandes, la liste de fils, les contrôles et
+les liens PES/DST. Le dessin interprété reste commun. Les explications détaillées
+restent dans le panneau Détails ; le sélecteur principal est compact.
 
 Le pipeline ne calcule aucun squelette legacy à 150 DPI. Les rails servent
 uniquement à construire et vérifier les points directs ; ils ne constituent

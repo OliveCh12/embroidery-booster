@@ -7,8 +7,8 @@ result = generate("logo.svg", params=GenerationParams(fit_to_hoop=True),
 print(result.direct.pes_path)
 """
 
-from .pipeline import GenerationParams, GenerationResult, generate
+from .pipeline import GenerationParams, GenerationResult, GenerationVariant, generate
 from .stitching.params import StitchParams
 
-__all__ = ["generate", "GenerationParams", "GenerationResult", "StitchParams"]
+__all__ = ["generate", "GenerationParams", "GenerationResult", "GenerationVariant", "StitchParams"]
 __version__ = "0.5.1"

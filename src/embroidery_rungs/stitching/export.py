@@ -92,6 +92,29 @@ def _preview_svg(plan: StitchPlan, viewport_mm, path):
 def export_direct(svg, stage: Path, stem: str, params: StitchParams, *, input_analysis=None):
     started = time.perf_counter()
     plan, layers = digitize(svg, params)
+    return export_plan(
+        svg,
+        stage,
+        stem,
+        plan,
+        layers,
+        input_analysis=input_analysis,
+        digitize_seconds=time.perf_counter() - started,
+    )
+
+
+def export_plan(
+    svg,
+    stage: Path,
+    stem: str,
+    plan: StitchPlan,
+    layers: list[dict],
+    *,
+    input_analysis=None,
+    digitize_seconds: float = 0.0,
+):
+    """Write an already audited plan without recomputing its image or stitches."""
+    started = time.perf_counter()
     params = plan.params
     pattern = pe.EmbPattern()
     for color in plan.threads:
@@ -111,7 +134,7 @@ def export_direct(svg, stage: Path, stem: str, params: StitchParams, *, input_an
     )
     _preview_svg(plan, (svg.width / UNITS_PER_MM, svg.height / UNITS_PER_MM), stage / names[3])
     (stage / names[2]).write_bytes(render_preview(stage / names[3], svg.width, svg.height))
-    plan.stats["seconds"] = round(time.perf_counter() - started, 4)
+    plan.stats["seconds"] = round(digitize_seconds + time.perf_counter() - started, 4)
     coordinates = np.asarray(plan.commands)
     sewn = coordinates[coordinates[:, 2] == pe.STITCH, :2]
     first_stitch = int(np.flatnonzero(coordinates[:, 2] == pe.STITCH)[0])

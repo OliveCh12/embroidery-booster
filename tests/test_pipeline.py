@@ -41,6 +41,9 @@ def test_generate_produces_machine_outputs_by_default(svg_file, tmp_path):
         "warnings",
         "timings",
         "input_analysis",
+        "variants",
+        "recommended_variant",
+        "skipped_variants",
     }
     assert {p.name for p in (tmp_path / "result").iterdir()} == {
         "shape_artwork.svg",
@@ -50,6 +53,18 @@ def test_generate_produces_machine_outputs_by_default(svg_file, tmp_path):
         "shape_direct.svg",
         "shape_direct.json",
     }
+
+
+def test_cli_compare_strategies_exports_structured_alternatives(svg_file, tmp_path, capsys):
+    source = svg_file('<rect x="10" y="20" width="200" height="40"/>')
+    assert (
+        main([str(source), "-o", str(tmp_path / "variants"), "--compare-strategies", "--json"]) == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["variants"]
+    selected = next(v for v in payload["variants"] if v["id"] == payload["recommended_variant"])
+    assert payload["direct"]["pes_path"] == selected["direct"]["pes_path"]
+    assert Path(payload["direct"]["pes_path"]).is_file()
 
 
 @pytest.mark.parametrize("name", sorted(p.name for p in EXAMPLES.glob("*.svg")))

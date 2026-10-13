@@ -1,5 +1,60 @@
 # Validation du moteur direct — 13 octobre 2026
 
+## Propositions automatiques comparées
+
+Le [benchmark des variantes](benchmarks/automatic-variants-2026-10-13.json)
+évalue **12 entrées et 29 plans distincts**, à 80 mm, profil PP1, tissu stable,
+fil 40 wt et stabilisateur à découper. L'image interprétée, la palette et les
+réglages de tissu sont partagés ; les points de chaque proposition sont
+générés et contrôlés indépendamment. Aucun essai physique n'est revendiqué.
+
+| Cas | Recommandation et résultat |
+|---|---|
+| Colonne 32 × 12 mm | Priorité satin : deux colonnes, 533 points, couverture structurelle 100 %, flotté maximal 6,40 mm, aucune pénétration serrée |
+| Nike bitmap fourni | Équilibré : un fil noir, 3 143 points, couverture structurelle 100 %. La variante satin est disponible ; les jonctions inadéquates restent en tatami |
+| Pepsi bitmap fourni | Équilibré : quatre fils, blanc intérieur préservé, 12 623 points, couverture structurelle 100 %. Le tatami uniforme omet 21 microdétails et reste à vérifier |
+| Union Jack SVG | Équilibré : trois fils, 9 210 points, 17 régions dont quatre satin, aucune omission ; homologues traités de manière cohérente |
+| Nike SVG historique | Trois détails de 0,01 mm² sous la résolution machine : recommandation explicitement à vérifier |
+
+**11 recommandations sur 12 passent les contrôles géométriques.** Les 58
+fichiers PES/DST relus conservent exactement les coordonnées et les changements
+de couleur ; les fils PES concordent. Tous les plans de ce corpus respectent
+les limites du cadre, des points et des sauts, avec zéro connexion dangereuse,
+point court ou pénétration satin trop proche. Les palettes, réglages physiques
+et politiques des régions équivalentes concordent entre variantes.
+Sur les images dépassant 256 régions visibles, un budget opérationnel conserve
+la génération équilibrée et signale les alternatives non calculées. Il évite
+de répéter trois fois les audits coûteux sans altérer l'interprétation de l'image.
+
+Le classement ignore les petites différences de couverture déjà comprises
+dans les seuils validés : un tatami ne remplace pas automatiquement un satin
+utile pour gagner quelques centièmes de millimètre de distance au fil. La
+priorité satin n'est recommandée que si le gain de surface satin est substantiel
+et conserve les contrôles de couverture et les limites de déplacement. Le
+nombre de points n'est pas un score de beauté.
+
+Le cache réutilise rasterisation, quantification, repères, contours et MAT
+communs sans partager de plan mutable. Les tests comparent les commandes
+issues du cache et d'une génération indépendante. L'interface change aperçu,
+fils, diagnostics et téléchargements ensemble lors du choix d'une variante.
+
+```bash
+uv run python scripts/benchmark_variants.py \
+  --nike /chemin/nike.png --pepsi /chemin/pepsi.png \
+  --output output/automatic-variants
+```
+
+Les deux bitmaps sont facultatifs et restent hors du dépôt. Les mesures décrivent
+la géométrie des points sur la grille de 0,1 mm, avec la tolérance structurelle
+de 0,25 mm ; elles ne prouvent pas l'opacité, la tension ni le relief sur tissu.
+
+La validation finale passe : **503 tests Python**, **54 tests frontend**, Ruff,
+TypeScript, ESLint et build Next.js. Les changements de proposition et de liens
+PES sont vérifiés dans l'interface sur Nike et Pepsi, avec des layouts de
+390 × 844 et 1440 × 1000 pixels et les thèmes clair/sombre. Les tests protègent
+le plafond de comparaison inclusif à 256 régions et la conservation exacte du
+primaire au-delà de ce plafond.
+
 ## Consolidation satin et imports
 
 La [matrice reproductible](benchmarks/satin-input-reliability-2026-10-13.json)

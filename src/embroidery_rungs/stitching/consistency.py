@@ -19,7 +19,7 @@ from .planner import CandidateGeometryError, UnstitchableRegion, build_stitch_pl
 from .quality import coverage_needs_review, measure_plan, satin_crowding
 from .rails import generate_columns
 from .regions import Region, canonical_regions, physical_elements, route_region_groups
-from .selection import _fill_angle, fill_elements, mask_polygons, select_stitch_types
+from .selection import _fill_angle, _geometry_key, fill_elements, mask_polygons, select_stitch_types
 
 
 @dataclass
@@ -47,7 +47,7 @@ def _color_policy(groups, params):
             and len({len(m.elements) for m in members}) > 1
         ):
             policies[group] = "fill"
-    if params.stitch_type != "auto":
+    if params.stitch_type != "auto" or params.auto_strategy == "satin_preferred":
         return policies, None, set()
     substantive = [
         (group, member, sum(p.area for p in member.polygons))
@@ -179,12 +179,40 @@ def _audit_members(members, method, params, origin, transform, scale):
     return passed
 
 
-def select_consistent_regions(mask, transform, params: StitchParams, origin, symmetries):
+def select_consistent_regions(
+    mask, transform, params: StitchParams, origin, symmetries, *, geometry_cache=None
+):
     scale = UNITS_PER_MM * math.sqrt(abs(transform.a * transform.d - transform.b * transform.c))
     local_transform = Matrix(scale / UNITS_PER_MM, 0, 0, scale / UNITS_PER_MM, 3, 3)
+    geometry = {} if geometry_cache is None else geometry_cache
+    source_key = (_geometry_key(mask, transform), tuple(tuple(s.ravel()) for s in symmetries))
+    if geometry.get("source_key") != source_key:
+        geometry.clear()
+        regions = tuple(canonical_regions(mask, transform, symmetries))
+        for region in regions:
+            for array in (
+                region.mask,
+                region.source_mask,
+                region.frame.matrix,
+                region.frame.offset,
+            ):
+                array.setflags(write=False)
+        geometry.update(source_key=source_key, regions=regions, members={})
     groups: dict[int, list[RegionCandidate]] = defaultdict(list)
-    for region in canonical_regions(mask, transform, symmetries):
-        local_mask = np.pad(region.mask, 3)
+    preferred = params.stitch_type == "auto" and params.auto_strategy == "satin_preferred"
+    for index, region in enumerate(geometry["regions"]):
+        member_geometry = geometry["members"].get(index)
+        if member_geometry is None:
+            local_mask = np.pad(region.mask, 3)
+            local_mask.setflags(write=False)
+            member_geometry = {
+                "mask": local_mask,
+                "diameter": float(2 * distance_transform_edt(local_mask).max() / scale),
+                "polygons": tuple(mask_polygons(local_mask, local_transform, minimum_area=0.001)),
+                "selection": {},
+            }
+            geometry["members"][index] = member_geometry
+        local_mask = member_geometry["mask"]
         local_origin = (np.asarray(region.mask.shape)[::-1] - 1) / (2 * scale)
         # Rotating a temporary frame exchanges width/height; check the real hoop
         # only after restoring source coordinates. Manual angles remain global.
@@ -200,7 +228,7 @@ def select_consistent_regions(mask, transform, params: StitchParams, origin, sym
             params.max_satin_width_mm,
             params.max_stitch_mm - 0.2 - 2 * params.pull_compensation_mm,
         )
-        diameter = 2 * distance_transform_edt(local_mask).max() / scale
+        diameter = member_geometry["diameter"]
         # Broad compact bodies usually need fill; long strokes can instead be
         # divided into bounded satin columns and checked on the real grid.
         broad = diameter > safe_width + 2 / scale
@@ -208,32 +236,51 @@ def select_consistent_regions(mask, transform, params: StitchParams, origin, sym
         minimum_width = max(
             2 * params.min_stitch_mm, {30: 0.75, 40: 0.6, 60: 0.45}[params.thread_weight]
         )
-        elongated = np.count_nonzero(local_mask) / scale**2 / max(diameter**2, 1e-6) >= 3
+        elongated = np.count_nonzero(local_mask) / scale**2 / max(diameter**2, 1e-6) >= (
+            1.5 if preferred else 3
+        )
         needs_mat = bool(
             (
                 params.stitch_type == "satin"
                 or (
                     params.stitch_type == "auto"
-                    and (not broad or (elongated and diameter <= 2 * safe_width))
+                    and (
+                        not broad
+                        or (elongated and diameter <= (3 if preferred else 2) * safe_width)
+                    )
                 )
             )
             or (params.stitch_type == "running" and diameter < minimum_width)
         )
         if needs_mat:
-            skeleton, distance = compute_medial_axis(local_mask)
-            elements = generate_columns(
-                skeleton,
-                distance,
-                local_mask,
-                min_satin_width_px=0.5 * scale,
-                pixels_per_mm=scale,
-            )
+            if "mat" not in member_geometry:
+                skeleton, distance = compute_medial_axis(local_mask)
+                raw_elements = generate_columns(
+                    skeleton,
+                    distance,
+                    local_mask,
+                    min_satin_width_px=0.5 * scale,
+                    pixels_per_mm=scale,
+                )
+                member_geometry["mat"] = tuple(physical_elements(raw_elements, local_transform))
+                for element in member_geometry["mat"]:
+                    for value in element.values():
+                        if isinstance(value, np.ndarray):
+                            value.setflags(write=False)
+            elements = [
+                {
+                    key: value.copy() if isinstance(value, np.ndarray) else value
+                    for key, value in e.items()
+                }
+                for e in member_geometry["mat"]
+            ]
         selected, decisions = select_stitch_types(
-            physical_elements(elements, local_transform),
+            elements,
             local_mask,
             local_transform,
             local_params,
             origin_mm=local_origin,
+            geometry_cache=member_geometry["selection"],
         )
         if decisions:
             decisions[0]["mat_evaluated"] = needs_mat
@@ -244,7 +291,7 @@ def select_consistent_regions(mask, transform, params: StitchParams, origin, sym
                     region,
                     selected,
                     decisions[0],
-                    mask_polygons(local_mask, local_transform, minimum_area=0.001),
+                    member_geometry["polygons"],
                     local_params,
                 )
             )
@@ -321,6 +368,7 @@ def select_consistent_regions(mask, transform, params: StitchParams, origin, sym
                     if method != decision["method"]
                     else decision["reason"],
                     "requested_stitch_type": params.stitch_type,
+                    "auto_strategy": params.auto_strategy,
                     "strategy_scope": "color" if color_texture else "region",
                     "individual_method": decision["method"],
                     "equivalence_group": group + 1,

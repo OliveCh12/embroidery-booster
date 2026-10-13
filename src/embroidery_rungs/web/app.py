@@ -61,6 +61,7 @@ def create_app(config=None):
             direct=True,
             direct_formats=["pes", "dst"],
             stitch_types=["auto", "satin", "fill", "running"],
+            automatic_variants=True,
             background_modes=["auto", "keep", "remove"],
             quality_report=(Path(app.config["QUALITY_REPORT_DIR"]) / "comparison.json").is_file(),
             machine_profiles=MACHINE_PROFILES,
@@ -163,6 +164,7 @@ def create_app(config=None):
             )
             stitch_params.stitch_type = request.form.get("stitch_type", "auto")
             stitch_params.validate()
+            compare_strategies = boolean("compare_strategies", False)
         except ValueError as exc:
             return jsonify(error=str(exc)), 400
         if not semaphore.acquire(blocking=False):
@@ -180,7 +182,13 @@ def create_app(config=None):
                 raise ValueError("Nom de fichier invalide.")
             source = directory / filename
             upload.save(source)
-            result = generate(source, directory, params, stitch_params=stitch_params)
+            result = generate(
+                source,
+                directory,
+                params,
+                stitch_params=stitch_params,
+                compare_strategies=compare_strategies,
+            )
             job = directory.name
 
             def url(path):
@@ -190,12 +198,9 @@ def create_app(config=None):
             artwork_preview.write_bytes(
                 render_preview(result.original_path, *result.artwork_size_mm, max_dimension=1000)
             )
-            direct = result.direct
-            succeeded = True
-            return jsonify(
-                success=True,
-                job=job,
-                direct={
+
+            def direct_payload(direct):
+                return {
                     "files": {
                         "pes": url(direct.pes_path),
                         "dst": url(direct.dst_path),
@@ -210,7 +215,28 @@ def create_app(config=None):
                     "requested_params": direct.requested_params,
                     "adjustments": direct.adjustments,
                     "analysis": direct.analysis,
-                },
+                    "warnings": direct.warnings,
+                }
+
+            direct = result.direct
+            succeeded = True
+            return jsonify(
+                success=True,
+                job=job,
+                direct=direct_payload(direct),
+                variants=[
+                    {
+                        "id": variant.id,
+                        "direct": direct_payload(variant.direct),
+                        "quality": variant.quality,
+                        "reasons": variant.reasons,
+                        "equivalent_strategies": variant.equivalent_strategies,
+                    }
+                    for variant in result.variants
+                ],
+                recommended_variant=result.recommended_variant,
+                skipped_variants=result.skipped_variants,
+                input_warnings=result.warnings,
                 warnings=list(dict.fromkeys([*result.warnings, *direct.warnings])),
                 artwork_preview=url(artwork_preview),
                 artwork_svg=url(result.original_path),

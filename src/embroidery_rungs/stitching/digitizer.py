@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import math
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, field
 
 import numpy as np
 import pyembroidery as pe
+from svgelements import Matrix
 
 from ..colors import separate_colors
 from ..image_processor import rasterize_rgba
@@ -19,6 +20,75 @@ from .quality import coverage_needs_review, measure_plan, satin_crowding
 from .regions import design_symmetries
 
 MAX_VISIBLE_REGIONS = 4096
+
+
+@dataclass
+class PreparedArtwork:
+    """One interpreted colour grid and lazy geometry cache for a bounded comparison."""
+
+    svg: SVGDocument
+    labels: np.ndarray
+    colors: list[str]
+    transform: Matrix
+    scale: float
+    origin: np.ndarray
+    symmetries: list[np.ndarray]
+    analysis: dict
+    reduced: bool
+    settings: tuple[bool, int, str, float, int]
+    geometry_caches: dict[int, dict] = field(default_factory=dict)
+
+
+def _preparation_settings(params: StitchParams) -> tuple[bool, int, str, float, int]:
+    return (
+        params.preserve_colors,
+        params.max_colors,
+        params.thread_color,
+        params.min_stitch_mm,
+        params.thread_weight,
+    )
+
+
+def prepare_digitizing(svg: SVGDocument, params: StitchParams) -> PreparedArtwork:
+    """Rasterize, quantize and analyze once; variants retain identical thread regions."""
+    params, _ = adjust_for_sewing(params)
+    rgba, transform = rasterize_rgba(svg, dpi=305)
+    if params.preserve_colors:
+        labels, colors, reduced = separate_colors(rgba, params.max_colors)
+    else:
+        labels, colors, reduced = (
+            (rgba[..., 3] >= 128).astype(np.uint8),
+            [params.thread_color],
+            False,
+        )
+    scale = UNITS_PER_MM * np.sqrt(abs(transform.a * transform.d - transform.b * transform.c))
+    analysis = analyze_regions(labels, scale, params, palette_reduced=reduced)
+    if analysis["region_count"] > MAX_VISIBLE_REGIONS:
+        raise ValueError(
+            f"Artwork contains {analysis['region_count']} visible regions; the limit is {MAX_VISIBLE_REGIONS}. Simplify the artwork, remove image noise, or reduce the number of colours."
+        )
+    rows, cols = np.nonzero(labels)
+    if not len(rows):
+        raise UnstitchableRegion("Artwork contains no visible regions.")
+    inverse = ~transform
+    center = np.array([(cols.min() + cols.max()) / 2, (rows.min() + rows.max()) / 2])
+    origin = (
+        center @ np.array([[inverse.a, inverse.b], [inverse.c, inverse.d]]) + [inverse.e, inverse.f]
+    ) / UNITS_PER_MM
+    symmetries = design_symmetries(labels)
+    labels.flags.writeable = False
+    return PreparedArtwork(
+        svg,
+        labels,
+        colors,
+        transform,
+        scale,
+        origin,
+        symmetries,
+        analysis,
+        reduced,
+        _preparation_settings(params),
+    )
 
 
 def _combine(plans, colors, params, origin):
@@ -116,37 +186,32 @@ def _combine(plans, colors, params, origin):
     return StitchPlan(commands, blocks, tuple(origin), stats, warnings, decisions, colors)
 
 
-def digitize(svg: SVGDocument, params: StitchParams) -> tuple[StitchPlan, list[dict]]:
+def digitize(
+    svg: SVGDocument, params: StitchParams, *, prepared: PreparedArtwork | None = None
+) -> tuple[StitchPlan, list[dict]]:
     requested_params = asdict(params)
     params, adjustments = adjust_for_sewing(params)
-    rgba, transform = rasterize_rgba(svg, dpi=305)
-    if params.preserve_colors:
-        labels, colors, reduced = separate_colors(rgba, params.max_colors)
-    else:
-        labels, colors, reduced = (
-            (rgba[..., 3] >= 128).astype(np.uint8),
-            [params.thread_color],
-            False,
-        )
-    scale = UNITS_PER_MM * np.sqrt(abs(transform.a * transform.d - transform.b * transform.c))
-    analysis = analyze_regions(labels, scale, params, palette_reduced=reduced)
-    if analysis["region_count"] > MAX_VISIBLE_REGIONS:
+    prepared = prepared or prepare_digitizing(svg, params)
+    if prepared.svg is not svg or prepared.settings != _preparation_settings(params):
         raise ValueError(
-            f"Artwork contains {analysis['region_count']} visible regions; the limit is {MAX_VISIBLE_REGIONS}. Simplify the artwork, remove image noise, or reduce the number of colours."
+            "Prepared artwork must match the SVG, palette and physical analysis settings."
         )
-    # Shared grid/origin: no independent per-colour centering or second rounding.
-    rows, cols = np.nonzero(labels)
-    inverse = ~transform
-    center = np.array([(cols.min() + cols.max()) / 2, (rows.min() + rows.max()) / 2])
-    origin = (
-        center @ np.array([[inverse.a, inverse.b], [inverse.c, inverse.d]]) + [inverse.e, inverse.f]
-    ) / UNITS_PER_MM
+    labels, colors, reduced = prepared.labels, prepared.colors, prepared.reduced
+    transform, scale, origin = prepared.transform, prepared.scale, prepared.origin
+    analysis = prepared.analysis
     plans, diagnostics, command_count = [], [], 0
-    symmetries = design_symmetries(labels)
+    symmetries = prepared.symmetries
     sewn_colors, skipped_decisions, skipped_warnings = [], [], []
     for index, color in enumerate(colors, 1):
         mask = labels == index
-        selected, decisions = select_consistent_regions(mask, transform, params, origin, symmetries)
+        selected, decisions = select_consistent_regions(
+            mask,
+            transform,
+            params,
+            origin,
+            symmetries,
+            geometry_cache=prepared.geometry_caches.setdefault(index, {}),
+        )
         if not selected:
             skipped_decisions.extend(
                 {**d, "color": color, "color_index": None, "source_component": d["component"]}

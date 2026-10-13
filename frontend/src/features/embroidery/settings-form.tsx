@@ -59,6 +59,10 @@ export function SettingsForm({ settings: s, onChange, capabilities, busy, canGen
             ]} />
           </div>
           <ChoiceSetting label="Type de points" value={s.stitch_type} onChange={value => update("stitch_type", value)} disabled={busy} options={STITCH_TYPE_OPTIONS} />
+          {s.stitch_type === "auto" && capabilities?.automatic_variants && <>
+            <ToggleSetting label="Comparer les stratégies" value={s.compare_strategies} onChange={value => update("compare_strategies", value)} disabled={busy} />
+            <p className="text-xs leading-relaxed text-muted">Équilibré, priorité satin et tatami uniforme : le moteur compare leurs contrôles et recommande une proposition. Le satin reste réservé aux colonnes validées.</p>
+          </>}
           {s.stitch_type === "satin" && <p className="text-xs leading-relaxed text-muted">Les colonnes trop larges sont divisées en satins adjacents. Les jonctions qui échouent aux contrôles restent refusées ; Auto peut alors choisir le tatami.</p>}
           {s.stitch_type === "running" && <p className="text-xs leading-relaxed text-muted">Le point droit suit les lignes fines ; il ne couvre pas une surface comme le satin ou le tatami.</p>}
           <ToggleSetting label="Ajustement automatique" value={s.auto_adjust} onChange={value => update("auto_adjust", value)} disabled={busy} />

@@ -56,6 +56,7 @@ class StitchParams:
     preserve_colors: bool = True
     machine: str = "generic"
     stitch_type: str = "auto"
+    auto_strategy: str = "balanced"
 
     @classmethod
     def for_fabric(
@@ -116,6 +117,8 @@ class StitchParams:
     def validate(self) -> None:
         if self.stitch_type not in ("auto", "satin", "fill", "running"):
             raise ValueError("stitch_type must be 'auto', 'satin', 'fill' or 'running'.")
+        if self.auto_strategy not in ("balanced", "satin_preferred"):
+            raise ValueError("auto_strategy must be 'balanced' or 'satin_preferred'.")
         if self.machine not in MACHINE_PROFILES:
             raise ValueError("Unknown machine profile.")
         if (

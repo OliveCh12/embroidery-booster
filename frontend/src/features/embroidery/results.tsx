@@ -1,14 +1,15 @@
 "use client";
 
-import { Accordion, Button, Chip, Drawer, Spinner, Tabs, buttonVariants } from "@heroui/react";
+import { Accordion, Button, Chip, Drawer, Label, ListBox, Select, Spinner, Tabs, buttonVariants } from "@heroui/react";
 import { Download, FileImage, PanelRight } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { formatNumber } from "@/lib/format";
 import { describeBackground } from "./background-diagnostics";
 import { FileUpload } from "./file-upload";
 import { BACKGROUND_MODE_LABELS, STITCH_TYPE_LABELS } from "./settings";
 import { StitchPlayer } from "./stitch-player/stitch-player";
-import type { GenerationResult } from "./types";
+import type { GenerationResult, VariantId } from "./types";
+import { VARIANT_LABELS, variantReason, variantResult } from "./variants";
 
 export function PreviewFrame({ src, alt, expand = false }: { src: string; alt: string; expand?: boolean }) {
   return <div className={`relative overflow-hidden rounded-xl border border-border bg-white ${expand ? "min-h-64 flex-1 md:min-h-40" : "aspect-[4/3] max-h-[520px]"}`}><img src={src} alt={alt} className="absolute inset-0 size-full object-contain p-4" /></div>;
@@ -38,6 +39,20 @@ function InputDiagnostics({ result }: { result: GenerationResult }) {
 function Diagnostics({ result }: { result: GenerationResult }) {
   const { direct } = result, stats = direct.stats;
   return <Accordion>
+    {!!result.variants?.length && <Accordion.Item>
+      <Accordion.Heading><Accordion.Trigger>Propositions automatiques<Accordion.Indicator /></Accordion.Trigger></Accordion.Heading>
+      <Accordion.Panel><Accordion.Body className="flex flex-col gap-4 pb-4 text-xs text-muted">
+        <p>Le même dessin, les mêmes fils et les mêmes réglages de tissu sont utilisés. La recommandation privilégie les contrôles de couverture et de sécurité ; elle ne prédit pas le rendu cousu.</p>
+        {result.variants.map(item => <div key={item.id} className="flex flex-col gap-1">
+          <p className="font-medium text-foreground">{VARIANT_LABELS[item.id]}{item.id === result.recommended_variant ? " · recommandé" : ""}{item.direct.analysis.quality_status === "needs_review" && <span className="font-normal text-warning"> · à vérifier</span>}</p>
+          <p>{formatNumber(item.direct.stats.structural_coverage * 100)} % de couverture · {formatNumber(item.direct.stats.stitches)} points · {item.direct.stats.satin_regions} satin · {item.direct.stats.fill_regions} tatami</p>
+          {item.direct.stats.omitted_regions > 0 && <p className="text-warning">{formatNumber(item.direct.stats.omitted_regions)} détail{item.direct.stats.omitted_regions > 1 ? "s" : ""} non cousu{item.direct.stats.omitted_regions > 1 ? "s" : ""}.</p>}
+          {item.reasons.filter(reason => !["shared_interpretation", "audit_first"].includes(reason) && !(reason === "balanced_default" && item.reasons.includes("no_meaningful_gain"))).map(reason => <p key={reason}>{variantReason(reason)}</p>)}
+          {item.equivalent_strategies.length > 0 && <p>Résultat identique : {item.equivalent_strategies.map(id => VARIANT_LABELS[id]).join(", ")}.</p>}
+        </div>)}
+        {result.skipped_variants?.map(item => <p key={item.id}>{VARIANT_LABELS[item.id]} non retenu : {variantReason(item.reason)}</p>)}
+      </Accordion.Body></Accordion.Panel>
+    </Accordion.Item>}
     {result.warnings.length > 0 && <Accordion.Item>
       <Accordion.Heading><Accordion.Trigger>{result.warnings.length} remarque{result.warnings.length > 1 ? "s" : ""} avant de broder<Accordion.Indicator /></Accordion.Trigger></Accordion.Heading>
       <Accordion.Panel><Accordion.Body className="pb-4"><ul className="flex flex-col gap-4 text-xs leading-relaxed text-muted">{result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></Accordion.Body></Accordion.Panel>
@@ -111,20 +126,29 @@ export function ResultPane({ file, sourcePreview, result, busy, importError, onS
   file: File | null; sourcePreview: string | null; result?: GenerationResult; busy: boolean;
   importError: string | null; onSelect: (file: File) => void; onClear: () => void; hoop: [number, number];
 }) {
-  const hoopChanged = result && (hoop[0] !== result.direct.params.hoop_width_mm || hoop[1] !== result.direct.params.hoop_height_mm);
+  const [selection, setSelection] = useState<{ job: string; id: VariantId } | null>(null);
+  const selectedId = result && selection?.job === result.job ? selection.id : result?.recommended_variant ?? null;
+  const selected = result ? variantResult(result, selectedId) : undefined;
+  const hoopChanged = selected && (hoop[0] !== selected.direct.params.hoop_width_mm || hoop[1] !== selected.direct.params.hoop_height_mm);
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4" aria-busy={busy}>
     <FileUpload file={file} onSelect={onSelect} onClear={onClear} disabled={busy} error={importError} showHint={!result}
-      headerContent={<div className="flex shrink-0 items-center gap-4"><Chip size="sm" variant="soft" className="hidden shrink-0 @xl:flex">Cadre {hoop.map(value => Number.isFinite(value) ? formatNumber(value) : "—").join(" × ")} mm</Chip>{!busy && result && <ActivityPanel key={result.job} result={result} />}</div>}>
+      headerContent={<div className="flex shrink-0 items-center gap-4"><Chip size="sm" variant="soft" className="hidden shrink-0 @xl:flex">Cadre {hoop.map(value => Number.isFinite(value) ? formatNumber(value) : "—").join(" × ")} mm</Chip>{!busy && selected && <ActivityPanel key={selected.direct.files.plan_json} result={selected} />}</div>}>
       {busy ? <div className="flex min-h-64 flex-1 flex-col items-center justify-center gap-4 text-center text-muted md:min-h-0" role="status"><Spinner size="lg" /><p>Génération de la broderie…</p><p className="text-xs">Analyse du dessin, placement des points et exports.</p></div>
-        : !result ? <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"><SourcePreview sourcePreview={sourcePreview} /></div>
+        : !selected ? <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"><SourcePreview sourcePreview={sourcePreview} /></div>
         : <div className="flex min-h-0 flex-1 flex-col gap-4">
           {hoopChanged && <p className="shrink-0 text-xs text-warning">Le cadre a changé. Régénérez pour appliquer ses dimensions ; l’aperçu montre le fichier actuel.</p>}
-          <Tabs key={result.job} defaultSelectedKey="stitches" className="min-h-0 w-full flex-1 gap-4" variant="secondary">
-            <Tabs.ListContainer className="shrink-0"><Tabs.List aria-label="Aperçus de la broderie"><Tabs.Tab id="stitches">Simulation<Tabs.Indicator /></Tabs.Tab><Tabs.Tab id="source">Dessin<Tabs.Indicator /></Tabs.Tab></Tabs.List></Tabs.ListContainer>
-            <Tabs.Panel id="stitches" className="mt-0 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-0"><StitchPlayer url={result.direct.files.plan_json} /></Tabs.Panel>
-            <Tabs.Panel id="source" className="mt-0 min-h-0 flex-1 overflow-y-auto overscroll-contain p-0"><SourcePreview sourcePreview={sourcePreview} result={result} /></Tabs.Panel>
+          <Tabs key={selected.job} defaultSelectedKey="stitches" className="min-h-0 w-full flex-1 gap-4" variant="secondary">
+            <div className="flex shrink-0 flex-wrap items-center gap-4">
+              <Tabs.ListContainer className="shrink-0"><Tabs.List aria-label="Aperçus de la broderie"><Tabs.Tab id="stitches">Simulation<Tabs.Indicator /></Tabs.Tab><Tabs.Tab id="source">Dessin<Tabs.Indicator /></Tabs.Tab></Tabs.List></Tabs.ListContainer>
+              {(selected.variants?.length ?? 0) > 1 && <Select aria-label="Variante de broderie" value={selectedId} variant="secondary" className="ml-auto w-60 max-w-full" onChange={id => { if (typeof id === "string") setSelection({ job: selected.job, id: id as VariantId }); }}>
+                <Select.Trigger className="min-h-8 py-1"><Select.Value /><Select.Indicator /></Select.Trigger>
+                <Select.Popover><ListBox aria-label="Variante de broderie">{selected.variants!.map(item => <ListBox.Item key={item.id} id={item.id} textValue={`${VARIANT_LABELS[item.id]}${item.id === selected.recommended_variant ? " · recommandé" : ""}`}><Label>{VARIANT_LABELS[item.id]}{item.id === selected.recommended_variant ? " · recommandé" : ""}</Label><ListBox.ItemIndicator /></ListBox.Item>)}</ListBox></Select.Popover>
+              </Select>}
+            </div>
+            <Tabs.Panel id="stitches" className="mt-0 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-0"><StitchPlayer url={selected.direct.files.plan_json} /></Tabs.Panel>
+            <Tabs.Panel id="source" className="mt-0 min-h-0 flex-1 overflow-y-auto overscroll-contain p-0"><SourcePreview sourcePreview={sourcePreview} result={selected} /></Tabs.Panel>
           </Tabs>
-          <div className="flex shrink-0 flex-wrap items-center gap-4"><DownloadLink href={result.direct.files.pes} primary>PES · Brother</DownloadLink><DownloadLink href={result.direct.files.dst}>DST</DownloadLink><span className="ml-auto text-xs text-muted">{formatNumber(result.direct.stats.stitches)} points · {result.direct.threads.length} fil{result.direct.threads.length > 1 ? "s" : ""}</span></div>
+          <div className="flex shrink-0 flex-wrap items-center gap-4"><DownloadLink href={selected.direct.files.pes} primary>PES · Brother</DownloadLink><DownloadLink href={selected.direct.files.dst}>DST</DownloadLink><span className="ml-auto text-xs text-muted">{formatNumber(selected.direct.stats.stitches)} points · {selected.direct.threads.length} fil{selected.direct.threads.length > 1 ? "s" : ""}</span></div>
         </div>}
     </FileUpload>
   </div>;

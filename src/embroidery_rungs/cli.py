@@ -35,6 +35,11 @@ def parse_arguments(argv=None):
         help="Top stitch strategy; satin requires safe columns, running draws contours",
     )
     parser.add_argument("-o", "--output-dir", default="output")
+    parser.add_argument(
+        "--compare-strategies",
+        action="store_true",
+        help="Compare audited automatic strategies and export the recommendation plus alternatives",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("--json", action="store_true", help="Print structured results to stdout")
     parser.add_argument(
@@ -138,6 +143,7 @@ def main(argv=None):
                 thread_color=args.thread_color or "#176d9c",
                 preserve_colors=not args.single_color and args.thread_color is None,
             ),
+            compare_strategies=args.compare_strategies,
         )
     except (OSError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
@@ -152,6 +158,10 @@ def main(argv=None):
         )
         for warning in dict.fromkeys([*result.warnings, *result.direct.warnings]):
             print(f"Warning: {warning}", file=sys.stderr)
+        if result.variants:
+            print(f"Recommended strategy: {result.recommended_variant}")
+            for variant in result.variants:
+                print(f"{variant.id}: {variant.direct.pes_path}")
     return 0
 
 

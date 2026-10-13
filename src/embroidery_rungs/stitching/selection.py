@@ -223,15 +223,40 @@ def _split_columns(elements, float_limit, params):
     return result
 
 
-def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
+def _geometry_key(mask, transform):
+    return (
+        mask.shape,
+        np.packbits(mask).tobytes(),
+        tuple(getattr(transform, name) for name in ("a", "b", "c", "d", "e", "f")),
+    )
+
+
+def select_stitch_types(elements, mask, transform, params, *, origin_mm=None, geometry_cache=None):
     """Choose one top-layer strategy per connected region; never patch satin with fill."""
     minimum_width = max(
         2 * params.min_stitch_mm, {30: 0.75, 40: 0.6, 60: 0.45}[params.thread_weight]
     )
-    labels, count = label(mask)
-    slices = find_objects(labels)
+    geometry = {} if geometry_cache is None else geometry_cache
+    source_key = _geometry_key(mask, transform)
+    if geometry.get("source_key") != source_key:
+        geometry.clear()
+        labels, count = label(mask)
+        radii = distance_transform_edt(mask)
+        labels.setflags(write=False)
+        radii.setflags(write=False)
+        geometry.update(
+            source_key=source_key,
+            labels=labels,
+            count=count,
+            slices=find_objects(labels),
+            radii=radii,
+            components={},
+        )
+    labels, count = geometry["labels"], geometry["count"]
+    slices = geometry["slices"]
     scale = UNITS_PER_MM * np.sqrt(abs(transform.a * transform.d - transform.b * transform.c))
-    radii = distance_transform_edt(mask)
+    radii = geometry["radii"]
+    preferred = params.stitch_type == "auto" and params.auto_strategy == "satin_preferred"
     groups = [[] for _ in range(count)]
     for element in elements:
         points = (
@@ -257,10 +282,15 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
             continue
         component = labels[bounds] == i + 1
         local_transform = transform * Matrix.translate(-bounds[1].start, -bounds[0].start)
-        polygons = mask_polygons(component, local_transform, minimum_area=0.001)
+        component_geometry = geometry["components"].get(i)
+        if component_geometry is None:
+            polygons = mask_polygons(component, local_transform, minimum_area=0.001)
+            component_geometry = {"polygons": tuple(polygons), "source": unary_union(polygons)}
+            geometry["components"][i] = component_geometry
+        polygons = component_geometry["polygons"]
         if not polygons:
             continue
-        source = unary_union(polygons)
+        source = component_geometry["source"]
         width = float(radii[bounds][component].max() * 2 / scale)
         satin = []
         for element in groups[i]:
@@ -300,9 +330,13 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
             params.stitch_type == "satin"
             or (
                 params.stitch_type == "auto"
-                and (linear is not None or source.area / max(width**2, 1e-6) >= 3)
+                and (
+                    linear is not None
+                    or source.area / max(width**2, 1e-6) >= (1.5 if preferred else 3)
+                )
                 and all(
-                    np.linalg.norm(e["rail_b"] - e["rail_a"], axis=1).max() <= 2 * float_limit
+                    np.linalg.norm(e["rail_b"] - e["rail_a"], axis=1).max()
+                    <= (3 if preferred else 2) * float_limit
                     for e in satin
                 )
             )

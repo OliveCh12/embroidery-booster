@@ -37,6 +37,7 @@ describe("Python generation contract", () => {
     expect(form.get("background_mode")).toBe("auto");
     expect(form.get("stitch_type")).toBe("auto");
     expect(form.get("raster_cleanup")).toBe("true");
+    expect(form.get("compare_strategies")).toBe("true");
   });
 
   it("starts with the PP1 hoop and conservative thread palette", () => {
@@ -52,10 +53,18 @@ describe("Python generation contract", () => {
     const form = generationForm(file, { ...DEFAULT_SETTINGS, background_mode: "keep", stitch_type: "satin", auto_adjust: true, raster_cleanup: false });
     expect(form.get("background_mode")).toBe("keep");
     expect(form.get("stitch_type")).toBe("satin");
+    expect(form.get("compare_strategies")).toBe("false");
     expect(form.get("auto_adjust")).toBe("true");
     expect(form.get("raster_cleanup")).toBe("false");
     expect(generationForm(file, { ...DEFAULT_SETTINGS, background_mode: "remove", stitch_type: "fill" }).get("stitch_type")).toBe("fill");
     expect(generationForm(file, { ...DEFAULT_SETTINGS, stitch_type: "running" }).get("stitch_type")).toBe("running");
+  });
+
+  it("can generate only the balanced proposal without changing automatic material controls", () => {
+    const form = generationForm(file, { ...DEFAULT_SETTINGS, compare_strategies: false });
+    expect(form.get("compare_strategies")).toBe("false");
+    expect(form.get("stitch_type")).toBe("auto");
+    expect(form.get("auto_adjust")).toBe("true");
   });
 
   it("uses server machine recommendations without changing material or density", () => {

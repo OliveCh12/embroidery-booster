@@ -135,6 +135,35 @@ improve tiny details.
 
 ## Machine plan and output
 
+### Automatic alternatives
+
+`generate(..., compare_strategies=True)` compares a bounded set using the same
+interpreted image, physical scale, palette and textile settings. **Balanced**
+retains the ordinary regional/coherent-colour policy. **Satin preferred** can
+evaluate additional rail sweeps and retain suitable satin companions instead
+of unifying them with a filled body; it never bypasses machine-grid audits and
+falls back to tatami for incomplete or crowded columns. **Uniform fill** uses
+tatami with the requested global fill angle on all sewable surfaces.
+
+Prepared visible labels and canonical geometry are reused, with lazy medial
+axes cached per region. Stitches, underlay and their quality measurements are
+rebuilt independently. Exact command/palette duplicates produce one export.
+An unsuccessful alternative does not discard a successful primary plan.
+Explicit Satin/Fill/Running requests do not trigger variants.
+Above 256 visible colour regions, comparison retains just balanced and reports
+the uncomputed policies. This deterministic operational budget bounds repeated
+candidate/cohort/colour audits; it is not a machine limit or a sewing threshold.
+The original 4096-region input budget and explicit modes are unchanged.
+
+Recommendations compare actual safety and coverage diagnostics first; a safe
+satin gain is an aesthetic preference only among qualified alternatives.
+They do not optimize thread count into a supposed beauty metric or increase
+density to mask deficient geometry. The balanced plan wins equivalent choices.
+Common image ambiguities and all remaining omissions remain visible in the
+diagnostics. Physical stitch appearance still requires material-specific sewing
+validation, as commercial
+[auto-digitizing documentation also explains](https://help.wilcom.com/portal/en/kb/wilcom-international/embroidery-web-api/faqs/articles/autodigitizing-concept).
+
 Paths return to one physical artwork frame before their coordinates round to
 integer **0.1 mm** positions. All colours share the same origin. Final commands
 are centred in the hoop; compensated and rounded bounds are checked against

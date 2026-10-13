@@ -52,6 +52,7 @@ def test_api_has_no_duplicate_frontend_and_profiles_share_library_settings(app):
     assert client.get("/static/styles.css").status_code == 404
     capabilities = client.get("/api/capabilities").get_json()
     assert capabilities["engine"] == "direct"
+    assert capabilities["automatic_variants"] is True
     assert set(capabilities["direct_formats"]) == {"pes", "dst"}
     assert "inkscape" not in capabilities and "inkstitch" not in capabilities
     for fabric, weights in capabilities["material_presets"].items():
@@ -59,6 +60,49 @@ def test_api_has_no_duplicate_frontend_and_profiles_share_library_settings(app):
             preset = StitchParams.for_fabric(fabric, thread_weight=int(weight))
             assert values["stitch_spacing"] == preset.satin_spacing_mm
             assert values["pull_compensation"] == preset.pull_compensation_mm
+
+
+def test_automatic_variant_previews_and_downloads_share_artwork(app):
+    client = app.test_client()
+    response = client.post(
+        "/api/convert",
+        data={"file": (io.BytesIO(SVG), "logo.svg"), "compare_strategies": "true"},
+    )
+    assert response.status_code == 200
+    result = response.get_json()
+    variants = result["variants"]
+    assert 1 <= len(variants) <= 3
+    selected = next(v for v in variants if v["id"] == result["recommended_variant"])
+    assert selected["direct"] == result["direct"]
+    assert len({tuple(v["direct"]["threads"]) for v in variants}) == 1
+    urls = {v["direct"]["files"]["plan_json"] for v in variants}
+    assert len(urls) == len(variants)
+    for variant in variants:
+        direct = variant["direct"]
+        plan = client.get(direct["files"]["plan_json"]).get_json()
+        assert plan["analysis"]["comparison"]["strategy"] == variant["id"]
+        assert direct["warnings"] == plan["warnings"]
+        assert variant["reasons"]
+        assert client.get(direct["files"]["pes"]).data.startswith(b"#PES0060")
+        assert client.get(direct["files"]["dst"]).status_code == 200
+
+
+def test_explicit_fill_ignores_automatic_comparison(app):
+    result = (
+        app.test_client()
+        .post(
+            "/api/convert",
+            data={
+                "file": (io.BytesIO(SVG), "logo.svg"),
+                "compare_strategies": "true",
+                "stitch_type": "fill",
+            },
+        )
+        .get_json()
+    )
+    assert result["variants"] == []
+    assert result["recommended_variant"] is None
+    assert result["direct"]["params"]["stitch_type"] == "fill"
 
 
 def test_selected_hoop_when_fitting(app):
@@ -109,6 +153,7 @@ def test_web_bitmap_size_and_interpreted_artwork(app):
         {"fill_spacing": "nan"},
         {"hoop_width": "5"},
         {"underlay": "maybe"},
+        {"compare_strategies": "maybe"},
         {"method": "both"},
         {"debug": "true"},
     ],

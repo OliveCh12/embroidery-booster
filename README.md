@@ -2,9 +2,9 @@
 
 Generate **PES and DST embroidery directly from SVG or bitmap artwork**. The
 application chooses satin, running stitches or tatami for each visible colour
-region, then produces inspectable machine points. Version **0.5.1** refines
-background extraction at logo contours and supports smooth exterior gradients,
-alongside bounded colour-speckle cleanup and explicit stitch strategies.
+region, then produces inspectable machine points. Automatic proposals compare
+a balanced strategy, safe satin emphasis and uniform tatami on the same
+interpreted artwork, with shared colours and material settings.
 
 ## Installation
 
@@ -29,6 +29,11 @@ on hover. Select a pass to seek to its start. The compact Play/Pause control use
 **Continu** to play continuously or **Par fil** to pause before the next colour.
 Preview options contain simulation speed, command stepping and phase visibility.
 **Détails** opens a right-hand panel for quality checks, warnings and logs.
+In **Auto**, **Comparer les stratégies** generates qualified alternatives and
+selects a recommendation. The compact variant selector switches playback,
+diagnostics and PES/DST downloads together. Identical machine plans are shown
+once; their equivalent strategies are listed in Détails. Turn comparison off
+to generate just the usual balanced plan.
 Thread weight is shared across all passes. Times exclude spool changes and travel. The interface has light, dark and system
 modes. See [frontend development](frontend/README.md) for separate processes and
 production builds.
@@ -78,6 +83,9 @@ Actual compensated stitch bounds are also checked against the selected hoop.
 ```bash
 # Colour logo, automatically fitted to the chosen hoop
 uv run embroidery-rungs logo.png --design-width 70 --fit-to-hoop --fabric stable -o output/logo
+
+# Compare automatic stitch strategies on exactly the same artwork
+uv run embroidery-rungs logo.png --machine brother-skitch-pp1 --fit-to-hoop --compare-strategies -o output/variants
 
 # Brother Skitch PP1 and a reproducible material coupon
 uv run embroidery-rungs examples/quality/sewout.svg --machine brother-skitch-pp1 --fabric stable --thread-weight 40 --stabilizer cutaway --fit-to-hoop -o output/sewout
@@ -143,12 +151,16 @@ result = generate(
         stabilizer="cutaway",
         machine="brother-skitch-pp1",
     ),
+    compare_strategies=True,
 )
 print(result.direct.pes_path, result.direct.dst_path)
 print(result.artwork_size_mm, result.direct.stats)
 print(result.direct.params, result.direct.adjustments)
 print(result.direct.decisions, result.direct.threads)
 print(result.input_analysis, result.direct.analysis["stitch_breakdown"])
+print(result.recommended_variant)
+for variant in result.variants:
+    print(variant.id, variant.direct.pes_path, variant.quality, variant.reasons)
 ```
 
 `generate(input, output, params)` keeps its three positional arguments.
@@ -163,6 +175,10 @@ raise `ValueError`, and file errors raise `OSError`. Strict satin never silently
 falls back to fill. Running outlines are intentionally not solid coverage.
 Failed generation preserves
 previous outputs.
+
+Use `StitchParams(auto_strategy="satin_preferred")` to generate the satin-emphasis
+Auto proposal alone. It retains tatami fallback and all safety checks. With
+comparison enabled, the engine evaluates its fixed balanced/satin/fill set.
 
 **Migration from 0.3:** editable rail/rung exports and external embroidery
 workflows have been removed. The API accepts only `method="direct"`, which is
@@ -205,6 +221,40 @@ availability depends on the account and region. Use PES for its thread metadata.
 Follow the [physical sew-out protocol](docs/SEWOUT.md) before using a new material.
 
 ## Engine and validation
+
+Mixing satin and tatami in one design is a standard digitizing practice:
+satin gives borders and lettering sheen, while tatami stabilizes broad surfaces.
+The choice should follow each region's geometry and the intended texture.
+[Wilcom demonstrates this combination](https://wilcom.com/resources/blog/mastering-basic-stitch-types-satin-stitch-and-tatami-stitch).
+The engine keeps one top-layer strategy per connected region rather than
+patching incomplete satin with a different stitch type.
+
+Optional comparison evaluates **balanced**, **satin_preferred** and
+**uniform_fill**. The satin proposal attempts more complete columns but keeps
+the same coverage, float-length, crowding and symmetry controls; unsuitable
+regions still use tatami. Uniform fill uses the configured global tatami angle.
+Image interpretation, thread palette, physical scale and material parameters
+are shared, as are reusable geometric analyses and skeletons. Every resulting
+plan is checked independently after machine rounding. The recommendation
+favours qualified coverage and machine geometry before a safe satin gain;
+balanced wins when no meaningful improvement is demonstrated. Stitch count is
+a workload measurement, not a beauty score. Failed alternatives are reported
+without invalidating a successful primary plan.
+
+Above **256 visible colour regions**, comparison generates only the balanced
+plan and reports the uncomputed alternatives. This operational budget avoids
+repeating costly independent audits on very fragmented images; it does not
+change the design, thread palette, density or the 4096-region input limit.
+Explicit stitch modes remain available. Reduce colour count or image noise to
+compare a less fragmented interpretation.
+
+`compare_strategies=False` remains the library/CLI default. Explicit Satin,
+Fill and Running requests retain their existing meaning and generate one plan.
+The recommended candidate keeps the normal `design_direct.*` filenames;
+distinct alternatives use `design_<strategy>_direct.*`. A comparison may still
+require review: an image cannot reveal the user's intended treatment of every
+colour pocket or predict fabric deformation. A sew-out remains the way to
+qualify physical appearance and settings on the PP1.
 
 In Auto, each connected colour region uses one coherent top strategy. Colours
 dominated by broad fill regions also use fill for compact solid companions;
