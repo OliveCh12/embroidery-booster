@@ -40,6 +40,25 @@ Coordinates and stitch angles are transformed back before
 shared machine quantization; global routing does not reverse an audited satin
 path again.
 
+Since 0.6.3, each decision includes an additive `shape_profile`: `outline` for
+hole-bearing geometry, `stroke` for area/maximum-width² ≥3, `round_detail` for a
+narrow, nearly convex shape with circularity ≥0.85, otherwise `compact` or
+`wide_surface`. `narrow` records whether the maximum local width fits the safe
+satin recommendation. These are geometric descriptions, not semantic object
+recognition. A disk is not treated as an annulus or given a converging radial fan.
+
+Balanced Auto can audit narrow strokes and outlines whose raw rail polygon
+covers less than 90% of the source. It can also try bounded directional columns
+when the first candidate fails. These new promotions compare actual quantized
+top stitches with a tatami reference in the final artwork frame: at most 0.5
+percentage point less literal thread coverage and at most the larger of 0.25 mm²
+or 2% of region area in additional exterior spill. These are comparative project
+bounds, not sewing standards. A first machine-safe satin candidate that fails
+this fidelity comparison keeps tatami; Auto does not search increasingly
+fragmented alternatives just to increase the satin percentage. Existing satin
+choices, Satin preferred and explicit modes retain their original acceptance
+policy. Every selected plan still undergoes cohort and final machine audits.
+
 Exact rigid equivalents share their policy. Conservative approximate cohorts
 allow at most two raster pixels of boundary discrepancy, 3% area difference and
 6% mask disagreement, with matching hole topology. Regions retain their own
@@ -56,7 +75,7 @@ The automatic top strategy is coherent per connected colour region:
 - **Satin:** suitable columns whose rails cover the shape and remain within the
   physical float limit. The candidate must pass actual top-layer coverage,
   safe-connection and zero-crowding checks in its emitted direction.
-- **Tatami:** broad, branched or otherwise unsuitable satin regions. Clipped
+- **Tatami:** broad surfaces or regions without qualified satin columns. Clipped
   rows cover the whole region while retaining counters and holes. A failing
   satin candidate is replaced as a region, never patched with another top type.
 
@@ -68,8 +87,8 @@ in the global design frame and can override automatic angles.
 
 If fill occupies at least 70% of a colour's substantive area (regions ≥4 mm²),
 compact solid satin companions ≥4 mm² and area/width² <3 also receive fill.
-Columns, curved lettering, counters and tiny regions keep their geometric
-choice. Substantive fill cohorts share the colour's direction in their canonical
+Columns, curved lettering, counters, qualified round details and tiny regions
+keep their geometric choice. Substantive fill cohorts share the colour's direction in their canonical
 frames; small fill details retain their own geometry-derived direction.
 
 Explicit **Satin** requires safe satin throughout and fails on inadequate
@@ -148,12 +167,13 @@ tatami with the requested global fill angle on all sewable surfaces.
 **Running outlines** sew contours rather than solid surfaces and cannot win the
 surface recommendation. Exact duplicates retain all equivalent strategy names.
 
-When medial-axis rails fail, strict satin and satin-preferred Auto can evaluate
-up to six deterministic directional decompositions, each bounded to 64 paired
+When medial-axis rails fail, strict satin, satin-preferred Auto and balanced Auto
+on narrow strokes/outlines can evaluate up to six deterministic directional
+decompositions, each bounded to 64 paired
 rail columns per region. Sweep topology events separate branches and preserve
 holes. Large compact regions remain tatami in ordinary Auto; forcing satin does
-not remove width, crowding or coverage checks. The fallback audit uses the final
-artwork frame and 0.1 mm machine grid. Inner fans and narrow caps shorten or
+not remove width, crowding or coverage checks. All Auto satin candidate audits
+use the final artwork frame and 0.1 mm machine grid. Inner fans and narrow caps shorten or
 skip penetrations only when the resulting top stitches retain audited coverage.
 
 Prepared visible labels and canonical geometry are reused, with lazy medial
@@ -170,6 +190,10 @@ The original 4096-region input budget and explicit modes are unchanged.
 
 Recommendations compare actual safety and coverage diagnostics first; a safe
 satin gain is an aesthetic preference only among qualified alternatives.
+The additive `variants[].quality.coverage` is the literal thread footprint,
+distinct from `structural_coverage` and its 0.25 mm tolerance. Since 0.6.3,
+an aesthetic satin preference cannot reduce that coverage by more than 0.5
+percentage point. A measured safety improvement remains the first priority.
 They do not optimize thread count into a supposed beauty metric or increase
 density to mask deficient geometry. The balanced plan wins equivalent choices.
 An explicit `density_percent` (80–120, web default 100) divides the material's reference row pitch

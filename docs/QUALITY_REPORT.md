@@ -1,5 +1,101 @@
 # Validation du moteur direct — 13 octobre 2026
 
+## Version 0.6.3 : satin utile, fidélité comparée au tatami
+
+Auto décrit désormais traits, contreformes, détails arrondis et surfaces
+compactes/larges. Les nouveaux essais satin équilibrés sur des formes étroites
+sont vérifiés dans le repère final, sur la grille machine, puis comparés à un
+candidat tatami. Une couverture structurelle acceptable ne suffit plus à les
+promouvoir lorsque le fil couvre moins bien la forme ou déborde davantage.
+Les petits détails ronds déjà qualifiés restent satin à côté d'un grand corps
+rempli. La préférence esthétique entre variantes vérifie également la
+couverture littérale ; la sécurité reste prioritaire.
+
+Le [rapport comparatif](benchmarks/auto-satin-fidelity-2026-10-13.json) fige
+`main` à **dc8081d**, le précédent 0.6.2 à **46b4397**, et le candidat par
+empreinte source. **32 entrées**, dont neuf paires SVG/PNG, logos réels, texte,
+anneaux, traits décalés et pastilles avec un corps rempli, utilisent les mêmes
+fichiers et réglages PP1/coton/fil 40 wt/stabilisateur à découper. Les bitmaps
+rendus des fixtures sont dimensionnés d'après leur recadrage réel : demander
+80 mm aux deux formats sans tenir compte des marges aurait changé la couture.
+
+Les commandes des deux références sont identiques sur ces 32 cas. Le nouveau
+Balanced modifie **5 plans**, conserve exactement les **27 autres**, sans changer
+leur palette. Les contours et la séparation des couleurs ne sont pas modifiés
+par ce lot. Les PES/DST des 32 résultats sont relus ; les points, changements de
+fil, bounds du cadre et limites de longueur restent conformes aux plans.
+Aucun crowding satin mesuré n'est ajouté. Trois micro-régions du Nike SVG et
+deux du multicolore PNG restent omises comme dans les deux références ; ce
+corpus n'est donc pas présenté comme entièrement sans défaut.
+
+| Couverture littérale du fil | main et 0.6.2 | 0.6.3 | Points du dessin |
+|---|---:|---:|---:|
+| Courbe serrée SVG | 84,37 % | 91,74 % | 221 → 178 |
+| Courbe serrée PNG | 73,03 % | 90,45 % | 231 → 178 |
+| Pepsi, couche noire | 86,21 % | 90,49 % | dessin : 12 458 → 12 473 |
+| Pastille r = 2 mm, mesure locale | 85,65 % | 97,52 % | dessin : 1 611 → 1 585 |
+| Pastille r = 2,5 mm, mesure locale | 83,93 % | 97,45 % | dessin : 1 654 → 1 597 |
+
+Ces mesures concernent uniquement les points supérieurs quantifiés, avec un
+fil modélisé de 0,3 mm ; sous-couches, ancrages et déplacements sont exclus.
+La couverture structurelle utilise séparément une tolérance de 0,25 mm.
+Les pastilles sont mesurées par région dans une fenêtre physique bornée ; le
+rectangle reste identique. Les couches Pepsi bleue, rouge et blanche restent
+respectivement à 81,92 %, 81,83 % et 84,14 %. Sur la courbe SVG, le débordement
+passe de 5,25 à 6,04 mm² : ce coût est mesuré et reste dans la borne comparative
+retenue. Les longs points satin restent sous la recommandation PP1 de 7 mm.
+
+Le premier prototype, qui promouvait tout satin structurellement admissible,
+faisait chuter la couverture d'un petit anneau de **97,25 % à 82,07 %** selon sa
+position. Il est rejeté. Le garde-fou final compare le candidat au tatami : perte
+maximale de 0,5 point de couverture et surplus de débordement limité au plus
+grand de 0,25 mm² ou 2 % de la surface. Les quatre contrôles anneau/trait à 0,75×
+et deux positions conservent ici exactement leurs anciens points. Un anneau
+avec un pas satin explicite trop large reste refusé. Les formes en L équivalentes
+partagent aussi leur méthode et leur direction réellement exportée.
+
+Des essais à plusieurs pas montrent que des traits plus denses peuvent être
+qualifiés en satin, sans que tous les pas et positions reçoivent ce choix.
+La quantification de 0,1 mm et les fragments de rails restent sensibles à la
+position ; un type identique ne garantit pas une séquence identique. Réduire les
+jonctions et lisser les rails est le prochain travail de qualité, avant de
+promouvoir davantage de petits anneaux.
+
+Les temps suivants mesurent **la génération complète**, interprétation,
+points et exports compris, avec comparaison des variantes désactivée. Chaque
+référence utilise un processus neuf par cas, une chauffe et cinq mesures,
+séquentiellement après les tests/builds. Les fichiers des six générations
+sont identiques par référence. La machine de développement reste partagée :
+ces observations ne démontrent pas un gain causal ni un speedup universel.
+
+| Génération médiane | main | 0.6.2 | 0.6.3 |
+|---|---:|---:|---:|
+| Anneau | 0,511 s | 0,627 s | 0,558 s |
+| Courbe en S | 0,801 s | 1,012 s | 0,705 s |
+| Courbe serrée | 0,176 s | 0,211 s | 0,154 s |
+| Trait droit | 0,204 s | 0,230 s | 0,163 s |
+| Multicolore | 1,641 s | 1,510 s | 1,148 s |
+| Phénix | 1,994 s | 2,642 s | 1,807 s |
+| Nike avec lettrage | 2,774 s | 4,131 s | 2,661 s |
+| Petit anneau 0,75× | 0,130 s | 0,158 s | 0,139 s |
+
+La médiane est plus faible sur 8/8 cas face à la 0.6.2 et 6/8 face à main.
+L'anneau et le petit anneau restent environ 9 % et 7 % plus lents que main.
+Le p95 empirique augmente sur la courbe en S, le trait droit et le petit anneau
+face au précédent malgré leurs médianes plus faibles. Le RSS final va de 139
+à 251 Mio ; Phénix monte d'environ 222 à 240 Mio face au précédent, tout en
+restant sous les 251 Mio de main. Le RSS inclut interpréteur, imports et chauffe,
+mesuré avant les audits indépendants hors chrono. Tous les échantillons,
+p95 et pics sont conservés dans le rapport.
+
+Validation : suite complète de **887 tests Python**, puis **29 tests ciblés de
+variantes après le dernier ajustement** ; **147 tests frontend**, Ruff,
+TypeScript, ESLint et build Next.js isolé réussis. La wheel 0.6.3 correspond aux
+35 fichiers Python validés. Le parcours web affiche v0.6.3 et une courbe Auto en
+satin à 178 points ; téléchargements PES/DST relus, diagnostics vérifiés en
+thèmes clair et sombre. Aucune couture physique PP1 n'a encore été validée.
+La [roadmap](ROADMAP.md) distingue les fonctions livrées des prochains lots.
+
 ## Version 0.6.2 : coût réduit, fidélité conservée, comparaison explicite à main
 
 Ce lot accélère trois primitives exactes : histogramme RGB par entier plutôt

@@ -52,6 +52,10 @@ export interface Decision {
   component: number; method: "satin" | "fill" | "running" | "omitted";
   reason: string; width_mm: number; fill_angle_deg: number | null; color?: string;
   split_satin_columns?: number; safe_satin_width_mm?: number;
+  shape_profile?: {
+    kind: "outline" | "stroke" | "round_detail" | "compact" | "wide_surface";
+    narrow: boolean; safe_satin_width_mm: number; hole_count: number; area_width_ratio: number;
+  };
 }
 export interface Adjustment { parameter: string; requested: number | boolean; effective: number | boolean; reason: string }
 export interface DesignAnalysis {

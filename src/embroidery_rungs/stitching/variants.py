@@ -38,6 +38,7 @@ def _quality(plan, layers):
         **{
             key: stats.get(key, 0)
             for key in (
+                "coverage",
                 "structural_coverage",
                 "structural_missing_mm2",
                 "largest_gap_mm2",
@@ -111,6 +112,7 @@ def _safe_satin_improvement(candidate, incumbent):
     extra_satin = proposed["method_area_mm2"]["satin"] - current["method_area_mm2"]["satin"]
     return (
         extra_satin >= max(1.0, 0.02 * total_area)
+        and proposed["coverage"] >= current["coverage"] - 0.005
         and proposed["structural_coverage"] >= current["structural_coverage"] - 0.0001
         and proposed["structural_missing_mm2"] <= current["structural_missing_mm2"] + 0.01
         and proposed["largest_gap_mm2"] <= current["largest_gap_mm2"] + 0.01

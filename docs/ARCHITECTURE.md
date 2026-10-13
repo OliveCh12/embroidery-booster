@@ -71,10 +71,13 @@ output/                   Jobs et artefacts générés, ignorés par Git
    sous le budget mémoire du renderer.
 4. Séparer les couleurs et leurs composantes connexes ; établir des repères
    locaux canoniques pour les translations, rotations et réflexions pertinentes.
-5. Extraire les rails, comparer les candidats et appliquer une politique commune
-   aux régions équivalentes et aux couleurs dominées par le fill. Un mode forcé
+5. Décrire la géométrie de chaque région (trait, contreforme, détail arrondi,
+   surface compacte ou large). Extraire les rails, comparer les candidats et
+   appliquer une politique commune aux régions équivalentes et aux couleurs dominées par le fill. Un mode forcé
    remplace la sélection automatique sans contourner les contrôles satin.
-   Chaque contour du SVG interprété reste intact.
+   Les nouveaux candidats satin d'Auto équilibré doivent préserver la fidélité
+   du candidat tatami : couverture réelle du fil et débordement extérieur,
+   mesurés dans le repère final. Chaque contour du SVG interprété reste intact.
 6. Construire sous-couches et points, retrouver les coordonnées du dessin,
    quantifier une seule fois sur une grille commune et vérifier la couverture.
 7. Assembler les couleurs, encoder PES/DST et écrire previews/JSON en staging.

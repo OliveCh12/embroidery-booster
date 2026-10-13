@@ -173,6 +173,26 @@ def test_invalid_stitch_strategy_is_rejected():
         StitchParams(stitch_type="random").validate()
 
 
+@pytest.mark.parametrize("radius", [2, 2.5])
+def test_safe_round_detail_keeps_satin_beside_a_large_filled_body(tmp_path, radius):
+    detail = f'<circle cx="60" cy="35" r="{radius}"/>'
+    params = StitchParams.for_fabric("stable", machine="brother-skitch-pp1")
+    isolated, _ = digitize(document(tmp_path, detail), params)
+    with_body, _ = digitize(
+        document(tmp_path, '<rect x="5" y="5" width="40" height="35"/>' + detail), params
+    )
+    small = next(d for d in with_body.decisions if d["area_mm2"] < 25)
+    large = next(d for d in with_body.decisions if d["area_mm2"] > 1000)
+    assert large["method"] == "fill"
+    assert isolated.decisions[0]["method"] == small["method"] == "satin"
+    assert small["shape_profile"]["kind"] == "round_detail"
+    assert small["strategy_scope"] == "region"
+    assert small["actual_top_metrics"]["structural_coverage"] >= 0.999
+    assert with_body.stats["short_stitches"] == with_body.stats["unsafe_connections"] == 0
+    assert with_body.stats["crowded_satin_penetrations"] == 0
+    assert with_body.stats["max_stitch_mm"] <= params.max_stitch_mm
+
+
 def test_substantive_color_fill_keeps_small_detail_geometry_angle(tmp_path):
     detail = '<circle cx="55" cy="30" r="0.6"/>'
     isolated, _ = digitize(document(tmp_path, detail), StitchParams())

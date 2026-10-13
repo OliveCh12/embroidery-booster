@@ -12,7 +12,7 @@ from shapely.geometry import box
 from embroidery_rungs import StitchParams, generate
 
 
-def _generate(tmp_path, content, *, name="shape", width=100, height=100):
+def _generate(tmp_path, content, *, name="shape", width=100, height=100, stitch_type="auto"):
     source = tmp_path / f"{name}.svg"
     source.write_text(
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}mm" '
@@ -22,7 +22,7 @@ def _generate(tmp_path, content, *, name="shape", width=100, height=100):
         source,
         tmp_path / f"{name}-output",
         method="direct",
-        stitch_params=StitchParams.for_fabric("stable", thread_weight=40),
+        stitch_params=StitchParams.for_fabric("stable", thread_weight=40, stitch_type=stitch_type),
     ).direct
     data = json.loads(Path(result.plan_path).read_text())
     _assert_machine_quality(result, data)
@@ -80,18 +80,54 @@ def _assert_vectors_follow_angle(vectors, angle):
     assert np.quantile(deviation, 0.95) < np.sin(np.radians(4))
 
 
-def test_rotated_l_regions_share_fill_strategy_and_actual_row_angle(tmp_path):
+@pytest.mark.parametrize("stitch_type,method", [("fill", "fill"), ("auto", "satin")])
+def test_rotated_l_regions_share_strategy_and_actual_stitch_direction(
+    tmp_path, stitch_type, method
+):
     body = '<path d="M10 10H40V15H17V35H10Z"/><path d="M90 90H60V85H83V65H90Z"/>'
-    result, data = _generate(tmp_path, body)
+    result, data = _generate(tmp_path, body, stitch_type=stitch_type)
     decisions = result.decisions
     assert len(decisions) == 2
-    assert {decision["method"] for decision in decisions} == {"fill"}
-    assert decisions[0]["fill_angle_deg"] % 180 == pytest.approx(
-        decisions[1]["fill_angle_deg"] % 180
-    )
-    angle = decisions[0]["fill_angle_deg"]
-    _assert_vectors_follow_angle(_fill_row_vectors(data, right=False), angle)
-    _assert_vectors_follow_angle(_fill_row_vectors(data, right=True), angle)
+    assert {decision["method"] for decision in decisions} == {method}
+    if method == "fill":
+        assert decisions[0]["fill_angle_deg"] % 180 == pytest.approx(
+            decisions[1]["fill_angle_deg"] % 180
+        )
+        angle = decisions[0]["fill_angle_deg"]
+        _assert_vectors_follow_angle(_fill_row_vectors(data, right=False), angle)
+        _assert_vectors_follow_angle(_fill_row_vectors(data, right=True), angle)
+    else:
+        assert decisions[0]["equivalence_group"] == decisions[1]["equivalence_group"]
+        assert decisions[0]["satin_angle_deg"] % 180 == pytest.approx(
+            decisions[1]["satin_angle_deg"] % 180
+        )
+        for right, decision in zip((False, True), decisions, strict=True):
+            vectors = np.concatenate(
+                [
+                    np.diff(points, axis=0)
+                    for run, points in _top_runs(data)
+                    if run["kind"] == "satin" and (points[:, 0].mean() > 50) == right
+                ]
+            )
+            vectors = vectors[np.linalg.norm(vectors, axis=1) > 2]
+            assert len(vectors) > 10
+            angles = np.arctan2(vectors[:, 1], vectors[:, 0])
+            lengths = np.linalg.norm(vectors, axis=1)
+            axial = (
+                np.degrees(
+                    np.arctan2(
+                        np.sum(lengths * np.sin(2 * angles)),
+                        np.sum(lengths * np.cos(2 * angles)),
+                    )
+                )
+                / 2
+            )
+            # Satin alternates a cross-section with a step along the next row.
+            # Its mean axial direction, rather than each diagonal, follows the rail angle.
+            deviation = abs((axial - decision["satin_angle_deg"] + 90) % 180 - 90)
+            assert deviation < 4
+            assert decision["actual_top_metrics"]["crowded_satin_penetrations"] == 0
+        assert result.stats["underlay_stitches"] > 0
 
 
 def test_reflected_broad_columns_reflect_fill_angle_and_actual_rows(tmp_path):

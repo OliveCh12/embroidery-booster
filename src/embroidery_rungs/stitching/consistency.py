@@ -69,6 +69,7 @@ def _color_policy(groups, params):
         if policies[group] == "satin" and all(
             sum(p.area for p in m.polygons) >= 4
             and not any(p.interiors for p in m.polygons)
+            and m.decision.get("shape_profile", {}).get("kind") != "round_detail"
             and sum(p.area for p in m.polygons) / max(m.decision["width_mm"] ** 2, 1e-6) < 3
             for m in members
         ):
@@ -302,7 +303,7 @@ def select_consistent_regions(
             local_params,
             origin_mm=local_origin,
             geometry_cache=member_geometry["selection"],
-            satin_audit=audit_satin if preferred or params.stitch_type == "satin" else None,
+            satin_audit=audit_satin if params.stitch_type in ("auto", "satin") else None,
         )
         if decisions:
             decisions[0]["mat_evaluated"] = needs_mat

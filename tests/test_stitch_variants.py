@@ -83,6 +83,7 @@ def test_variants_are_deterministic_and_machine_files_match_each_plan(svg_file, 
         data = _data(variant)
         assert data["commands"] == _data(repeated)["commands"]
         assert variant.quality == repeated.quality
+        assert variant.quality["coverage"] == variant.direct.stats["coverage"]
         assert variant.direct.threads == first.direct.threads
         assert variant.direct.params.satin_spacing_mm == first.direct.params.satin_spacing_mm
         assert (
@@ -287,6 +288,7 @@ def _candidate(identifier, **overrides):
         "largest_gap_mm2": 0,
         "structural_missing_mm2": 0,
         "uncovered_max_mm": 0.2,
+        "coverage": 1.0,
         "structural_coverage": 1.0,
         "spill_mm2": 2,
         "status": "geometric_checks_passed",
@@ -341,7 +343,7 @@ def test_coverage_distances_below_structural_tolerance_are_equivalent():
 
 def test_qualified_result_wins_over_review_only_when_machine_hazards_do_not_worsen():
     balanced = _candidate("balanced", status="needs_review")
-    fill = _candidate("uniform_fill")
+    fill = _candidate("uniform_fill", coverage=0.9)
     assert recommend_variant([balanced, fill]) == "uniform_fill"
     fill.quality["unsafe_connections"] = 1
     assert recommend_variant([balanced, fill]) == "balanced"
@@ -354,6 +356,7 @@ def test_qualified_result_wins_over_review_only_when_machine_hazards_do_not_wors
         {"short_stitches": 1},
         {"unsafe_connections": 1},
         {"failed_coverage_layers": 1, "largest_gap_mm2": 0.1},
+        {"coverage": 0.99},
         {"spill_mm2": 8},
         {"trims": 15},
         {"jump_length_mm": 100},
@@ -375,8 +378,12 @@ def test_recommendation_accepts_meaningful_safe_satin_area_gain():
     satin = _candidate(
         "satin_preferred",
         method_area_mm2={"satin": 20, "fill": 80, "running": 0, "omitted": 0},
+        coverage=0.995,
     )
     assert recommend_variant([balanced, satin]) == "satin_preferred"
+    satin.quality["coverage"] = 0.994
+    assert recommend_variant([balanced, satin]) == "balanced"
+    satin.quality["coverage"] = 1.0
     satin.quality["method_area_mm2"] = {"satin": 0.5, "fill": 99.5, "running": 0, "omitted": 0}
     assert recommend_variant([balanced, satin]) == "balanced"
 

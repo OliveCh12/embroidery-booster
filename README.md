@@ -55,7 +55,14 @@ height below the header, without a footer. See [frontend development](frontend/R
 production builds.
 
 The header also displays the installed frontend version beside the application
-name, including on small screens. This release is **0.6.2**.
+name, including on small screens. This release is **0.6.3**.
+
+Auto describes each region's geometry and verifies suitable narrow strokes and
+outlines against the actual machine-grid stitches before choosing satin. Broad
+surfaces retain tatami; a qualified small round satin detail is preserved beside
+a larger filled body. **Détails → Points par région** explains the geometry and
+choice. See the [engine roadmap](docs/ROADMAP.md) for the next quality improvements
+and the [measured comparisons](docs/QUALITY_REPORT.md) for benefits and limitations.
 
 `pnpm dev` starts Next.js on port 3000 and the Python API on port 8000.
 `FRONTEND_PORT` and `API_PORT` override them. Core-only installation: `uv sync`.

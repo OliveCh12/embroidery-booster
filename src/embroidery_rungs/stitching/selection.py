@@ -18,6 +18,32 @@ from .rails import _valid_rail_pieces
 from .satin_geometry import directional_columns
 
 
+def _shape_profile(source, width, safe_width):
+    """Describe a silhouette's sewing shape without deciding machine acceptance."""
+    pieces = [source] if source.geom_type == "Polygon" else source.geoms
+    holes = sum(len(piece.interiors) for piece in pieces if piece.geom_type == "Polygon")
+    ratio = source.area / max(width**2, 1e-6)
+    narrow = width <= safe_width
+    circularity = 4 * np.pi * source.area / max(source.length**2, 1e-6)
+    if holes:
+        kind = "outline"
+    elif ratio >= 3:
+        kind = "stroke"
+    elif (
+        narrow and source.area / max(source.convex_hull.area, 1e-6) >= 0.98 and circularity >= 0.85
+    ):
+        kind = "round_detail"
+    else:
+        kind = "compact" if narrow else "wide_surface"
+    return {
+        "kind": kind,
+        "narrow": bool(narrow),
+        "safe_satin_width_mm": round(float(safe_width), 2),
+        "hole_count": holes,
+        "area_width_ratio": round(float(ratio), 4),
+    }
+
+
 def _fill_angle(polygon, params):
     if not params.auto_fill_angle:
         return params.fill_angle_deg
@@ -241,7 +267,7 @@ def _safe_satin(metrics):
     )
 
 
-def _audit_satin(elements, params, origin, component, transform, scale, audit):
+def _audit_candidate(elements, params, origin, component, transform, scale, audit):
     if audit is not None:
         return audit(elements)
     candidate = build_stitch_plan(elements, params, origin_mm=origin)
@@ -349,6 +375,11 @@ def select_stitch_types(
         float_limit = min(
             params.max_satin_width_mm, params.max_stitch_mm - 0.2 - 2 * params.pull_compensation_mm
         )
+        profile = _shape_profile(source, width, float_limit)
+        narrow_column = profile["narrow"] and profile["kind"] in ("outline", "stroke")
+        balanced_column = (
+            params.stitch_type == "auto" and params.auto_strategy == "balanced" and narrow_column
+        )
         wide = [
             area
             for e, area in zip(satin, areas, strict=True)
@@ -377,6 +408,68 @@ def select_stitch_types(
             wide = []
         method, reason, angle, candidates = "fill", "incomplete_or_broad_column", None, {}
         option = None
+        fidelity_rejected = False
+        fill_reference_elements = None
+        fill_reference_metrics = None
+
+        def preserves_fill_fidelity(
+            metrics,
+            *,
+            polygons=polygons,
+            source=source,
+            component=component,
+            local_transform=local_transform,
+            candidates=candidates,
+        ):
+            nonlocal fill_reference_elements, fill_reference_metrics
+            if "fill_reference" not in candidates:
+                reference = fill_elements(polygons, _fill_angle(source, params), params)
+                try:
+                    reference_metrics = _audit_candidate(
+                        route_columns(reference),
+                        params,
+                        origin_mm,
+                        component,
+                        local_transform,
+                        scale,
+                        satin_audit,
+                    )
+                    if (
+                        reference_metrics["structural_coverage"] < 0.9999
+                        or reference_metrics["largest_gap_mm2"] > 0.01
+                    ):
+                        reference = [{**e, "finish_inset": 0.0} for e in reference]
+                        reference_metrics = _audit_candidate(
+                            route_columns(reference),
+                            params,
+                            origin_mm,
+                            component,
+                            local_transform,
+                            scale,
+                            satin_audit,
+                        )
+                    fill_reference_elements = reference
+                    fill_reference_metrics = reference_metrics
+                    candidates["fill_reference"] = reference_metrics
+                except ValueError as exc:
+                    candidates["fill_reference"] = {"error": str(exc)}
+            if fill_reference_metrics is None:
+                return False
+            coverage_delta = metrics["coverage"] - fill_reference_metrics["coverage"]
+            spill_delta = metrics["spill_mm2"] - fill_reference_metrics["spill_mm2"]
+            # Project bounds for the quantized footprint: 0.5 percentage points
+            # of coverage and 0.25 mm² or 2% area of spill, not sew-out standards.
+            accepted = metrics["coverage"] >= fill_reference_metrics["coverage"] - 0.005 and (
+                metrics["spill_mm2"]
+                <= fill_reference_metrics["spill_mm2"] + max(0.25, 0.02 * source.area)
+            )
+            candidates["fill_comparison"] = {
+                "coverage_delta": round(coverage_delta, 4),
+                "spill_delta_mm2": round(spill_delta, 2),
+                "accepted": accepted,
+            }
+            return accepted
+
         detail = _compact_detail(source, params) if width < minimum_width else None
         if params.stitch_type == "running" or (
             params.stitch_type == "auto"
@@ -436,25 +529,30 @@ def select_stitch_types(
                 option, method, reason = [], "omitted", "below_machine_resolution"
         # Auto satin must fit throughout the column. A percentile can conceal a
         # broad cap whose long floats snag, even when most of the column is narrow.
+        # Thin raster rails can understate area coverage; their quantized stitches
+        # still have to pass the complete coverage and regularity audit below.
         elif (
             params.stitch_type in ("auto", "satin")
             and width >= minimum_width
             and satin
-            and covered >= 0.9
+            and (covered >= 0.9 or balanced_column)
             and not wide
         ):
             try:
                 ordered = route_columns(satin)
-                metrics = _audit_satin(
+                metrics = _audit_candidate(
                     ordered, params, origin_mm, component, local_transform, scale, satin_audit
                 )
                 candidates["satin"] = metrics
                 if _safe_satin(metrics):
-                    option, method, reason = (
-                        ordered,
-                        "satin",
-                        "complete_split_columns" if split_count else "complete_regular_column",
-                    )
+                    if covered >= 0.9 or not balanced_column or preserves_fill_fidelity(metrics):
+                        option, method, reason = (
+                            ordered,
+                            "satin",
+                            "complete_split_columns" if split_count else "complete_regular_column",
+                        )
+                    else:
+                        reason, fidelity_rejected = "satin_fidelity_regression", True
                 else:
                     reason = "satin_top_layer_incomplete"
             except ValueError as exc:
@@ -462,9 +560,11 @@ def select_stitch_types(
                 reason = "satin_geometry_rejected"
         if (
             option is None
+            and not fidelity_rejected
             and width >= minimum_width
             and (
                 params.stitch_type == "satin"
+                or balanced_column
                 or (
                     preferred
                     and source.area / max(width**2, 1e-6) >= 1.5
@@ -503,11 +603,14 @@ def select_stitch_types(
             for _, _, sweep_angle, elements in sorted(alternatives, key=lambda a: a[:3]):
                 try:
                     ordered = route_columns(elements)
-                    metrics = _audit_satin(
+                    metrics = _audit_candidate(
                         ordered, params, origin_mm, component, local_transform, scale, satin_audit
                     )
                     attempts.append({"sweep_angle_deg": sweep_angle, **metrics})
                     if _safe_satin(metrics):
+                        if balanced_column and not preserves_fill_fidelity(metrics):
+                            reason, fidelity_rejected = "satin_fidelity_regression", True
+                            break
                         option, method, reason = ordered, "satin", "complete_directional_columns"
                         split_count = sum("split_columns" in e for e in ordered)
                         directional_count = len(ordered)
@@ -535,19 +638,13 @@ def select_stitch_types(
                     f"Satin requested, but component {i + 1} cannot be sewn as complete safe columns: {failure} (width {width:.2f} mm; safe satin width limit {float_limit:.2f} mm). Use automatic or fill stitching, or simplify the shape."
                 )
             angle = _fill_angle(source, params)
-            option = fill_elements(polygons, angle, params)
+            option = fill_reference_elements or fill_elements(polygons, angle, params)
             if params.stitch_type == "fill":
                 reason = "requested_uniform_fill"
             try:
-                candidate = build_stitch_plan(route_columns(option), params, origin_mm=origin_mm)
-                metrics, _ = measure_plan(
-                    candidate,
-                    np.pad(component, 3),
-                    scale,
-                    np.array([local_transform.e, local_transform.f]) + 3,
-                )
-                if metrics["structural_coverage"] < 0.9999 or metrics["largest_gap_mm2"] > 0.01:
-                    option = [{**e, "finish_inset": 0.0} for e in option]
+                if fill_reference_metrics is not None:
+                    metrics = fill_reference_metrics
+                else:
                     candidate = build_stitch_plan(
                         route_columns(option), params, origin_mm=origin_mm
                     )
@@ -557,6 +654,17 @@ def select_stitch_types(
                         scale,
                         np.array([local_transform.e, local_transform.f]) + 3,
                     )
+                    if metrics["structural_coverage"] < 0.9999 or metrics["largest_gap_mm2"] > 0.01:
+                        option = [{**e, "finish_inset": 0.0} for e in option]
+                        candidate = build_stitch_plan(
+                            route_columns(option), params, origin_mm=origin_mm
+                        )
+                        metrics, _ = measure_plan(
+                            candidate,
+                            np.pad(component, 3),
+                            scale,
+                            np.array([local_transform.e, local_transform.f]) + 3,
+                        )
                 candidates["fill"] = metrics
             except (UnstitchableRegion, CandidateGeometryError) as exc:
                 candidates["fill"] = {"error": str(exc)}
@@ -575,6 +683,7 @@ def select_stitch_types(
                 "reason": reason,
                 "width_mm": round(width, 2),
                 "area_mm2": round(source.area, 2),
+                "shape_profile": profile,
                 "mat_coverage": round(covered, 4),
                 "broad_fraction": round(broad, 4),
                 "split_satin_columns": split_count if method == "satin" else 0,

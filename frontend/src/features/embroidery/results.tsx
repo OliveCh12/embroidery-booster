@@ -5,6 +5,7 @@ import { Download, FileImage, PanelRight } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { formatNumber } from "@/lib/format";
 import { describeBackground, describeBitmapCleanup, describeNormalization, describeResampling, describeTraceAudit } from "./background-diagnostics";
+import { describeDecision } from "./decision-diagnostics";
 import { FileUpload } from "./file-upload";
 import { InputQualitySummary } from "./input-quality-feedback";
 import { BACKGROUND_MODE_LABELS, STITCH_TYPE_LABELS } from "./settings";
@@ -89,7 +90,10 @@ function Diagnostics({ result }: { result: GenerationResult }) {
       <Accordion.Heading><Accordion.Trigger>Points par région<Accordion.Indicator /></Accordion.Trigger></Accordion.Heading>
       <Accordion.Panel><Accordion.Body className="flex flex-col gap-4 pb-4">
         <div className="flex flex-wrap gap-4"><Chip size="sm">{stats.satin_regions} satin</Chip><Chip size="sm">{stats.fill_regions} tatami</Chip><Chip size="sm">{stats.running_regions} point droit</Chip></div>
-        <ul className="flex max-h-60 flex-col gap-4 overflow-auto text-xs text-muted">{direct.decisions.map(item => <li key={item.component} title={item.reason}><span className="font-medium text-foreground">Région {item.component}</span> · {item.method === "running" ? "point droit" : item.method === "omitted" ? item.reason === "machine_geometry_rejected" ? "géométrie à contrôler" : "détail trop petit" : item.method === "fill" ? "tatami" : (item.split_satin_columns ?? 0) > 1 ? "satin divisé" : "satin"} · {formatNumber(item.width_mm)} mm{(item.split_satin_columns ?? 0) > 1 ? ` · ${item.split_satin_columns} colonnes` : ""}{item.method === "fill" && item.fill_angle_deg !== null ? ` · ${formatNumber(item.fill_angle_deg)}°` : ""}</li>)}</ul>
+        <ul className="flex max-h-60 flex-col gap-4 overflow-auto text-xs text-muted">{direct.decisions.map(item => {
+          const context = describeDecision(item);
+          return <li key={item.component} title={item.reason}><span className="font-medium text-foreground">Région {item.component}</span> · {item.method === "running" ? "point droit" : item.method === "omitted" ? item.reason === "machine_geometry_rejected" ? "géométrie à contrôler" : "détail trop petit" : item.method === "fill" ? "tatami" : (item.split_satin_columns ?? 0) > 1 ? "satin divisé" : "satin"} · {formatNumber(item.width_mm)} mm{(item.split_satin_columns ?? 0) > 1 ? ` · ${item.split_satin_columns} colonnes` : ""}{item.method === "fill" && item.fill_angle_deg !== null ? ` · ${formatNumber(item.fill_angle_deg)}°` : ""}{context && <p className="mt-1">{context}</p>}</li>;
+        })}</ul>
       </Accordion.Body></Accordion.Panel>
     </Accordion.Item>
     <Accordion.Item>
