@@ -61,6 +61,12 @@ enabled by default and can be disabled. Diagnostics report changed area and
 region counts. Review the interpreted SVG to confirm important details and
 backgrounds. See [input interpretation](docs/INPUT_INTERPRETATION.md).
 
+Compressed flat artwork uses local colour-mixture evidence to clean tiny edge
+fragments. For black/white logos, background-coloured pockets beside thick strokes
+can be interpreted as transparent counters; thin outlined badges and multicolour
+white paint are retained. This is a reported geometric inference, not object
+recognition. Disable raster cleanup to retain the original interior paint.
+
 Bitmap artwork defaults to an **80 mm longest side**. SVGs keep their original
 size. `--design-width` sets the interpreted document width, while `--fit-to-hoop`
 allows proportional shrinking to leave **1 mm per side**. The web interface
@@ -82,7 +88,7 @@ uv run embroidery-rungs logo.png --single-color --thread-color '#176d9c'
 # Keep an intentional background, with uniform tatami top stitches
 uv run embroidery-rungs logo.png --background keep --stitch-type fill
 
-# Require satin; unsuitable broad/branched shapes fail with a clear error
+# Require satin, dividing wide columns; unsuitable junctions still fail audits
 uv run embroidery-rungs narrow-lettering.svg --stitch-type satin
 
 # Keep every bitmap colour detail, or generate outline embroidery
@@ -189,8 +195,12 @@ changes, machine acceleration and cutting.
 
 Brother specifies the [Skitch PP1](https://www.brother-usa.com/p/sewing-embroidery/PP1)
 for **100 × 100 mm** embroidery at **400 stitches/minute**, through Artspira.
-The preset validates this hoop limit; its six-colour palette and 7 mm satin width
-are project recommendations. [Artspira imports PES and DST](https://support.brother.com/g/s/hf/mobileapp_info/artspira/plan/func1/en.html);
+The web interface starts with this profile; the library/CLI retain their generic
+default. The preset validates the hoop limit; its six-colour palette and 7 mm
+satin width are project recommendations. Satin and tatami can follow each other
+in one PES without changing a machine stitch mode: they are needle coordinates.
+Only a thread-colour change requires a new spool on the single-needle PP1.
+[Artspira imports PES and DST](https://support.brother.com/g/s/hf/mobileapp_info/artspira/plan/func1/en.html);
 availability depends on the account and region. Use PES for its thread metadata.
 Follow the [physical sew-out protocol](docs/SEWOUT.md) before using a new material.
 
@@ -199,10 +209,12 @@ Follow the [physical sew-out protocol](docs/SEWOUT.md) before using a new materi
 In Auto, each connected colour region uses one coherent top strategy. Colours
 dominated by broad fill regions also use fill for compact solid companions;
 narrow columns, lettering and counters retain their useful satin treatment.
-Explicit Fill applies tatami throughout; explicit Satin requires safe columns
-throughout; Running produces contours/axes. Satin candidates
-must fit the float limit and pass coverage/crowding checks on the final machine
-grid; broad or unsuitable regions receive clipped tatami. Fine details use
+Explicit Fill applies tatami throughout; explicit Satin requires audited columns
+throughout, dividing broad sweeps into adjacent satin columns when needed.
+Automatic selection considers this division for elongated strokes up to twice
+the width recommendation, while broad solid bodies retain tatami. Satin candidates
+must pass coverage/crowding checks on the final machine grid and honour the
+maximum stitch length; unsuitable regions receive clipped tatami in Auto. Fine details use
 running stitches where they retain coverage. Rigidly equivalent regions share
 strategy, density, direction, compensation and underlay policy, while retaining
 their original outlines. Unsewable details are reported rather than silently

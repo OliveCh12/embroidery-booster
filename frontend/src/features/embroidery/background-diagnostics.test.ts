@@ -58,4 +58,12 @@ describe("background interpretation feedback", () => {
   it("uses plain feedback for an unknown backend reason", () => {
     expect(describeBackground({ ...legacy, applied: false, reason: "future_background_policy" }).message).toBe("Le fond a été conservé.");
   });
+
+  it("reports inferred monochrome counters without promising every opaque interior was preserved", () => {
+    const summary = describeBackground({ ...legacy, counters_inferred: 2, counter_inference: "monochrome_broad_strokes" });
+    expect(summary.message).toContain("interprétés comme des évidements");
+    expect(summary.message).toContain("Désactivez le nettoyage");
+    expect(summary.message).not.toContain("aplats intérieurs sont préservés");
+    expect(summary.metrics).toContainEqual({ label: "Évidements monochromes", value: "2" });
+  });
 });

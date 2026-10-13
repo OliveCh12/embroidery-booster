@@ -125,7 +125,7 @@ def _linear_column(source, params):
     rectangle = np.asarray(source.minimum_rotated_rectangle.exterior.coords)
     vectors = np.diff(rectangle, axis=0)
     lengths = np.linalg.norm(vectors, axis=1)
-    if lengths.max() / lengths.min() < 3 or lengths.min() > params.max_satin_width_mm:
+    if lengths.max() / lengths.min() < 3:
         return None
     direction = vectors[np.argmax(lengths)] / lengths.max()
     normal = np.array([-direction[1], direction[0]])
@@ -155,6 +155,12 @@ def _linear_column(source, params):
     a, b = a[first:last], b[first:last]
     if len(a) < 2:
         return None
+    # Keep a full cap close to the contour: dropping the raster bevel without
+    # extending the next section leaves a visible triangular gap on broad rails.
+    for index, position in ((0, low + 0.04), (-1, high - 0.04)):
+        if (index == 0 and first) or (index == -1 and last):
+            a[index] += direction * (position - a[index] @ direction)
+            b[index] += direction * (position - b[index] @ direction)
     return {
         "type": "satin",
         "stitch_type": "satin",
@@ -162,6 +168,59 @@ def _linear_column(source, params):
         "rail_b": b,
         "allowed_area": source.buffer(params.pull_compensation_mm + 0.08),
     }
+
+
+def _split_columns(elements, float_limit, params):
+    """Divide a broad rail sweep into adjacent columns, retaining its outer rails."""
+    column_limit = max(float_limit / 2, float_limit - 0.2 - 2 * params.pull_compensation_mm)
+    result = []
+    for element in elements:
+        a, b = element["rail_a"], element["rail_b"]
+        vectors = b - a
+        widths = np.linalg.norm(vectors, axis=1)
+        # Compensation already separates the neighbouring seam penetrations.
+        # With compensation disabled, a small overlap keeps the seam sewable.
+        overlap = max(0.0, params.min_stitch_mm / 2 - params.pull_compensation_mm)
+        count = max(1, int(np.ceil(widths.max() / (column_limit - 2 * overlap))))
+        if count == 1:
+            result.append(element)
+            continue
+        directions = vectors / np.maximum(widths[:, None], 1e-8)
+        centers = (a + b) / 2
+        progress = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(centers, axis=0), axis=1))]
+        amplitude = np.minimum.reduce(
+            [
+                np.full(len(widths), 0.3),
+                np.maximum(0, (column_limit - widths / count - 2 * overlap) / 4),
+                widths / (count * 6),
+            ]
+        )
+        if LineString(centers).hausdorff_distance(LineString(centers[[0, -1]])) > 0.15:
+            amplitude[:] = 0
+        seams = [a]
+        for index in range(1, count):
+            # Shared staggered seams avoid a straight row of split needle holes.
+            displacement = amplitude * np.sin(
+                progress * 2 * np.pi / max(3.2, 8 * params.satin_spacing_mm) + index * np.pi / 3
+            )
+            seams.append(a + vectors * index / count + directions * displacement[:, None])
+        seams.append(b)
+        for index in range(count):
+            left, right = seams[index], seams[index + 1]
+            local_overlap = np.minimum(overlap, widths / (count * 4))[:, None]
+            if index:
+                left = left - directions * local_overlap
+            if index + 1 < count:
+                right = right + directions * local_overlap
+            result.append(
+                {
+                    **element,
+                    "rail_a": left,
+                    "rail_b": right,
+                    "split_columns": count,
+                }
+            )
+    return result
 
 
 def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
@@ -236,6 +295,21 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
             if np.linalg.norm(e["rail_b"] - e["rail_a"], axis=1).max() > float_limit
         ]
         broad = source.intersection(unary_union(wide)).area / source.area if wide else 0.0
+        split_count = 0
+        if wide and (
+            params.stitch_type == "satin"
+            or (
+                params.stitch_type == "auto"
+                and (linear is not None or source.area / max(width**2, 1e-6) >= 3)
+                and all(
+                    np.linalg.norm(e["rail_b"] - e["rail_a"], axis=1).max() <= 2 * float_limit
+                    for e in satin
+                )
+            )
+        ):
+            satin = _split_columns(satin, float_limit, params)
+            split_count = sum("split_columns" in e for e in satin)
+            wide = []
         method, reason, angle, candidates = "fill", "incomplete_or_broad_column", None, {}
         option = None
         detail = _compact_detail(source, params) if width < minimum_width else None
@@ -322,7 +396,11 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
                     and candidate.stats["unsafe_connections"] == 0
                     and metrics["crowded_satin_penetrations"] == 0
                 ):
-                    option, method, reason = ordered, "satin", "complete_regular_column"
+                    option, method, reason = (
+                        ordered,
+                        "satin",
+                        "complete_split_columns" if split_count else "complete_regular_column",
+                    )
                 else:
                     reason = "satin_top_layer_incomplete"
             except ValueError as exc:
@@ -330,8 +408,19 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
                 reason = "satin_geometry_rejected"
         if option is None:
             if params.stitch_type == "satin":
+                failure = (
+                    f"the detail is thinner than the minimum sewable satin width {minimum_width:.2f} mm"
+                    if width < minimum_width
+                    else "the rail geometry leaves uncovered areas"
+                    if covered < 0.9
+                    else "the machine stitches leave uncovered areas or crowded penetrations"
+                    if reason == "satin_top_layer_incomplete"
+                    else "the rails fail machine geometry validation"
+                    if reason == "satin_geometry_rejected"
+                    else "no complete regular column could be extracted"
+                )
                 raise ValueError(
-                    f"Satin requested, but component {i + 1} cannot be sewn as a complete safe column (width {width:.2f} mm; safe satin limit {float_limit:.2f} mm). Use automatic or fill stitching, or simplify/narrow the shape."
+                    f"Satin requested, but component {i + 1} cannot be sewn as complete safe columns: {failure} (width {width:.2f} mm; safe satin width limit {float_limit:.2f} mm). Use automatic or fill stitching, or simplify the shape."
                 )
             angle = _fill_angle(source, params)
             option = fill_elements(polygons, angle, params)
@@ -376,6 +465,8 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None):
                 "area_mm2": round(source.area, 2),
                 "mat_coverage": round(covered, 4),
                 "broad_fraction": round(broad, 4),
+                "split_satin_columns": split_count if method == "satin" else 0,
+                "safe_satin_width_mm": round(float_limit, 2),
                 "fill_angle_deg": angle,
                 "candidates": candidates,
                 "minimum_detail_enlarged": any(

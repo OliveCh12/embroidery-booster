@@ -32,8 +32,10 @@ removal floods only from the border, rather than globally erasing a colour.
 Foreground uses four-connectivity and hole topology uses the dual
 eight-connected background. Each component is placed in a deterministic local
 frame among quarter turns and reflections before medial-axis extraction and
-stitch decisions. Broad regions exceeding the safe satin width plus two raster
-pixels are sent directly to tatami, avoiding unnecessary skeleton work.
+stitch decisions. Broad compact regions are sent directly to tatami, avoiding
+unnecessary skeleton work. Auto still evaluates elongated strokes with
+area/diameter² ≥3 and diameter ≤2× the satin width recommendation. Explicit
+Satin evaluates the rails regardless of region width.
 Coordinates and stitch angles are transformed back before
 shared machine quantization; global routing does not reverse an audited satin
 path again.
@@ -71,7 +73,7 @@ choice. Substantive fill cohorts share the colour's direction in their canonical
 frames; small fill details retain their own geometry-derived direction.
 
 Explicit **Satin** requires safe satin throughout and fails on inadequate
-coverage, crowding, missing regions or excessive width. Explicit **Fill** uses
+coverage, crowding or missing regions after column division. Explicit **Fill** uses
 tatami on every sewable region without a medial-axis pass. Explicit **Running**
 uses broad contours or fine centre lines and reports solid coverage honestly.
 Material auto-adjustment and stitch-type selection are independent controls.
@@ -105,7 +107,16 @@ curvature handling limits crowding of inner penetrations. Straight elongated
 convex regions can use parallel cross-sections to avoid unstable medial-axis
 fans. Pull compensation extends the two sides within bounded allowed geometry.
 The automatic engine reserves compensation/rounding headroom before the maximum
-stitch length so wide columns become tatami rather than split satin.
+stitch length. A wide sweep can become adjacent satin columns, retaining the
+outer rails. Inner seams receive bounded overlap and, on nearly straight rails,
+a small deterministic stagger to avoid a straight perforation line. Each column
+reserves compensation and rounding headroom, and the complete top layer is
+audited for coverage, unsafe connections and crowding. Auto restricts division
+to elongated geometry up to twice the width recommendation; forced Satin can
+attempt wider sweeps but never bypasses these audits or silently switches to fill.
+Decisions report `split_satin_columns` and `safe_satin_width_mm` (rail width,
+before compensation); the measured maximum machine stitch remains a separate
+limit. Internal seams can affect sheen and need a physical sew-out.
 
 Tatami rows clip to the region and its holes, stagger penetrations and use
 bounded segment lengths. Edge finishing uses a small inset when its machine-grid

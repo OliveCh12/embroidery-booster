@@ -39,6 +39,15 @@ describe("Python generation contract", () => {
     expect(form.get("raster_cleanup")).toBe("true");
   });
 
+  it("starts with the PP1 hoop and conservative thread palette", () => {
+    const form = generationForm(file, DEFAULT_SETTINGS);
+    expect(form.get("machine")).toBe("brother-skitch-pp1");
+    expect(form.get("hoop_width")).toBe("100");
+    expect(form.get("hoop_height")).toBe("100");
+    expect(form.get("max_colors")).toBe("6");
+    expect(form.get("max_satin_width")).toBe("7");
+  });
+
   it("preserves explicit background and stitch choices independently of automatic density", () => {
     const form = generationForm(file, { ...DEFAULT_SETTINGS, background_mode: "keep", stitch_type: "satin", auto_adjust: true, raster_cleanup: false });
     expect(form.get("background_mode")).toBe("keep");

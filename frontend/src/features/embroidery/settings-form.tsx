@@ -44,7 +44,7 @@ export function SettingsForm({ settings: s, onChange, capabilities, busy, canGen
             </div>
           </fieldset>
           <ToggleSetting label="Adapter au cadre" value={s.fit_to_hoop} onChange={value => update("fit_to_hoop", value)} disabled={busy} />
-          {s.machine === "brother-skitch-pp1" && <p className="text-xs leading-relaxed text-muted">Cadre maximal de 100 × 100 mm. Importez le PES dans Artspira ; les changements de couleur se font manuellement.</p>}
+          {s.machine === "brother-skitch-pp1" && <p className="text-xs leading-relaxed text-muted">Cadre maximal de 100 × 100 mm. Satin et tatami peuvent se succéder dans le même PES. Importez-le dans Artspira ; les changements de couleur se font manuellement.</p>}
           <Separator />
           <ChoiceSetting label="Tissu" value={s.fabric} disabled={busy || !capabilities}
             onChange={value => onChange(applyMaterialPreset(s, value, s.thread_weight, capabilities))} options={[
@@ -59,7 +59,7 @@ export function SettingsForm({ settings: s, onChange, capabilities, busy, canGen
             ]} />
           </div>
           <ChoiceSetting label="Type de points" value={s.stitch_type} onChange={value => update("stitch_type", value)} disabled={busy} options={STITCH_TYPE_OPTIONS} />
-          {s.stitch_type === "satin" && <p className="text-xs leading-relaxed text-muted">Le satin forcé est refusé si la forme ne permet pas un satin régulier dans les limites de la machine. Choisissez Auto ou Tatami pour les zones larges ou complexes.</p>}
+          {s.stitch_type === "satin" && <p className="text-xs leading-relaxed text-muted">Les colonnes trop larges sont divisées en satins adjacents. Les jonctions qui échouent aux contrôles restent refusées ; Auto peut alors choisir le tatami.</p>}
           {s.stitch_type === "running" && <p className="text-xs leading-relaxed text-muted">Le point droit suit les lignes fines ; il ne couvre pas une surface comme le satin ou le tatami.</p>}
           <ToggleSetting label="Ajustement automatique" value={s.auto_adjust} onChange={value => update("auto_adjust", value)} disabled={busy} />
           <p className="text-xs leading-relaxed text-muted">Le dessin et le tissu guident densité, compensation et sous-couche. Les réglages appliqués sont indiqués après génération. Désactivez l’ajustement pour régler les points manuellement.</p>
@@ -84,7 +84,7 @@ export function SettingsForm({ settings: s, onChange, capabilities, busy, canGen
               {s.preserve_colors && <NumberSetting label="Couleurs maximum" value={s.max_colors} onChange={value => update("max_colors", value ?? NaN)} min={1} max={32} disabled={busy} />}
               <NumberSetting label="Seuil noir / blanc" value={s.raster_threshold} onChange={value => update("raster_threshold", value)} min={0} max={255} optional disabled={busy} />
               <ToggleSetting label="Inverser clair / foncé" value={s.raster_invert} onChange={value => update("raster_invert", value)} disabled={busy} />
-              <p className="text-xs leading-relaxed text-muted">Auto estime un fond uni ou un dégradé doux depuis les bords, puis s’arrête aux contours du dessin. Les aplats intérieurs, comme un badge blanc, sont conservés. Si le fond est ambigu, Auto le garde. Conserver désactive le retrait ; Supprimer demande son estimation.</p>
+              <p className="text-xs leading-relaxed text-muted">Auto estime un fond uni ou un dégradé doux depuis les bords. Les badges blancs et les aplats multicolores sont conservés. Sur un logo noir/blanc, le nettoyage peut reconnaître les évidements entre traits épais ; les détails indiquent cette interprétation. Conserver désactive le retrait.</p>
               <p className="text-xs leading-relaxed text-muted">Un fond photographique ou un dessin qui touche les bords peut nécessiter une image déjà détourée. Un seuil manuel produit une silhouette monochrome. Vérifiez l’onglet Dessin après génération.</p>
             </AdvancedSection>
           </Accordion>

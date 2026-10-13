@@ -148,10 +148,6 @@ def bitmap_colors(
             seeds.append(i)
     if not seeds or len(seeds) > max_colors:
         return separate_colors(rgba, max_colors)
-    distance, nearest = cKDTree(labs[seeds]).query(labs)
-    # A broad histogram of neighbouring shades is a gradient, not a flat logo.
-    if counts[distance <= 6].sum() / len(pixels) < 0.85:
-        return separate_colors(rgba, max_colors)
     packed = (
         (rgba[..., 0].astype(np.uint32) << 16)
         | (rgba[..., 1].astype(np.uint32) << 8)
@@ -181,6 +177,10 @@ def bitmap_colors(
             if len(seeds) > max_colors:
                 return separate_colors(rgba, max_colors)
     distance, nearest = cKDTree(labs[seeds]).query(labs)
+    # Small flat paints can be below the global frequency threshold. Include
+    # their observed cores before deciding whether this is a logo or a gradient.
+    if counts[distance <= 10].sum() / len(pixels) < 0.85:
+        return separate_colors(rgba, max_colors)
     paints = values[seeds]
     blends = np.vstack([paints.T, np.full(len(paints), 255)])
     accents = []
@@ -227,7 +227,12 @@ def bitmap_colors(
 
 
 def clean_color_regions(
-    labels: np.ndarray, colors: list[str], pixels_per_mm: float, diagnostics: dict
+    labels: np.ndarray,
+    colors: list[str],
+    pixels_per_mm: float,
+    diagnostics: dict,
+    *,
+    rgba: np.ndarray | None = None,
 ) -> np.ndarray:
     """Merge sub-resolution colour speckles into a nearby, similar stable paint.
 
@@ -252,11 +257,12 @@ def clean_color_regions(
         regions_before=count,
         regions_after=count,
         changed_area_mm2=0.0,
+        edge_blend_pixels=0,
         reason="no_safe_speckles",
     )
     distances = np.linalg.norm(labs[:, None] - labs[None, :], axis=2)
     np.fill_diagonal(distances, np.inf)
-    if not np.any(distances <= 18):
+    if not np.any(distances <= 18) and rgba is None:
         return result
     # Build slice objects only for recoverable speckles touching a stable paint.
     # A dense checkerboard can contain millions of unrecoverable components.
@@ -269,16 +275,17 @@ def clean_color_regions(
     compact[candidates] = np.arange(1, len(candidates) + 1)
     boxes = find_objects(compact[regions])
     changed = 0
+    blended = 0
     for candidate, region in enumerate(candidates):
         box = boxes[candidate]
         if max(axis.stop - axis.start for axis in box) / pixels_per_mm > 0.5:
             continue
         patch = tuple(
-            slice(max(0, axis.start - 1), min(size, axis.stop + 1))
+            slice(max(0, axis.start - 2), min(size, axis.stop + 2))
             for axis, size in zip(box, labels.shape, strict=True)
         )
         mask = regions[patch] == region
-        border = binary_dilation(mask) & ~mask
+        border = binary_dilation(mask, iterations=2) & ~mask
         neighbours = regions[patch][border]
         stable = neighbours[(neighbours > 0) & (areas[neighbours] > limit)]
         if not len(stable):
@@ -288,6 +295,29 @@ def clean_color_regions(
         distances = np.linalg.norm(labs[candidates - 1] - labs[paint - 1], axis=1)
         chosen = np.argmin(distances)
         if distances[chosen] > 18:
+            if rgba is None or len(candidates) < 2:
+                continue
+            source = rgba[box][regions[box] == region, :3].astype(float)
+            source_labs = rgb2lab(source[None, ...] / 255)[0]
+            errors = np.full(len(source), np.inf)
+            for index, first in enumerate(candidates):
+                for second in candidates[index + 1 :]:
+                    base = rgb[first - 1]
+                    direction = rgb[second - 1] - base
+                    fraction = np.clip(
+                        (source - base) @ direction / max(float(direction @ direction), 1),
+                        0,
+                        1,
+                    )
+                    delta = source - base - fraction[:, None] * direction
+                    errors = np.minimum(errors, np.linalg.norm(delta, axis=1))
+            if np.percentile(errors, 90) > 24:
+                continue
+            chosen = np.argmin(
+                np.linalg.norm(labs[candidates - 1] - source_labs.mean(axis=0), axis=1)
+            )
+            blended += int(areas[region])
+        if candidates[chosen] == paint:
             continue
         result[box][regions[box] == region] = candidates[chosen]
         changed += int(areas[region])
@@ -301,6 +331,7 @@ def clean_color_regions(
             else count
         ),
         changed_area_mm2=changed / pixels_per_mm**2,
+        edge_blend_pixels=blended,
         reason="small_adjacent_colour_speckles" if changed else "no_safe_speckles",
     )
     return result

@@ -1,4 +1,69 @@
-# Validation du moteur direct — 12 octobre 2026
+# Validation du moteur direct — 13 octobre 2026
+
+## Consolidation satin et imports
+
+La [matrice reproductible](benchmarks/satin-input-reliability-2026-10-13.json)
+compare `939f9f9` au moteur corrigé sur **26 cas**, à 80 mm : colonnes de 4 / 7,2 /
+7,8 / 12 mm, pointe, anneau, branches, courbe serrée, trous, symétrie, drapeau,
+accent coloré et les images Nike / badge JPEG / Pepsi fournies. Elle relit les
+PES et DST et compare leurs coordonnées au plan quantifié, indépendamment de
+l'aperçu. Les images utilisateur ne sont pas incluses dans le dépôt.
+
+| Cas | Avant | Après |
+|---|---|---|
+| Colonne 7,8 mm en Satin | Refus à 7,5 mm | Deux colonnes adjacentes ; couverture structurelle 100 %, flotté maximal 4,50 mm |
+| Colonne 12 mm / pointe large | Tatami en Auto, refus en Satin | Satin divisé audité ; couverture structurelle 100 % |
+| Nike noir/blanc | Noir + blanc parasite ; 3 525 points | Noir seul ; 3 143 points, aucun blanc brodé |
+| Badge JPEG, PP1 / six couleurs | 3 766 régions machine, 2 112 détails omis | 1 561 régions, 469 détails omis ; trois fils |
+| Badge JPEG, douze couleurs | Refus : 6 974 régions après interprétation | Export ; 2 918 régions avant tracé, 3 045 régions machine ; quatre fils |
+| Pepsi | Quatre fils dont le blanc intérieur | Mêmes quatre fils ; blanc préservé ; couverture structurelle 100 % |
+
+La limite de **4 096 régions** et les longueurs machine ne sont pas augmentées.
+La division satin conserve les rails extérieurs ; les coutures intérieures sont
+bornées et décalées. Les régions compactes larges restent en tatami automatique.
+Les quatre refus restants en Satin forcé — branches, courbe serrée, grande forme
+trouée et Nike complet — signalent une couverture ou des piqûres inadéquates.
+Leurs versions Auto exportent. Forcer le satin ne désactive aucun audit.
+
+**22 générations sur 26 réussissent, contre 18 auparavant.** Tous les exports
+réussis concordent exactement avec le plan : coordonnées, nombre de points,
+changements de couleur et couleurs PES. Aucun dépassement du cadre, point court,
+flotté au-delà de 8 mm ou saut au-delà de 12 mm n'est relevé.
+
+Le JPEG complexe conserve un statut **à contrôler** : couverture structurelle
+99,94 % / 99,90 %, plus grand manque 0,32 / 0,28 mm² en six / douze couleurs.
+Des détails demeurent trop petits à cette taille. Il ne doit pas être présenté
+comme une reproduction parfaite ou qualifiée sur tissu. Les temps de cette
+comparaison sont des mesures uniques sous charge : environ 51 s en six couleurs
+(86 s auparavant) et 104 s en douze couleurs. Ils ne sont pas un engagement de
+performance. L'essai d'une réduction plus agressive des fragments a été écarté
+pour préserver les peintures réelles.
+
+Les régressions protègent aussi les accents cyan connectés ou isolés, le centre
+blanc d'un badge épais, les peintures grises pâles, les SVG et les palettes
+littérales. Le retrait des évidements monochromes reste une inférence signalée,
+désactivable avec le nettoyage ; les intérieurs compacts ambigus sont conservés.
+Les compteurs de nettoyage excluent désormais les choix sans modification.
+
+Reproduction :
+
+```bash
+uv run python scripts/benchmark_reliability.py --baseline-ref 939f9f9 \
+  --nike /chemin/nike.png --complex-badge /chemin/badge.jpg \
+  --pepsi /chemin/pepsi.png --output output/reliability
+```
+
+Les trois images sont facultatives ; sans elles, le script compare 21 cas
+synthétiques. L'interface est vérifiée avec le Nike noir seul et la colonne
+7,8 mm en Satin forcé. La PP1 est le profil web par défaut ; les défauts
+library/CLI restent compatibles. Un test PP1 combine satin et tatami avec un
+seul fil, sans changement de bobine supplémentaire, avec réimport PES/DST exact.
+La validation finale passe : **462 tests Python**, **51 tests frontend**, Ruff,
+TypeScript, ESLint et build Next.js. Le JPEG en douze couleurs a aussi été généré
+dans l'interface : PES/DST disponibles, statut à contrôler et manque de 0,28 mm²
+affichés. Les diagnostics de nettoyage ont été recalculés après correction du
+compteur sans changement ; les SVG interprétés sont identiques octet pour octet
+à ceux de la matrice, donc ses mesures machine restent valides.
 
 ## Version actuelle : 0.5.1
 

@@ -6,12 +6,12 @@ export const STITCH_TYPE_OPTIONS = Object.entries(STITCH_TYPE_LABELS).map(([valu
 export const BACKGROUND_MODE_OPTIONS = Object.entries(BACKGROUND_MODE_LABELS).map(([value, label]) => ({ value: value as BackgroundMode, label }));
 
 export const DEFAULT_SETTINGS: GenerationSettings = {
-  fabric: "custom", thread_weight: "40", stabilizer: "unspecified", machine: "generic",
+  fabric: "custom", thread_weight: "40", stabilizer: "unspecified", machine: "brother-skitch-pp1",
   design_width: null, hoop_width: 100, hoop_height: 100, fit_to_hoop: true,
   stitch_spacing: 0.4, fill_spacing: 0.4, pull_compensation: 0.15,
-  running_length: 2.5, max_stitch: 8, max_satin_width: 8, underlay: true,
+  running_length: 2.5, max_stitch: 8, max_satin_width: 7, underlay: true,
   auto_adjust: true, auto_fill_angle: true, fill_angle: 45,
-  raster_threshold: null, raster_invert: false, max_colors: 12, preserve_colors: true,
+  raster_threshold: null, raster_invert: false, max_colors: 6, preserve_colors: true,
   background_mode: "auto", stitch_type: "auto", raster_cleanup: true,
 };
 

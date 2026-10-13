@@ -201,16 +201,23 @@ def select_consistent_regions(mask, transform, params: StitchParams, origin, sym
             params.max_stitch_mm - 0.2 - 2 * params.pull_compensation_mm,
         )
         diameter = 2 * distance_transform_edt(local_mask).max() / scale
-        # A clearly broad interior needs fill regardless of its MAT branches.
-        # Two raster pixels of margin leave borderline counterparts to the full
-        # satin gate and cohort consensus rather than treating edge noise as proof.
+        # Broad compact bodies usually need fill; long strokes can instead be
+        # divided into bounded satin columns and checked on the real grid.
         broad = diameter > safe_width + 2 / scale
         elements = []
         minimum_width = max(
             2 * params.min_stitch_mm, {30: 0.75, 40: 0.6, 60: 0.45}[params.thread_weight]
         )
-        needs_mat = (params.stitch_type in ("auto", "satin") and not broad) or (
-            params.stitch_type == "running" and diameter < minimum_width
+        elongated = np.count_nonzero(local_mask) / scale**2 / max(diameter**2, 1e-6) >= 3
+        needs_mat = bool(
+            (
+                params.stitch_type == "satin"
+                or (
+                    params.stitch_type == "auto"
+                    and (not broad or (elongated and diameter <= 2 * safe_width))
+                )
+            )
+            or (params.stitch_type == "running" and diameter < minimum_width)
         )
         if needs_mat:
             skeleton, distance = compute_medial_axis(local_mask)
@@ -230,7 +237,7 @@ def select_consistent_regions(mask, transform, params: StitchParams, origin, sym
         )
         if decisions:
             decisions[0]["mat_evaluated"] = needs_mat
-            if broad and params.stitch_type in ("auto", "satin"):
+            if broad and not needs_mat and params.stitch_type == "auto":
                 decisions[0]["reason"] = "exceeds_safe_satin_width"
             groups[region.group].append(
                 RegionCandidate(
@@ -303,6 +310,9 @@ def select_consistent_regions(mask, transform, params: StitchParams, origin, sym
                     **decision,
                     "component": region.component,
                     "method": method,
+                    "split_satin_columns": decision.get("split_satin_columns", 0)
+                    if method == "satin"
+                    else 0,
                     "reason": "machine_geometry_rejected"
                     if method == "omitted" and member.metrics.get("failure") == "machine_geometry"
                     else "coherent_color_fill"

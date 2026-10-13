@@ -64,7 +64,7 @@ function Diagnostics({ result }: { result: GenerationResult }) {
       <Accordion.Heading><Accordion.Trigger>Points par région<Accordion.Indicator /></Accordion.Trigger></Accordion.Heading>
       <Accordion.Panel><Accordion.Body className="flex flex-col gap-4 pb-4">
         <div className="flex flex-wrap gap-4"><Chip size="sm">{stats.satin_regions} satin</Chip><Chip size="sm">{stats.fill_regions} tatami</Chip><Chip size="sm">{stats.running_regions} point droit</Chip></div>
-        <ul className="flex max-h-60 flex-col gap-4 overflow-auto text-xs text-muted">{direct.decisions.map(item => <li key={item.component} title={item.reason}><span className="font-medium text-foreground">Région {item.component}</span> · {item.method === "running" ? "point droit" : item.method === "omitted" ? item.reason === "machine_geometry_rejected" ? "géométrie à contrôler" : "détail trop petit" : item.method === "fill" ? "tatami" : "satin"} · {formatNumber(item.width_mm)} mm{item.method === "fill" && item.fill_angle_deg !== null ? ` · ${formatNumber(item.fill_angle_deg)}°` : ""}</li>)}</ul>
+        <ul className="flex max-h-60 flex-col gap-4 overflow-auto text-xs text-muted">{direct.decisions.map(item => <li key={item.component} title={item.reason}><span className="font-medium text-foreground">Région {item.component}</span> · {item.method === "running" ? "point droit" : item.method === "omitted" ? item.reason === "machine_geometry_rejected" ? "géométrie à contrôler" : "détail trop petit" : item.method === "fill" ? "tatami" : (item.split_satin_columns ?? 0) > 1 ? "satin divisé" : "satin"} · {formatNumber(item.width_mm)} mm{(item.split_satin_columns ?? 0) > 1 ? ` · ${item.split_satin_columns} colonnes` : ""}{item.method === "fill" && item.fill_angle_deg !== null ? ` · ${formatNumber(item.fill_angle_deg)}°` : ""}</li>)}</ul>
       </Accordion.Body></Accordion.Panel>
     </Accordion.Item>
     <Accordion.Item>
@@ -124,7 +124,7 @@ export function ResultPane({ file, sourcePreview, result, busy, importError, onS
             <Tabs.Panel id="stitches" className="mt-0 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-0"><StitchPlayer url={result.direct.files.plan_json} /></Tabs.Panel>
             <Tabs.Panel id="source" className="mt-0 min-h-0 flex-1 overflow-y-auto overscroll-contain p-0"><SourcePreview sourcePreview={sourcePreview} result={result} /></Tabs.Panel>
           </Tabs>
-          <div className="flex shrink-0 flex-wrap items-center gap-4"><DownloadLink href={result.direct.files.pes} primary>PES · Brother</DownloadLink><DownloadLink href={result.direct.files.dst}>DST</DownloadLink><span className="ml-auto text-xs text-muted">{formatNumber(result.direct.stats.stitches)} points · {result.direct.threads.length} fils</span></div>
+          <div className="flex shrink-0 flex-wrap items-center gap-4"><DownloadLink href={result.direct.files.pes} primary>PES · Brother</DownloadLink><DownloadLink href={result.direct.files.dst}>DST</DownloadLink><span className="ml-auto text-xs text-muted">{formatNumber(result.direct.stats.stitches)} points · {result.direct.threads.length} fil{result.direct.threads.length > 1 ? "s" : ""}</span></div>
         </div>}
     </FileUpload>
   </div>;

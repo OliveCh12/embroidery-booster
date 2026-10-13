@@ -87,7 +87,7 @@ function Timeline({ plan }: { plan: StitchPlan }) {
           <ToggleSetting label="Liaisons, sauts et ancrages" value={travel} onChange={setTravel} />
           <Button size="sm" variant="secondary" isDisabled={cursor === plan.count} onPress={() => seek(Math.min(plan.count, cursor + 1))}><StepForward size={16} />Commande suivante</Button>
           <p className="text-xs leading-relaxed text-muted">Continu traverse toutes les couleurs ; Par fil attend votre reprise à chaque changement. Modifier le mode ajuste les prochains arrêts et ne reprend pas une lecture en pause.</p>
-          <p className="text-xs leading-relaxed text-muted">Couverture : couleur du fil. Sous-couche : gris. Liaisons : ambre ; sauts en pointillés. Ancrages : violet. Les repères vert (départ) et rouge (aiguille) apparaissent pendant la lecture.</p>
+          <p className="text-xs leading-relaxed text-muted">La sous-couche utilise le même fil ; le gris sert à la distinguer dans cet aperçu. Liaisons : ambre ; sauts en pointillés. Ancrages : violet. Vert : départ, rouge : aiguille.</p>
           <p className="text-xs leading-relaxed text-muted">Dessin : {formatNumber(plan.bounds[2] - plan.bounds[0])} × {formatNumber(plan.bounds[3] - plan.bounds[1])} mm. Grille de 10 mm.</p>
           <p className="text-xs leading-relaxed text-muted">Simulation à {plan.stitchesPerMinute} points/min, accélérée ×{speed}. Sauts, coupes et changements de fil ne sont pas chronométrés.</p>
         </Popover.Dialog></Popover.Content>

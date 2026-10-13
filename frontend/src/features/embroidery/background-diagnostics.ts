@@ -15,12 +15,13 @@ const reasons: Record<string, string> = {
 };
 
 export function describeBackground(background: NonNullable<InputAnalysis["background"]>) {
-  const message = reasons[background.reason ?? ""] ?? (background.applied === true ? "Le fond a été retiré." : background.applied === false ? "Le fond a été conservé." : "Aucune modification du fond n’est indiquée.");
+  const message = (background.counters_inferred ?? 0) > 0 ? "Le fond relié au bord a été retiré jusqu’aux contours du logo." : reasons[background.reason ?? ""] ?? (background.applied === true ? "Le fond a été retiré." : background.applied === false ? "Le fond a été conservé." : "Aucune modification du fond n’est indiquée.");
   const metrics: { label: string; value: string }[] = [];
   if (background.model) metrics.push({ label: "Fond estimé", value: background.model === "smooth_gradient" ? "Dégradé doux" : "Uni" });
   if (background.border_confidence != null) metrics.push({ label: "Bord compatible", value: `${formatNumber(background.border_confidence * 100)} %` });
   if (background.border_error_rgb != null) metrics.push({ label: "Écart RGB au bord (p95)", value: formatNumber(background.border_error_rgb) });
   if ((background.edge_refined_pixels ?? 0) > 0) metrics.push({ label: "Pixels de contour affinés", value: formatNumber(background.edge_refined_pixels!) });
   if ((background.edge_recovered_pixels ?? 0) > 0) metrics.push({ label: "Pixels de contour décontaminés", value: formatNumber(background.edge_recovered_pixels!) });
-  return { message: message + (background.applied === true && (background.removed_fraction ?? 0) > 0 ? ` ${formatNumber(background.removed_fraction! * 100)} % de l’image retirés.` : ""), metrics };
+  if ((background.counters_inferred ?? 0) > 0) metrics.push({ label: "Évidements monochromes", value: formatNumber(background.counters_inferred!) });
+  return { message: message + (background.applied === true && (background.removed_fraction ?? 0) > 0 ? ` ${formatNumber(background.removed_fraction! * 100)} % de l’image retirés.` : "") + ((background.counters_inferred ?? 0) > 0 ? " Les blancs entourés de traits épais ont été interprétés comme des évidements. Désactivez le nettoyage pour les conserver." : ""), metrics };
 }

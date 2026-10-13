@@ -5,7 +5,7 @@
 Le fond n'est pas une couleur à effacer partout. Un badge blanc fermé peut être
 une vraie partie du logo, même si son extérieur est également blanc. L'algorithme
 estime le fond depuis le périmètre, puis propage uniquement dans les pixels
-compatibles reliés à ce périmètre. Les zones enfermées restent peintes.
+compatibles reliés à ce périmètre. À ce stade, les zones enfermées restent peintes.
 La [propagation sous masque de SciPy](https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.binary_propagation.html)
 permet ce traitement sans reconnaissance de marque ni service externe.
 
@@ -57,8 +57,14 @@ Le fond utilise huit voisins, complémentaires des quatre voisins des régions
 peintes. Une ouverture diagonale reste donc une ouverture. Retirer est un choix
 explicite de l'utilisateur, pas une suppression de toutes les couleurs du bord.
 
-Les trous alpha restent des trous. À l'inverse, un blanc opaque enfermé est une
-couleur à broder. En monochrome sans seuil, toutes les peintures visibles forment
+Les trous alpha restent des trous. Un blanc opaque enfermé est normalement une
+couleur à broder. Le tracé couleur peut ensuite inférer des évidements sur un
+logo noir/blanc : nettoyage activé, fond réellement retiré, deux peintures dont
+la couleur exacte du fond et traits monochromes épais autour du blanc. Les
+badges ambigus doivent rester opaques ; cette inférence géométrique est signalée
+par `counters_inferred`, `counter_pixels_removed` et `counter_inference`.
+Conserver le fond ou désactiver le nettoyage conserve les blancs originaux.
+Le retrait explicite d'un SVG n'applique pas cette inférence. En monochrome sans seuil, toutes les peintures visibles forment
 la silhouette. Un seuil ou une inversion explicite utilise l'interprétation
 manuelle de luminance et est signalé comme tel.
 
@@ -89,14 +95,16 @@ pas ajoutés au moteur par défaut.
 Une compression ou un redimensionnement produit des nuances de bord qui ne
 doivent pas devenir chacune un fil. La consolidation des logos plats est activée
 seulement si les couleurs dominantes et leurs voisins proches représentent au
-moins 85 % des pixels visibles. Les noyaux de couleurs plates, accents contrastés
+moins 85 % des pixels visibles, après inclusion des petits noyaux plats. Les noyaux de couleurs plates, accents contrastés
 et palettes exactes restent distincts. Photos et dégradés conservent la
 quantification bornée habituelle. Ce choix peut modifier des nuances fines :
 désactiver `raster_cleanup` conserve l'interprétation de palette antérieure.
 
 Après quantification, seuls les îlots **≤ 0,10 mm²**, de dimension **≤ 0,5 mm**, qui
 touchent une région stable de couleur proche (**ΔE Lab ≤ 18**) peuvent être
-réaffectés. Les voisins sont évalués dans l'image initiale, sans cascade de
+réaffectés. Sur une palette réduite, un fragment peut aussi être corrigé si ses
+RGB d'origine démontrent un mélange de peintures stables voisines, plutôt qu'un
+noyau de sa propre peinture. `edge_blend_pixels` compte ces corrections. Les voisins sont évalués dans l'image initiale, sans cascade de
 fusions. Aucun alpha n'est supprimé, aucune contreforme transparente n'est
 remplie, aucun accent isolé n'est effacé. L'aire est calculée à l'échelle finale,
 y compris l'ajustement au cadre : une demande surdimensionnée ne change pas la
@@ -117,8 +125,10 @@ bitmap d'origine a été conservée.
   lettres courbes, contreformes et petits détails ne sont pas convertis pour
   satisfaire cette règle d'homogénéité. Les homologues géométriques partagent leur
   stratégie et les vérifications finales.
-- **Satin** exige du satin partout. Une surface trop large, branchée ou dont les
-  rails échouent à couvrir proprement provoque une erreur claire. Aucun patch fill,
+- **Satin** exige du satin partout. Les balayages trop larges peuvent être divisés
+  en colonnes adjacentes, avec flottées bornées et coutures internes décalées.
+  Les régions dont les rails échouent à couvrir proprement ou concentrent les
+  piqûres provoquent une erreur claire. Aucun patch fill,
   détail omis ou flottée excessive ne sert à contourner ce choix.
 - **Tatami (`fill`)** impose des rangées limitées à chaque région et ses trous,
   sans calcul d'axe médian préalable. Angle automatique commun par couleur quand

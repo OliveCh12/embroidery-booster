@@ -49,8 +49,8 @@ def adjust_for_sewing(params: StitchParams) -> tuple[StitchParams, list[dict]]:
         min(params.pull_compensation_mm, compensation_limit),
         "excessive_pull_compensation",
     )
-    # Leave room for compensation and the 0.1 mm machine grid. Wider regions
-    # become coherent fill instead of acquiring split stitches through satin.
+    # Leave room for compensation and the 0.1 mm machine grid. Wider satin
+    # sweeps must be divided into columns rather than exceeding this float cap.
     width_limit = min(
         MACHINE_PROFILES[params.machine]["max_satin_width"],
         max(2.0, params.max_stitch_mm - 0.2 - 2 * effective.pull_compensation_mm),

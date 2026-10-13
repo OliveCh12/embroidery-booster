@@ -2,8 +2,10 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pyembroidery as pe
 import pytest
-from shapely.geometry import Polygon, box
+from shapely import intersects, linestrings
+from shapely.geometry import Point, Polygon, box
 
 from embroidery_rungs.stitching.consistency import RegionCandidate, _color_policy
 from embroidery_rungs.stitching.digitizer import digitize
@@ -49,11 +51,72 @@ def test_requested_fill_is_uniform_and_never_computes_mat(tmp_path, monkeypatch)
     assert plan.analysis["strategy_policy"] == "explicit_uniform"
 
 
-@pytest.mark.parametrize("width", [9, 20])
-def test_strict_satin_rejects_unsafe_float_without_silent_fill(tmp_path, width):
+@pytest.mark.parametrize("width", [7.8, 9, 20])
+def test_strict_satin_divides_broad_columns_without_raising_the_float_limit(tmp_path, width):
     svg = document(tmp_path, f'<rect x="5" y="5" width="50" height="{width}"/>')
-    with pytest.raises(ValueError, match="Satin requested.*safe.*Use automatic or fill"):
-        digitize(svg, StitchParams(stitch_type="satin", auto_adjust=False, max_satin_width_mm=12))
+    plan, _ = digitize(
+        svg, StitchParams(stitch_type="satin", auto_adjust=False, max_satin_width_mm=7.5)
+    )
+    assert {d["method"] for d in plan.decisions} == {"satin"}
+    assert plan.decisions[0]["split_satin_columns"] >= 2
+    assert plan.decisions[0]["safe_satin_width_mm"] == plan.params.max_satin_width_mm == 7.5
+    assert plan.stats["max_stitch_mm"] <= 7.5
+    assert plan.stats["structural_coverage"] >= 0.999
+    assert plan.stats["crowded_satin_penetrations"] == plan.stats["unsafe_connections"] == 0
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        '<path d="M10 10H40V14H14V40H10Z"/>',
+        '<path d="M10 10H50V14H32V45H28V14H10Z"/>',
+    ],
+    ids=["corner", "branch"],
+)
+def test_incomplete_corners_and_branches_keep_the_machine_gate_and_explain_failure(tmp_path, shape):
+    svg = document(tmp_path, shape)
+    automatic, _ = digitize(svg, StitchParams())
+    assert {d["method"] for d in automatic.decisions} == {"fill"}
+    assert automatic.stats["structural_coverage"] >= 0.999
+    assert automatic.stats["unsafe_connections"] == automatic.stats["short_stitches"] == 0
+    with pytest.raises(
+        ValueError, match="Satin requested.*uncovered areas or crowded penetrations"
+    ):
+        digitize(svg, StitchParams(stitch_type="satin"))
+
+
+@pytest.mark.parametrize("choice", ["auto", "satin"])
+def test_broad_ring_satin_preserves_the_counter(tmp_path, choice):
+    svg = document(
+        tmp_path,
+        '<circle cx="40" cy="35" r="20" fill="none" stroke="black" stroke-width="8"/>',
+    )
+    plan, _ = digitize(
+        svg, StitchParams.for_fabric(machine="brother-skitch-pp1", stitch_type=choice)
+    )
+    assert {d["method"] for d in plan.decisions} == {"satin"}
+    assert plan.decisions[0]["split_satin_columns"] > 0
+    assert plan.stats["structural_coverage"] >= 0.999
+    assert plan.stats["max_stitch_mm"] <= 7
+    assert plan.stats["unsafe_connections"] == plan.stats["crowded_satin_penetrations"] == 0
+    commands = np.asarray(plan.commands)
+    sewn = (commands[:-1, 2] == pe.STITCH) & (commands[1:, 2] == pe.STITCH)
+    segments = np.stack([commands[:-1, :2], commands[1:, :2]], axis=1)[sewn] / 10 + plan.origin_mm
+    assert not intersects(linestrings(segments), Point(40, 35).buffer(15.6)).any()
+
+
+def test_automatic_satin_does_not_divide_compact_bodies(tmp_path):
+    plan, _ = digitize(
+        document(tmp_path, '<rect x="5" y="5" width="30" height="30"/>'), StitchParams()
+    )
+    assert {d["method"] for d in plan.decisions} == {"fill"}
+    assert plan.decisions[0]["split_satin_columns"] == 0
+
+
+def test_forced_micro_detail_explains_machine_resolution(tmp_path):
+    svg = document(tmp_path, '<rect x="5" y="5" width="2" height="0.2"/>')
+    with pytest.raises(ValueError, match="minimum sewable satin width"):
+        digitize(svg, StitchParams(stitch_type="satin"))
 
 
 def test_explicit_running_preserves_contours_and_reports_solid_coverage_honestly(tmp_path):
@@ -108,7 +171,7 @@ def test_substantive_color_fill_keeps_small_detail_geometry_angle(tmp_path):
     detail = '<circle cx="55" cy="30" r="0.6"/>'
     isolated, _ = digitize(document(tmp_path, detail), StitchParams())
     with_body, _ = digitize(
-        document(tmp_path, '<rect x="5" y="5" width="40" height="10"/>' + detail),
+        document(tmp_path, '<rect x="5" y="5" width="40" height="20"/>' + detail),
         StitchParams(),
     )
     small = next(d for d in with_body.decisions if d["area_mm2"] < 4)

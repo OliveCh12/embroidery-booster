@@ -32,6 +32,13 @@ et propose six fils et un satin de 7 mm ; palette et largeur restent modifiables
 Importer `sewout_direct.pes` ; le SVG est la source, pas un fichier de points.
 Vérifier la disponibilité de l'import dans son offre Artspira et sa région.
 
+Satin et tatami peuvent se succéder dans le même fichier PES : aucun réglage
+mécanique ne choisit entre ces deux trajets de points. Avec l'unique aiguille,
+le changement de bobine correspond à la couleur. La largeur de 7 mm est une
+recommandation de numérisation du projet, pas une interdiction matérielle de
+broder une région plus large. Le moteur peut la diviser en colonnes adjacentes ;
+contrôler leurs coutures internes et leur relief sur tissu avant production.
+
 Utiliser les aiguilles, fils de canette et supports compatibles avec les
 [instructions Brother](https://support.brother.com/g/b/manualtop.aspx?c=us&lang=en&prod=hf_pp1eus).
 Encercler le tissu sans l'étirer. Activer **Jump Stitch Trimming** dans les

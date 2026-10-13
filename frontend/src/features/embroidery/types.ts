@@ -45,6 +45,7 @@ export interface StitchStats {
 export interface Decision {
   component: number; method: "satin" | "fill" | "running" | "omitted";
   reason: string; width_mm: number; fill_angle_deg: number | null; color?: string;
+  split_satin_columns?: number; safe_satin_width_mm?: number;
 }
 export interface Adjustment { parameter: string; requested: number | boolean; effective: number | boolean; reason: string }
 export interface DesignAnalysis {
@@ -61,6 +62,8 @@ export interface InputAnalysis {
     model?: "uniform" | "smooth_gradient" | null;
     border_error_rgb?: number | null; edge_refined_pixels?: number | null;
     edge_recovered_pixels?: number | null;
+    counters_inferred?: number | null; counter_pixels_removed?: number | null;
+    counter_inference?: string | null;
   };
   cleanup?: {
     enabled: boolean | null; changed_pixels: number | null; removed_pixels: number | null;
@@ -70,6 +73,7 @@ export interface InputAnalysis {
     flat_paints_recovered?: boolean | null; palette_consolidated_pixels?: number | null;
     palette_changed_area_mm2?: number | null; regions_after_palette?: number | null;
     retained_accent_colors?: number | null;
+    edge_blend_pixels?: number | null;
   };
 }
 export interface DirectResult {

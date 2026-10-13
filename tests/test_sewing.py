@@ -145,15 +145,29 @@ def test_machine_profile_is_available_via_cli(tmp_path, capsys):
     assert settings["max_satin_width_mm"] == 7
 
 
-def test_automatic_satin_reserves_compensation_before_the_length_cap(tmp_path):
+@pytest.mark.parametrize("choice", ["auto", "satin"])
+@pytest.mark.parametrize("machine", ["generic", "brother-skitch-pp1"])
+def test_borderline_satin_divides_columns_with_machine_float_headroom(tmp_path, choice, machine):
     source = tmp_path / "broad-column.svg"
     source.write_text(
         '<svg xmlns="http://www.w3.org/2000/svg" width="80mm" height="70mm" viewBox="0 0 80 70"><rect x="10" y="30" width="60" height="7.8"/></svg>'
     )
-    result = generate(source, tmp_path / "out").direct
-    assert {d["method"] for d in result.decisions} == {"fill"}
-    assert result.stats["satin_regions"] == 0
-    assert result.stats["max_stitch_mm"] <= 8
+    settings = StitchParams.for_fabric(machine=machine, stitch_type=choice)
+    result = generate(source, tmp_path / "out", stitch_params=settings).direct
+    assert {d["method"] for d in result.decisions} == {"satin"}
+    assert result.decisions[0]["split_satin_columns"] == 2
+    assert result.params.max_satin_width_mm == (7.5 if machine == "generic" else 7)
+    assert result.stats["max_stitch_mm"] <= result.decisions[0]["safe_satin_width_mm"]
+    assert result.stats["structural_coverage"] >= 0.999
+    assert result.stats["crowded_satin_penetrations"] == result.stats["unsafe_connections"] == 0
+    data = json.loads(Path(result.plan_path).read_text())
+    expected = np.asarray(data["commands"])
+    for path in (result.pes_path, result.dst_path):
+        actual = np.asarray(pe.read(path).stitches)
+        assert np.array_equal(
+            actual[(actual[:, 2].astype(int) & pe.COMMAND_MASK) == pe.STITCH, :2],
+            expected[expected[:, 2] == pe.STITCH, :2],
+        )
 
 
 def test_machine_profile_api_validation_and_defaults(tmp_path):

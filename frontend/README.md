@@ -47,6 +47,9 @@ taille du dessin, tissu, fil et stabilisateur. L’ajustement automatique adapte
 les paramètres au dessin et au matériau. Les réglages effectivement appliqués,
 leurs modifications et les mesures de couverture figurent dans les détails du
 résultat. Désactiver l’ajustement permet de régler les points manuellement.
+La PP1 est sélectionnée par défaut, avec un cadre de 100 × 100 mm et six couleurs
+maximum proposées. Satin et tatami peuvent se succéder dans le même fichier PES ;
+le changement de bobine concerne la couleur, pas le type de points.
 
 Le bouton **Détails**, dans l’en-tête de l’aperçu, ouvre un panneau à droite :
 remarques, contrôles de qualité, interprétation du dessin, décisions par région,
@@ -55,8 +58,9 @@ place au rendu. Son contenu défile indépendamment ; Échap ou le bouton de
 fermeture ramène à l’aperçu. Un point discret signale les remarques à consulter.
 
 Le type de points peut rester en **Auto**, ou être fixé à Satin, Tatami ou Point
-droit. Le satin forcé est refusé si la région ne permet pas une couverture
-régulière dans les limites de la machine. Le point droit convient aux lignes
+droit. Les colonnes larges peuvent être divisées en satins adjacents ; le panneau
+Détails les identifie comme **satin divisé**. Le satin forcé reste refusé si la
+région échoue aux contrôles de couverture ou de piqûres serrées. Le point droit convient aux lignes
 fines ; il ne remplit pas un aplat.
 
 Dans « Interprétation de l’image », **Fond : Auto / Conserver / Supprimer**
@@ -66,7 +70,10 @@ sur un SVG effectue une conversion contrôlée du dessin. « Réduire les parasi
 nettoie les petits îlots raster selon leur taille physique ; désactiver cette
 option conserve tous les détails de couleur. Les détails du résultat indiquent
 le fond réellement traité, les nuances de compression consolidées, le nombre
-d’îlots avant/après et la surface modifiée. Le nombre de nuances de l’image est
+d’îlots avant/après et la surface modifiée. Les poches de fond entre traits épais
+d’un logo noir/blanc peuvent devenir des évidements transparents ; cette
+interprétation est signalée et se désactive avec le nettoyage. Les badges à
+contour fin et les aplats blancs multicolores sont conservés. Le nombre de nuances de l’image est
 distingué du nombre de couleurs de fil retenues.
 
 La simulation lit les commandes du **plan machine schema 3**, à 0,1 mm près :

@@ -15,6 +15,7 @@ from scipy.ndimage import (
     maximum_filter,
     minimum_filter,
 )
+from scipy.spatial import cKDTree
 
 _CONNECTIVITY = np.ones((3, 3), dtype=bool)
 _EDGE_RADIUS = 24
@@ -400,6 +401,7 @@ def bitmap_foreground(
     coefficients[0] = dominant
     plane, errors = _fit_plane(rgb, visible_perimeter)
     plane_error = float(np.percentile(errors, 99))
+    compressed_border = False
     # Constant paint is exact when available. Otherwise a well-supported affine
     # field is preferable to a wide global tolerance that eats pale foreground.
     if np.percentile(border_distances, 99) <= 2:
@@ -411,6 +413,20 @@ def bitmap_foreground(
         model = "affine"
         noise = plane_error
         confidence = float(np.mean(errors <= 6))
+    elif (
+        np.percentile(border_distances, 99) <= 32
+        and np.ptp(dominant) <= 4
+        and (dominant.max() <= 24 or dominant.min() >= 231)
+        and np.percentile(np.ptp(border.astype(np.int16), axis=1), 99) <= 6
+        and not _has_literal_palette(rgb, alpha >= 128)
+    ):
+        # Compressed monochrome canvases can contain slightly different padding
+        # strips. Their tightly bounded neutral perimeter still describes one
+        # background, unlike literal flag bands or a textured photograph border.
+        model = "constant"
+        noise = 0.0
+        confidence = float(np.mean(border_distances <= 32))
+        compressed_border = True
     elif np.mean(border_distances <= 2) >= 0.85:
         model = "constant"
         near = border_distances <= 2
@@ -464,6 +480,14 @@ def bitmap_foreground(
     if coefficients is not None:
         residual = _residual(rgb, coefficients)
         matching = residual <= tolerance
+        if compressed_border:
+            # Match only observed border shades. A sphere around the dominant
+            # white could otherwise erase a distinct pale foreground core.
+            tree = cKDTree(paints[np.linalg.norm(paints.astype(float) - dominant, axis=1) <= 32])
+            for start in range(0, len(rgb), 64):
+                chunk = rgb[start : start + 64]
+                distances = tree.query(chunk.reshape(-1, 3))[0].reshape(chunk.shape[:2])
+                matching[start : start + 64] = distances <= tolerance
         matching |= alpha < 128
         outside = binary_propagation(perimeter & matching, structure=_CONNECTIVITY, mask=matching)
         # A perimeter fit alone cannot establish the interior of a gradient.
@@ -525,7 +549,7 @@ def bitmap_foreground(
         if removed.any()
         else "no_border_connected_background",
         model="uniform" if model == "constant" else "smooth_gradient",
-        model_fit=model,
+        model_fit="compressed_constant" if compressed_border else model,
         gradient_step_rgb=round(noise, 4) if coefficients is None else None,
         background_color=(
             "#" + "".join(f"{int(c):02x}" for c in dominant) if model == "constant" else None

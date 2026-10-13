@@ -12,6 +12,7 @@ from embroidery_rungs import StitchParams, generate
 from embroidery_rungs.stitching.paths import fill_paths, resample_running, satin_points
 from embroidery_rungs.stitching.planner import build_stitch_plan
 from embroidery_rungs.stitching.regions import RegionFrame
+from embroidery_rungs.stitching.selection import _split_columns
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
 
@@ -131,6 +132,25 @@ def test_wide_regions_underlay_and_bounded_stitches(mode):
     assert plan.stats["unsafe_connections"] == 0
     allowed = Polygon(np.vstack([element["rail_a"], element["rail_b"][::-1]])).buffer(0.25)
     assert covered_by(linestrings(sew_segments(plan)), allowed).all()
+
+
+@pytest.mark.parametrize("compensation", [0, 0.15])
+def test_divided_columns_keep_outer_rails_and_stagger_internal_penetrations(compensation):
+    params = StitchParams(underlay=False, pull_compensation_mm=compensation)
+    element = column(width=7.8)
+    element["stitch_type"] = "satin"
+    divided = _split_columns([element], 7.5, params)
+    assert len(divided) == 2
+    np.testing.assert_array_equal(divided[0]["rail_a"], element["rail_a"])
+    np.testing.assert_array_equal(divided[-1]["rail_b"], element["rail_b"])
+    plan = build_stitch_plan(divided, params)
+    assert plan.stats["max_stitch_mm"] <= 7.5
+    assert plan.stats["unsafe_connections"] == plan.stats["short_stitches"] == 0
+    top = np.vstack(
+        [block.points + plan.origin_mm for block in plan.blocks if block.kind == "satin"]
+    )
+    seam = top[np.abs(top[:, 1]) < 1]
+    assert np.ptp(seam[:, 1]) > 0.5
 
 
 def test_taper_quantization_and_separate_regions_use_jumps():

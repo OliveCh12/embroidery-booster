@@ -9,7 +9,7 @@ from xml.etree import ElementTree as ET
 import numpy as np
 import resvg_py
 from PIL import Image, ImageOps, UnidentifiedImageError
-from scipy.ndimage import binary_dilation, label
+from scipy.ndimage import binary_dilation, distance_transform_edt, find_objects, label
 from skimage.filters import threshold_otsu
 from skimage.measure import approximate_polygon, find_contours
 
@@ -129,6 +129,7 @@ def _color_bitmap_svg(
     *,
     pixel_size_mm=None,
     hoop_size_mm=None,
+    infer_counters=True,
 ):
     background_info = {}
     # Flood the source before resampling: Lanczos otherwise mixes opaque blank
@@ -174,11 +175,14 @@ def _color_bitmap_svg(
     cleanup_info.update(palette_reduced=bool(reduced), palette_colors=len(colors))
     ys, xs = np.nonzero(labels)
     labels = labels[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
+    rgba = rgba[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
     height, width = np.array(labels.shape) + 2
     physical_width = _fitted_width(requested_width, width, height, hoop_size_mm, diagnostics)
     pixels_per_mm = width / physical_width
     if cleanup:
-        labels = clean_color_regions(labels, colors, pixels_per_mm, cleanup_info)
+        labels = clean_color_regions(
+            labels, colors, pixels_per_mm, cleanup_info, rgba=rgba if reduced else None
+        )
     else:
         count = sum(label(labels == index)[1] for index in range(1, len(colors) + 1))
         cleanup_info.update(regions_before=count, regions_after=count)
@@ -188,6 +192,11 @@ def _color_bitmap_svg(
         cleanup_info["palette_changed_area_mm2"] = (
             cleanup_info["palette_consolidated_pixels"] / pixels_per_mm**2
         )
+    labels = _monochrome_counters(labels, colors, background_info, cleanup and infer_counters)
+    cleanup_info["palette_colors"] = len(np.unique(labels[labels > 0]))
+    cleanup_info["regions_after"] = sum(
+        label(labels == index)[1] for index in range(1, len(colors) + 1)
+    )
     _check_trace_budget(cleanup_info["regions_after"])
     diagnostics.update(background=background_info, cleanup=cleanup_info)
     labels = np.pad(labels, 1)
@@ -223,6 +232,72 @@ def _color_bitmap_svg(
             ET.SubElement(root, "path", fill=color, attrib={"fill-rule": "evenodd", "d": path})
     ET.ElementTree(root).write(svg_path, encoding="utf-8", xml_declaration=True)
     return str(svg_path)
+
+
+def _monochrome_counters(labels, colors, background_info, cleanup):
+    background_info.update(
+        counters_inferred=0,
+        counter_pixels_removed=0,
+        counter_inference="not_applicable",
+    )
+    background = background_info.get("background_color")
+    if (
+        not cleanup
+        or not background_info["applied"]
+        or len(colors) != 2
+        or background not in colors
+    ):
+        return labels
+    background_index = colors.index(background) + 1
+    paint_index = 3 - background_index
+    paint = np.array([int(colors[paint_index - 1][i : i + 2], 16) for i in (1, 3, 5)])
+    blank = np.array([int(background[i : i + 2], 16) for i in (1, 3, 5)])
+    if np.ptp(paint) > 4 or np.linalg.norm(paint - blank) < 128:
+        return labels
+    holes, count = label(labels == background_index)
+    _check_trace_budget(count)
+    paint_radius = distance_transform_edt(labels == paint_index)
+    hole_radius = distance_transform_edt(holes > 0)
+    result = labels.copy()
+    removed = inferred = compact = 0
+    for index, box in enumerate(find_objects(holes), 1):
+        mask = holes[box] == index
+        height, width = mask.shape
+        if max(height, width) / min(height, width) < 2 and mask.mean() > 0.65:
+            compact += 1
+            continue
+        radius = float(hole_radius[box][mask].max())
+        padding = max(6, int(np.ceil(radius)))
+        patch = tuple(
+            slice(max(0, axis.start - padding), min(size, axis.stop + padding))
+            for axis, size in zip(box, labels.shape, strict=True)
+        )
+        local_hole = holes[patch] == index
+        neighbours = (distance_transform_edt(~local_hole) <= padding) & (
+            labels[patch] == paint_index
+        )
+        if not neighbours.any():
+            continue
+        # Broad monochrome strokes support a counter interpretation. A thin
+        # outline around a large white centre supplies evidence for a badge.
+        stroke = float(np.percentile(paint_radius[patch][neighbours], 75))
+        if stroke <= max(2.0, 0.65 * radius):
+            continue
+        result[box][mask] = 0
+        removed += int(mask.sum())
+        inferred += 1
+    background_info.update(
+        counters_inferred=inferred,
+        counter_pixels_removed=removed,
+        counter_inference=(
+            "monochrome_broad_strokes"
+            if inferred
+            else "compact_interior_preserved"
+            if compact
+            else "thin_outline_preserved"
+        ),
+    )
+    return result
 
 
 def _trace_path(mask: np.ndarray, tolerance: float) -> str:
@@ -332,6 +407,7 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
                         input_analysis,
                         pixel_size_mm=svg.width / UNITS_PER_MM / rendered.width,
                         hoop_size_mm=hoop_size,
+                        infer_counters=False,
                     )
                 )
     else:
@@ -349,11 +425,17 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
         )
     if input_analysis["background"]["applied"]:
         model = input_analysis["background"].get("model")
-        warnings.append(
-            "Only the smooth gradient connected to the image border was removed; enclosed opaque colours remain embroidery regions."
-            if model == "smooth_gradient"
-            else "Only the background connected to the image border was removed; enclosed opaque colours remain embroidery regions."
-        )
+        counters = input_analysis["background"].get("counters_inferred", 0)
+        if counters:
+            warnings.append(
+                f"Inferred {counters} background-coloured counters inside broad monochrome strokes. This interpretation is geometric; choose Keep or disable bitmap cleanup to preserve opaque interior paint."
+            )
+        else:
+            warnings.append(
+                "Only the smooth gradient connected to the image border was removed; enclosed opaque colours remain embroidery regions."
+                if model == "smooth_gradient"
+                else "Only the background connected to the image border was removed; enclosed opaque colours remain embroidery regions."
+            )
         if input_analysis["background"].get("edge_refined_pixels"):
             warnings.append(
                 "Background blending and compression fringes were refined at exterior contours; inspect the interpreted artwork for very fine edge details."

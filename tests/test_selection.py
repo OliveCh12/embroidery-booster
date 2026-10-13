@@ -20,7 +20,7 @@ EXAMPLES = Path(__file__).resolve().parents[1] / "examples/quality"
         ("straight", "satin"),
         ("ring", "satin"),
         ("star", "fill"),
-        ("taper", "fill"),
+        ("taper", "satin"),
         ("holes", "fill"),
         ("thin", "satin"),
     ],
