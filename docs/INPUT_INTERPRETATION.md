@@ -171,6 +171,18 @@ Cette règle n'efface pas de composante, ne change ni RGB ni alpha, ne touche pa
 les palettes littérales/SVG ni les photos, et reste désactivable avec le nettoyage.
 `palette_edge_pixels` compte les réaffectations dans les diagnostics.
 
+### Repère de l'interprétation
+
+Avant le tracé, `RasterArtwork` conserve une copie immuable des labels et de la
+palette. Le SVG bitmap garde son padding d'un pixel par côté : la largeur
+demandée désigne le document interprété, et sa silhouette visible peut être
+plus petite, particulièrement sur les très petites images. Le nouveau rapport
+`input_analysis.geometry` expose séparément `canvas_size_mm`,
+`visible_bounds_mm`, `visible_size_mm`, `pixel_size_mm` et `source_crop_box_px`.
+Le rectangle source est exprimé dans l'image après orientation EXIF ; ses bornes
+maximales sont exclusives. Les centres de pixels restent aux indices entiers
+dans le repère de contours existant. La taille historique n'est pas modifiée.
+
 Un logo presque noir avec alpha explicite peut conserver un gris de matting sur
 son bord. Le nettoyage récupère cette frange seulement si au moins 97 % du dessin
 est sombre, son noyau varie peu, aucun accent chromatique n'existe, et tous les

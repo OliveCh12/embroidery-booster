@@ -9,6 +9,8 @@ appartiennent au package `stitching/`.
 src/embroidery_rungs/
   pipeline.py              API generate(), préparation et publication des résultats
   inputs.py                Tracé bitmap, formats acceptés et taille physique
+  interpretation/
+    types.py               Masques immuables, palette et repère physique du bitmap
   svg_manager.py           Validation SVG et transformations physiques
   background.py            Fond connecté, gradients doux et affinage des contours
   colors.py                Palette déterministe et régions visibles
@@ -34,7 +36,7 @@ src/embroidery_rungs/
   web/app.py               API Flask et jobs isolés
 frontend/
   src/app/                 Routes Next.js, thème et styles HeroUI
-  src/components/layout/   Header, footer et menu des thèmes
+  src/components/layout/   Header et menu des thèmes
   src/features/embroidery/ Import, réglages, résultats et lecture des points
   src/features/quality/    Galerie de validation
   src/lib/                 Client API et fonctions partagées
@@ -89,6 +91,17 @@ uniquement à construire et vérifier les points directs ; ils ne constituent
 plus un export séparé. Les programmes externes et leur découverte ont été retirés.
 
 ## Contrats et responsabilités
+
+`interpretation.RasterArtwork` fige les labels et leur palette après nettoyage,
+avant sérialisation SVG. Les labels sont copiés sur un buffer non modifiable,
+avec zéro pour le transparent et les centres de pixels aux indices entiers.
+Le padding et les coordonnées historiques restent inchangés. La conversion
+pixels→mm utilise le canvas interprété ; `input_analysis.geometry` distingue
+ce canvas des bornes et de la taille visibles, et conserve le rectangle source
+recadré après orientation EXIF. Le rapport est ajusté à la taille finale par
+`complete_input_analysis`, sans changer le dessin ni les décisions de couture.
+Ce contrat interne prépare les adapters de tracing ; il ne remplace pas encore
+la rasterisation commune du digitizer.
 
 `GenerationParams` décrit l'interprétation de l'entrée : largeur physique,
 ajustement au cadre, seuil et inversion bitmap, `background_mode` et

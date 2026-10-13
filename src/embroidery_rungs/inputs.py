@@ -16,6 +16,7 @@ from skimage.measure import approximate_polygon, find_contours
 from .background import bitmap_foreground
 from .colors import bitmap_colors, clean_color_regions
 from .input_quality import raster_quality
+from .interpretation import RasterArtwork
 from .svg_manager import MAX_INPUT_BYTES, UNITS_PER_MM, load_svg_paths
 
 RASTER_EXT = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
@@ -101,12 +102,21 @@ def raster_to_svg(
     _check_trace_budget(regions)
     diagnostics["cleanup"].update(regions_before=regions, regions_after=regions, palette_colors=1)
     ys, xs = np.nonzero(mask)
-    mask = mask[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
+    crop_box = (int(xs.min()), int(ys.min()), int(xs.max() + 1), int(ys.max() + 1))
+    x0, y0, x1, y1 = crop_box
+    mask = mask[y0:y1, x0:x1]
     artwork_pixels = (mask.shape[1], mask.shape[0])
     mask = np.pad(mask, 1)
     height, width = mask.shape
     physical_width = width_mm if width_mm is not None else 80 * width / max(width, height)
     physical_width = _fitted_width(physical_width, width, height, hoop_size_mm, diagnostics)
+    artwork = RasterArtwork(
+        mask.astype(np.uint8),
+        ("#000000",),
+        (physical_width, physical_width * height / width),
+        crop_box,
+    )
+    diagnostics["geometry"] = artwork.diagnostics()
     diagnostics["quality"] = raster_quality(
         source_pixels=image.size,
         artwork_pixels=artwork_pixels,
@@ -118,7 +128,7 @@ def raster_to_svg(
     )
     # Scale simplification to physical size, with a half-pixel upper bound.
     tolerance = min(0.5, 0.05 * width / physical_width)
-    path = _trace_path(mask, tolerance)
+    path = _trace_path(artwork.labels > 0, tolerance)
     if not path:
         raise ValueError("No contours found in the image.")
     root = ET.Element(
@@ -158,7 +168,9 @@ def _color_bitmap_svg(
     ys, xs = np.nonzero(rgba[..., 3] >= 128)
     if not len(ys):
         raise ValueError("No shapes found in a uniform or fully transparent image.")
-    rgba = rgba[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
+    crop_box = (int(xs.min()), int(ys.min()), int(xs.max() + 1), int(ys.max() + 1))
+    x0, y0, x1, y1 = crop_box
+    rgba = rgba[y0:y1, x0:x1]
     source_height, source_width = rgba.shape[:2]
     physical_width = (
         width_mm
@@ -229,6 +241,11 @@ def _color_bitmap_svg(
     )
     labels = np.pad(labels, 1)
     height, width = labels.shape
+    artwork = RasterArtwork(
+        labels, tuple(colors), (physical_width, physical_width * height / width), crop_box
+    )
+    diagnostics["geometry"] = artwork.diagnostics()
+    labels = artwork.labels
     root = ET.Element(
         "svg",
         xmlns="http://www.w3.org/2000/svg",

@@ -1,5 +1,17 @@
 # Validation du moteur direct — 13 octobre 2026
 
+## Consolidation : contrat d'interprétation
+
+Le premier lot de `engine-consolidation` conserve le comportement de `dc8081d`
+et ajoute un contrat immutable des masques, couleurs et unités physiques. La
+comparaison [avant/après sur sept entrées](benchmarks/interpretation-contract-2026-10-13.json)
+retrouve des SVG interprétés, labels/topologies, commandes, palettes, décisions,
+aperçus SVG et fichiers PES/DST identiques. Seuls les diagnostics géométriques
+de l'entrée sont enrichis. Les paramètres de comparaison sont enregistrés ;
+ces exécutions isolent la compatibilité et ne mesurent pas un gain de vitesse.
+Les références couvrent Pepsi, Phénix, Falcon, drapeau, anneau, PNG à trou et
+détail détaché, puis SVG à couleurs superposées.
+
 ## Parasites de couleur : image, aperçu et points machine
 
 Le Pepsi fourni révélait deux causes indépendantes : les fondations rouge/bleu

@@ -79,6 +79,17 @@ def complete_input_analysis(
     # SVG unit conversion can differ by a few 1e-5 mm. This is far below the
     # machine's 0.1 mm grid, but must not add a pixel or flip a threshold.
     size = [round(svg.width / UNITS_PER_MM, 4), round(svg.height / UNITS_PER_MM, 4)]
+    geometry = diagnostics.get("geometry")
+    if geometry:
+        sx = size[0] / geometry["canvas_size_mm"][0]
+        sy = size[1] / geometry["canvas_size_mm"][1]
+        for key in ("visible_size_mm", "pixel_size_mm"):
+            geometry[key] = [geometry[key][0] * sx, geometry[key][1] * sy]
+        geometry["visible_bounds_mm"] = [
+            value * (sx if index % 2 == 0 else sy)
+            for index, value in enumerate(geometry["visible_bounds_mm"])
+        ]
+        geometry["canvas_size_mm"] = size.copy()
     if source_is_vector:
         retraced = diagnostics.get("cleanup", {}).get("reason") != "vector_artwork_preserved"
         gradient_ids = {
