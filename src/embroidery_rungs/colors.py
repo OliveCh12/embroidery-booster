@@ -18,6 +18,18 @@ from skimage.color import rgb2lab
 from .background import bitmap_foreground as bitmap_foreground
 
 
+def _rgb_histogram(pixels: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Keep RGB lexicographic order without sorting three-field records."""
+    if pixels.dtype != np.uint8:
+        return np.unique(pixels, axis=0, return_counts=True)
+    packed = pixels[:, 0].astype(np.uint32) << 16
+    packed |= pixels[:, 1].astype(np.uint32) << 8
+    packed |= pixels[:, 2]
+    values, counts = np.unique(packed, return_counts=True)
+    rgb = np.column_stack((values >> 16, (values >> 8) & 255, values & 255)).astype(np.uint8)
+    return rgb, counts
+
+
 def _interior_flat_accents(
     rgba: np.ndarray,
     packed: np.ndarray,
@@ -207,7 +219,7 @@ def bitmap_colors(
     pixels = rgba[..., :3][visible]
     if not len(pixels):
         raise ValueError("No visible colours found.")
-    values, counts = np.unique(pixels, axis=0, return_counts=True)
+    values, counts = _rgb_histogram(pixels)
     info = {
         "palette_source_colors": len(values),
         "flat_paints_recovered": False,
@@ -223,7 +235,7 @@ def bitmap_colors(
     rgba, edge_pixels = _normalize_dark_ink_edges(rgba, visible, pixels, values, counts)
     if edge_pixels:
         pixels = rgba[..., :3][visible]
-        values, counts = np.unique(pixels, axis=0, return_counts=True)
+        values, counts = _rgb_histogram(pixels)
         if diagnostics is not None:
             diagnostics["dark_ink_edge_pixels"] = edge_pixels
         if len(values) <= max_colors:

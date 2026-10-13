@@ -1,5 +1,97 @@
 # Validation du moteur direct — 13 octobre 2026
 
+## Version 0.6.2 : coût réduit, fidélité conservée, comparaison explicite à main
+
+Ce lot accélère trois primitives exactes : histogramme RGB par entier plutôt
+que tri de triplets, égalité des quatre octets RGBA pour les noyaux, et comptage
+des régions par tuiles à histogramme dense borné. Aucun seuil de couleur,
+de détail, d'alpha ou de couverture n'est assoupli. Aucun cache global ou
+canvas supplémentaire par peinture n'est ajouté.
+
+Le [comparatif à trois références](benchmarks/interpretation-performance-2026-10-13.json)
+fige `main` à **dc8081d**, le lot précédent à **97f6035** et le source candidat
+0.6.2 par empreinte. Les **78 entrées** ont les mêmes octets source. Contre la
+0.6.1, **78/78 SVG, rendus et diagnostics sont exactement identiques**, y compris
+les tentatives et choix de réduction. Ce lot apporte donc une accélération,
+pas une nouvelle interprétation graphique.
+
+Face à `main`, le gain de qualité cumulé est conservé : dans les 19 accents
+supplémentaires à vérité connue, **6 → 12** subsistent ; les contrôles de cercle
+et trait oblique retrouvent le fil violet, la pastille noire retrouve son RGB
+source, et le bord flouté évite deux fils indésirables. Un contre-trou alpha perdu
+sur `main` est aussi conservé. Les 46/78 rendus restés identiques comprennent
+Pepsi, Phénix, Falcon et Union Jack. Les 32 différences restantes ne sont pas
+toutes présentées comme un gain de couture : ce sont des différences mesurées
+d'interprétation, à rapprocher des oracles. Le XML des 78 SVG diffère de celui de
+`main` à cause de sa sérialisation ; cela ne constitue pas un progrès visuel.
+
+| Contrôle à 20 mm | main | 0.6.1 et 0.6.2 |
+|---|---:|---:|
+| Cercle violet anticrénelé de 0,5 mm | 2 fils, 272 points | 3 fils, 331 points |
+| Trait oblique violet anticrénelé de 0,5 mm | 2 fils, 288 points | 3 fils, 333 points |
+| Pastille noire anticrénelée | noir `#0d1010`, 276 points | noir source `#101010`, 331 points |
+| Bord rouge/bleu flouté à 3 px | 4 fils, 247 points | 2 fils, 238 points |
+
+Sur **7/7 références machine**, commandes sélectionnées, fils, PES/DST et
+previews sont identiques à `main` et au précédent. Les quatre contrôles du
+tableau conservent exactement les plans et exports de la 0.6.1, avec des
+coordonnées finies, sans région omise ni liaison dangereuse mesurée. Quelques
+métriques du candidat fill **non sélectionné** de Falcon diffèrent légèrement
+de `main`, comme documenté auparavant ; aucune égalité globale de ses
+diagnostics n'est revendiquée.
+
+Les performances ci-dessous mesurent uniquement la **préparation de l'image**,
+pas la génération complète des points. Les trois sources sont relancées
+séquentiellement après les suites de validation : une chauffe et sept mesures
+par image, en processus isolés, sans topologie ni rendu indépendant dans le
+chemin chronométré. La charge de fond du système reste incontrôlée ; les p95
+empiriques sont disponibles dans le JSON.
+
+| Préparation médiane | main | 0.6.1 | 0.6.2 | Écart 0.6.2 / main |
+|---|---:|---:|---:|---|
+| Pepsi | 0,652 s | 0,665 s | 0,608 s | environ 7 % plus rapide |
+| Phénix | 0,260 s | 0,328 s | 0,262 s | stable, environ +1 % |
+| Falcon | 0,155 s | 0,158 s | 0,121 s | environ 22 % plus rapide |
+| Union Jack | 0,600 s | 1,711 s | 1,356 s | 2,26 fois plus lent |
+| Cercle violet anticrénelé de 0,5 mm | 0,010 s | 0,113 s | 0,085 s | environ 8,4 fois plus lent, violet récupéré |
+| Bord flouté à 3 px | 0,011 s | 0,088 s | 0,061 s | environ 5,7 fois plus lent, 4 → 2 fils |
+
+La médiane baisse sur **9/9 cas** face à la 0.6.1. La réduction du coût du drapeau
+est d'environ **21 %** ; ses contrôles source restent coûteux face à `main`, même
+si son résultat est identique. Les petits contrôles gagnent en médiane, mais
+pas tous en p95 : le trait oblique passe de 0,112 à 0,137 s en p95 malgré une
+médiane améliorée. Aucune baisse universelle de latence n'est annoncée.
+
+| Pic RSS total | main | 0.6.1 | 0.6.2 |
+|---|---:|---:|---:|
+| Pepsi | 211 Mio | 218 Mio | 213 Mio |
+| Phénix | 206 Mio | 197 Mio | 190 Mio |
+| Falcon | 157 Mio | 150 Mio | 148 Mio |
+| Union Jack | 631 Mio | 649 Mio | 635 Mio |
+| Cercle violet anticrénelé de 0,5 mm | 118 Mio | 128 Mio | 135 Mio |
+
+Le RSS inclut les imports, bibliothèques natives et chauffe de chaque processus.
+Les gains mémoire ne sont pas uniformes et ne représentent pas des allocations
+par étape. Les budgets restent 16 MP en source et 2 048 px au travail ; les bins
+denses et valeurs temporaires de comptage sont bornés à 65 537 / 65 536.
+
+Le script suivi [benchmark_interpretation.py](../scripts/benchmark_interpretation.py)
+génère sept fixtures sans image personnelle et compare les refs par archives Git,
+sans changer de checkout. Les modes qualité/performance sont séparés, les sources
+hashées et les diagnostics complets enregistrés. Un dossier de sortie neuf est
+requis. Le corpus complet de 78 entrées et les sources réelles restent des
+artefacts locaux ; le rapport conserve ses paramètres et conditions de reprise.
+
+**Limites inchangées : sept accents JPEG encore perdus, 14 diagnostics de noyaux
+non résolus et le petit parasite JPEG préexistant.** Le drapeau garde ses
+58 micro-régions omises. Les contrôles graphiques et les exports réimportés ne
+certifient pas une couture physique, ni l'acceptation par Brother.
+
+Validation : **865 tests Python**, **132 tests frontend**, Ruff, TypeScript,
+ESLint et build Next.js isolé passent. La wheel 0.6.2 contient les mêmes fichiers
+Python que le source validé. Le parcours web affiche v0.6.2, trois fils et
+331 points ; ses PES/DST téléchargés sont identiques à ceux de la 0.6.1.
+
 ## Version 0.6.1 : accents anticrénelés et preuves de peinture source
 
 Le quatrième lot retrouve les noyaux opaques et constants des aplats avant

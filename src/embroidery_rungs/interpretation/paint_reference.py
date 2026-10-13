@@ -26,8 +26,13 @@ def region_counts(groups: np.ndarray, count: int, *, mask: np.ndarray | None = N
         part = flat[start : start + _TILE_PIXELS]
         if flat_mask is not None:
             part = part[flat_mask[start : start + _TILE_PIXELS]]
-        values, amounts = np.unique(part, return_counts=True)
-        counts[values] += amounts.astype(np.uint32)
+        if count <= _TILE_PIXELS:
+            counts += np.bincount(part.astype(np.intp, copy=False), minlength=count + 1).astype(
+                np.uint32
+            )
+        else:
+            values, amounts = np.unique(part, return_counts=True)
+            counts[values] += amounts.astype(np.uint32)
     return counts
 
 
@@ -87,6 +92,7 @@ def discover_flat_paints(
     height, width = rgba.shape[:2]
     if min(height, width) < 3:
         return None
+    words = rgba.view(np.uint32)[..., 0] if rgba.strides[-1] == 1 else None
     tile_width = min(width - 2, _TILE_PIXELS)
     tile_height = max(1, _TILE_PIXELS // tile_width)
     counts: dict[int, int] = {}
@@ -102,11 +108,17 @@ def discover_flat_paints(
             x1 = min(width - 1, x + tile_width)
             centre = rgba[y:y1, x:x1]
             core = centre[..., 3] == 255
-            for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-                neighbour = rgba[y + dy : y1 + dy, x + dx : x1 + dx]
-                core &= (neighbour[..., 3] == 255) & np.all(
-                    centre[..., :3] == neighbour[..., :3], axis=-1
-                )
+            if words is not None:
+                current = words[y:y1, x:x1]
+                # Equality of all four bytes includes neighbours' opaque alpha.
+                for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                    core &= current == words[y + dy : y1 + dy, x + dx : x1 + dx]
+            else:
+                for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                    neighbour = rgba[y + dy : y1 + dy, x + dx : x1 + dx]
+                    core &= (neighbour[..., 3] == 255) & np.all(
+                        centre[..., :3] == neighbour[..., :3], axis=-1
+                    )
             rgb = centre[..., :3][core].astype(np.uint32)
             packed = (rgb[:, 0] << 16) | (rgb[:, 1] << 8) | rgb[:, 2]
             values, amounts = np.unique(packed, return_counts=True)

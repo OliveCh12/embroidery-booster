@@ -55,7 +55,7 @@ height below the header, without a footer. See [frontend development](frontend/R
 production builds.
 
 The header also displays the installed frontend version beside the application
-name, including on small screens. This release is **0.6.1**.
+name, including on small screens. This release is **0.6.2**.
 
 `pnpm dev` starts Next.js on port 3000 and the Python API on port 8000.
 `FRONTEND_PORT` and `API_PORT` override them. Core-only installation: `uv sync`.
@@ -363,8 +363,21 @@ pnpm test:frontend
 pnpm build
 uv run python scripts/compare_quality.py --design-width-mm 80
 uv run python scripts/benchmark_direct.py --design-width-mm 80
+uv run python scripts/benchmark_interpretation.py --baseline-ref main --previous-ref 97f6035 --output output/benchmark-interpretation-quality
+uv run python scripts/benchmark_interpretation.py --baseline-ref main --previous-ref 97f6035 --output output/benchmark-interpretation-performance --mode performance --repeats 7
 uv build
 ```
+
+The interpretation benchmark freezes both Git references and the current source
+without checking out another branch. It generates seven small raster samples,
+or accepts local rasters with `--input` and a hashed manifest with `--corpus`.
+Use a fresh output directory for each run. Quality mode compares the rendered
+SVG, palette, physical size and diagnostics. Performance mode measures preparation
+after one warm-up, without extra rendering/topology work. It records the resolved
+commits, source hashes, median/p95 and whole-process peak RSS. These timings do
+not measure complete stitch generation; use the direct benchmark for that scope.
+Each release reports its benefit against `main` separately from the previous lot,
+including slower inputs and remaining fidelity limits.
 
 The Flask API runs independently with `uv run embroidery-rungs-web --host
 127.0.0.1 --port 8000`. `POST /api/convert` accepts multipart artwork and direct

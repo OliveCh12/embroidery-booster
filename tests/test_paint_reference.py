@@ -7,7 +7,7 @@ import json
 import numpy as np
 import pytest
 
-from embroidery_rungs.interpretation.paint_reference import discover_flat_paints
+from embroidery_rungs.interpretation.paint_reference import discover_flat_paints, region_counts
 
 
 def _source():
@@ -109,3 +109,108 @@ def test_discovery_does_not_modify_the_original_rgba():
     for paint in reference.paints:
         reference.paint_mask(paint)
     assert np.array_equal(source, original)
+
+
+def _scalar_core_evidence(rgba, max_colors):
+    counts = {}
+    visible = sum(int(pixel[3]) >= 128 for row in rgba for pixel in row)
+    for y in range(1, len(rgba) - 1):
+        for x in range(1, rgba.shape[1] - 1):
+            centre = tuple(int(value) for value in rgba[y, x])
+            if centre[3] != 255:
+                continue
+            if all(
+                tuple(int(value) for value in rgba[ny, nx]) == centre
+                for ny, nx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1))
+            ):
+                paint = (centre[0] << 16) | (centre[1] << 8) | centre[2]
+                counts[paint] = counts.get(paint, 0) + 1
+    if len(counts) > max_colors or not visible or sum(counts.values()) / visible < 0.5:
+        return None
+    paints = {paint: count for paint, count in counts.items() if count >= 9}
+    return paints or None
+
+
+@pytest.mark.parametrize("layout", ["normal", "flip", "rotate", "fortran", "channels"])
+def test_word_core_detection_matches_scalar_rgba_evidence_across_layouts_and_alpha(layout):
+    source = _source()
+    source[20, 20, 3] = 254
+    source[22, 22, 3] = 127
+    if layout == "flip":
+        source = np.fliplr(source)
+    elif layout == "rotate":
+        source = np.rot90(source)
+    elif layout == "fortran":
+        source = np.asfortranarray(source)
+    elif layout == "channels":
+        source = np.repeat(source, 2, axis=-1)[..., ::2]
+    before = source.copy()
+    expected = _scalar_core_evidence(source, 3)
+    reference = discover_flat_paints(source, 10, max_colors=3)
+    assert reference is not None and expected is not None
+    assert dict(zip(reference.paints, reference.core_counts, strict=True)) == expected
+    assert np.array_equal(source, before)
+
+
+def test_word_core_detection_keeps_evidence_at_tile_boundaries():
+    source = np.full((257, 263, 4), 255, dtype=np.uint8)
+    source[..., :3] = (238, 32, 32)
+    source[245:255, 100:130, :3] = (135, 32, 135)
+    reference = discover_flat_paints(source, 10, max_colors=3)
+    expected = _scalar_core_evidence(source, 3)
+    assert reference is not None and expected is not None
+    assert dict(zip(reference.paints, reference.core_counts, strict=True)) == expected
+
+
+@pytest.mark.parametrize("count", [0, 1, 12, 1000, 65537])
+@pytest.mark.parametrize("masked", [False, True])
+@pytest.mark.parametrize("dtype", [np.int32, np.uint32, np.uint64])
+def test_region_histogram_matches_scalar_counts_for_dense_sparse_masks_and_strides(
+    count, masked, dtype
+):
+    if count < 65537:
+        values = np.arange(320, dtype=np.uint64) % (count + 1)
+    else:
+        values = np.resize(np.array([0, 7, 65537, 65536], dtype=np.uint64), 320)
+    groups = values.astype(dtype).reshape(16, 20).T
+    mask = (np.arange(320).reshape(16, 20) % 3 == 0).T if masked else None
+    expected = np.zeros(count + 1, dtype=np.uint32)
+    for y in range(groups.shape[0]):
+        for x in range(groups.shape[1]):
+            if mask is None or mask[y, x]:
+                expected[int(groups[y, x])] += 1
+    if count == 1:
+        # Preserve the original single-component shortcut's unused zero bin.
+        expected[0] = 0
+    actual = region_counts(groups, count, mask=mask)
+    assert actual.dtype == np.uint32
+    assert np.array_equal(actual, expected)
+
+
+def test_dense_histogram_allocations_are_bounded_per_tile(monkeypatch):
+    groups = (np.arange(140_000, dtype=np.int32) % 13).reshape(350, 400)
+    expected = np.array([np.count_nonzero(groups == index) for index in range(13)], np.uint32)
+    calls = []
+    original = np.bincount
+
+    def bounded(values, *, minlength):
+        calls.append((len(values), minlength))
+        assert len(values) <= 65_536
+        assert minlength <= 65_537
+        return original(values, minlength=minlength)
+
+    monkeypatch.setattr(np, "bincount", bounded)
+    assert np.array_equal(region_counts(groups, 12), expected)
+    assert len(calls) == 3
+
+
+def test_sparse_high_label_ids_keep_the_bounded_unique_path(monkeypatch):
+    groups = np.array([[0, 7, 100_000], [100_000, 7, 0]], dtype=np.uint32)
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Sparse high IDs must not allocate a large histogram per tile.")
+
+    monkeypatch.setattr(np, "bincount", forbidden)
+    counts = region_counts(groups, 100_000)
+    assert counts[0] == counts[7] == counts[100_000] == 2
+    assert np.count_nonzero(counts) == 3

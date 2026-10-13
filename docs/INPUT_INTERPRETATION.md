@@ -141,8 +141,17 @@ réduction ne prouve ni une interprétation parfaite ni une couture qualifiée.
 Cette adaptation est automatique, sans nouveau réglage. Les SVG natifs Auto/Keep
 et le chemin monochrome, qui conserve déjà sa grille source, sont inchangés.
 Le mode SVG Remove utilise le même chemin bitmap couleur. Désactiver le nettoyage
-ne désactive pas le contrôle de réduction ; seules les opérations de nettoyage
-en aval sont désactivées.
+conserve le contrôle alpha et celui des palettes littérales, mais désactive la
+recherche des noyaux estimés et le nettoyage en aval.
+
+Depuis **0.6.2**, les primitives de comptage et de comparaison sont accélérées
+sans modifier ces règles. L'histogramme RGB utilise des entiers de 24 bits,
+qui ont exactement le même ordre lexicographique que les triplets RGB. Les
+noyaux comparent les quatre octets RGBA ensemble lorsque la disposition du
+tableau autorise une vue sans copie ; les autres dispositions conservent les
+comparaisons par canal. Les régions utilisent des histogrammes denses limités
+à 65 537 cases, par tuiles de 65 536 pixels, puis le chemin sparse historique
+au-delà. Aucun seuil, contrôle de contreforme ou budget d'image n'est réduit.
 
 ## Fond extérieur, peinture intérieure et transparence
 

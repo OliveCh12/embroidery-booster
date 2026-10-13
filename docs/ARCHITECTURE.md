@@ -199,5 +199,12 @@ longueurs, connexion des régions, couleurs et coordonnées réimportées depuis
 PES/DST. L'audit de couverture exclut sous-couches, verrouillages et trajets.
 Le [rapport courant](QUALITY_REPORT.md) décrit les résultats mesurés ;
 `docs/benchmarks/` conserve les mesures directes historiques identifiées.
+Chaque nouveau lot compare son résultat à la référence `main` identifiée par
+commit, puis au lot précédent. La fidélité des peintures et contreformes, les
+commandes/exportations machine, le temps de préparation et le pic RSS sont
+rapportés séparément. Une amélioration de diagnostic ou un XML réorganisé n'est
+pas assimilé à un gain de couture. Les mesures de performance excluent le rendu
+indépendant ajouté par le benchmark ; elles restent contextualisées par la
+machine, les versions, les paramètres et les empreintes source.
 Le [protocole de couture](SEWOUT.md) reste nécessaire pour qualifier un rendu
 physique : la simulation lit les commandes sans modéliser le tissu.
