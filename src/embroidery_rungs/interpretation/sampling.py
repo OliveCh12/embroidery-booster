@@ -10,6 +10,9 @@ from PIL import Image
 from scipy.ndimage import binary_erosion, label
 from scipy.spatial import cKDTree
 
+from ..colors import bitmap_colors
+from .paint_reference import FlatPaintReference, discover_flat_paints, region_counts
+
 _FG4 = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=bool)
 _BG8 = np.ones((3, 3), dtype=bool)
 _MAX_SOURCE_PIXELS = 16_000_000
@@ -66,18 +69,7 @@ def _features(mask: np.ndarray, pixel_mm: float, *, holes: bool) -> tuple:
         included[exterior] = False
     if not included.any():
         return groups, included, included.copy()
-    counts = np.zeros(count + 1, dtype=np.uint32)
-    if count == 1:
-        counts[1] = np.count_nonzero(groups)
-    else:
-        # np.bincount casts the whole int32 label grid to int64. On a 16 MP
-        # fragmented source that alone allocates 128 MB; count in fixed tiles.
-        flat = groups.ravel()
-        for start in range(0, len(flat), _HISTOGRAM_TILE_PIXELS):
-            values, amounts = np.unique(
-                flat[start : start + _HISTOGRAM_TILE_PIXELS], return_counts=True
-            )
-            counts[values] += amounts.astype(np.uint32)
+    counts = region_counts(groups, count)
     relevant = included & (counts >= _DETAIL_AREA_MM2 / pixel_mm**2 - 1e-9)
     return groups, included, relevant
 
@@ -174,6 +166,9 @@ def _audit(
     working: np.ndarray,
     width_mm: float,
     palette: np.ndarray | None,
+    *,
+    paint_reference: FlatPaintReference | None = None,
+    max_colors: int = 12,
 ) -> dict:
     source_visible = source[..., 3] >= 128
     working_visible = working[..., 3] >= 128
@@ -181,20 +176,36 @@ def _audit(
     wx = width_mm / (working.shape[1] + 2)
     masks = {"alpha": _audit_mask(source_visible, working_visible, sx, wx)}
     at_risk = []
+    unverified_paints = []
     if palette is not None:
-        source_rgb = _packed(source)
+        source_rgb = None if paint_reference is not None else _packed(source)
         working_rgb = _packed(working)
         working_has_blends = _literal_palette(working, len(palette)) is None
-        working_labels = _paint_labels(working, palette) if working_has_blends else None
+        actual_palette = None
+        if paint_reference is not None:
+            working_labels, actual_palette, _ = bitmap_colors(working, max_colors)
+        else:
+            working_labels = _paint_labels(working, palette) if working_has_blends else None
         for index, value in enumerate(palette):
             color = f"#{int(value):06x}"
-            source_paint = source_visible & (source_rgb == value)
-            literal_paint = working_visible & (working_rgb == value)
-            working_paint = (
-                literal_paint
-                if working_labels is None
-                else working_visible & (working_labels == index)
+            source_paint = (
+                paint_reference.paint_mask(int(value))
+                if paint_reference is not None
+                else source_visible & (source_rgb == value)
             )
+            literal_paint = working_visible & (working_rgb == value)
+            if actual_palette is not None:
+                working_paint = (
+                    working_labels == actual_palette.index(color) + 1
+                    if color in actual_palette
+                    else np.zeros(working_visible.shape, dtype=bool)
+                )
+            else:
+                working_paint = (
+                    literal_paint
+                    if working_labels is None
+                    else working_visible & (working_labels == index)
+                )
             masks[color] = _audit_mask(source_paint, working_paint, sx, wx)
             source_pixels = int(source_paint.sum())
             masks[color]["source_pixels"] = source_pixels
@@ -207,11 +218,22 @@ def _audit(
                 core = binary_erosion(literal_paint, structure=_FG4)
                 if core.sum() < 9:
                     at_risk.append(color)
+        if actual_palette is not None:
+            source_palette = {f"#{int(value):06x}" for value in palette}
+            for index, color in enumerate(actual_palette, 1):
+                if color in source_palette:
+                    continue
+                _, _, relevant = _features(working_labels == index, wx, holes=False)
+                if relevant.any():
+                    unverified_paints.append(color)
     return {
-        "issues": int(sum(mask["issues"] for mask in masks.values()) + len(at_risk)),
+        "issues": int(
+            sum(mask["issues"] for mask in masks.values()) + len(at_risk) + len(unverified_paints)
+        ),
         "topology_preserved": all(mask["topology_preserved"] for mask in masks.values()),
         "palette_at_risk": at_risk,
         "masks": masks,
+        **({"unverified_working_paints": sorted(unverified_paints)} if paint_reference else {}),
     }
 
 
@@ -222,7 +244,11 @@ def _sample(source: np.ndarray, side: int, resampling: Image.Resampling) -> np.n
 
 
 def sample_bitmap(
-    rgba: np.ndarray, physical_width_mm: float, *, max_colors: int = 12
+    rgba: np.ndarray,
+    physical_width_mm: float,
+    *,
+    max_colors: int = 12,
+    recover_flat_paints: bool = True,
 ) -> tuple[np.ndarray, dict]:
     """Reduce cropped RGBA at 12 px/mm, adapting only to observed detail loss.
 
@@ -250,6 +276,8 @@ def sample_bitmap(
         or not 1 <= max_colors <= 256
     ):
         raise ValueError("Bitmap palette limit must be an integer between 1 and 256.")
+    if not isinstance(recover_flat_paints, bool):
+        raise ValueError("Flat paint recovery must be a boolean.")
     height, width = source.shape[:2]
     longest_mm = physical_width_mm * max(width, height) / width
     first_side = min(_MAX_SIDE, max(1, round(longest_mm * 12)))
@@ -282,9 +310,20 @@ def sample_bitmap(
         )
         return source, report
     palette = _literal_palette(source, max_colors)
+    paint_reference = (
+        discover_flat_paints(source, physical_width_mm, max_colors=max_colors)
+        if palette is None and recover_flat_paints
+        else None
+    )
+    reference = "source_alpha_and_literal_paints" if palette is not None else "source_alpha"
+    literal_palette_colors = None if palette is None else int(len(palette))
+    if paint_reference is not None:
+        palette = paint_reference.palette
+        reference = "source_alpha_and_flat_paint_cores"
+        report["flat_paint_reference"] = paint_reference.diagnostics()
     report.update(
-        reference="source_alpha_and_literal_paints" if palette is not None else "source_alpha",
-        literal_palette_colors=None if palette is None else int(len(palette)),
+        reference=reference,
+        literal_palette_colors=literal_palette_colors,
         source_palette=None if palette is None else [f"#{int(value):06x}" for value in palette],
     )
     second_side = min(_MAX_SIDE, max(1, round(longest_mm * 24)))
@@ -295,9 +334,18 @@ def sample_bitmap(
         methods.append((24, second_side, Image.Resampling.NEAREST))
     selected = None
     best = None
+    alpha_fallback = None
+    alpha_best = None
     for density, side, method in methods:
         working = _sample(source, side, method)
-        audit = _audit(source, working, physical_width_mm, palette)
+        audit = _audit(
+            source,
+            working,
+            physical_width_mm,
+            palette,
+            paint_reference=paint_reference,
+            max_colors=max_colors,
+        )
         attempt = {
             "target_pixels_per_mm": density,
             "working_pixels": [working.shape[1], working.shape[0]],
@@ -305,10 +353,24 @@ def sample_bitmap(
             **audit,
         }
         report["attempts"].append(attempt)
+        if paint_reference is not None and method == Image.Resampling.LANCZOS:
+            if (
+                alpha_best is None
+                or audit["masks"]["alpha"]["issues"] < alpha_best["masks"]["alpha"]["issues"]
+            ):
+                alpha_fallback, alpha_best = working, attempt
         if best is None or audit["issues"] < best["issues"]:
             selected, best = working, attempt
         if audit["issues"] == 0:
             break
+    if paint_reference is not None and best["issues"] > 0:
+        # Estimated paint evidence must not turn a partially successful retry
+        # into new unsupported thread regions. Keep the original sampling and
+        # expose the unresolved checks instead of choosing an ambiguous edit.
+        # Preserve the historical alpha-only adapter's Lanczos selection: its
+        # 24 px/mm retry may be necessary to retain a transparent counter.
+        selected, best = alpha_fallback, alpha_best
+        report["flat_paint_reference"]["baseline_retained"] = True
     report.update(
         working_pixels=best["working_pixels"],
         working_canvas_size_mm=[

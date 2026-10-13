@@ -12,6 +12,7 @@ src/embroidery_rungs/
   interpretation/
     types.py               Masques immuables, palette et repère physique du bitmap
     normalize.py           Orientation EXIF et profils ICC vers sRGB, alpha conservé
+    paint_reference.py     Noyaux source opaques, palette estimée bornée et comptage
     sampling.py            Réduction bornée, contrôle des détails source et adaptation
     tracing.py             Sérialisation commune et fallback vers contours exacts
     audit.py               Fidélité catégorielle, topologie et distances de contours
@@ -56,8 +57,11 @@ output/                   Jobs et artefacts générés, ignorés par Git
 1. Valider les réglages et le fichier ; orienter le bitmap et appliquer son
    profil ICC vers sRGB avant de séparer les peintures. Interpréter le fond connecté au bord,
    affiner ses mélanges avec le contour avant tout redimensionnement. Comparer
-   la silhouette et les petites palettes littérales avant/après réduction ;
-   adapter la grille uniquement si des détails significatifs sont altérés.
+   la silhouette et les petites palettes littérales avant/après réduction.
+   Pour les aplats antialiasés, exploiter des noyaux source opaques et constants
+   si leur support est suffisant ; vérifier les couleurs réellement interprétées
+   sur chaque grille. Adapter uniquement si les contrôles passent, sinon conserver
+   l'adaptation historique de silhouette avec un diagnostic d'incertitude.
    Consolider la palette bitmap et réduire les petits parasites adjacents avant
    le tracé. Auditer les contours sur la grille du contrat immuable ; revenir
    aux contours non simplifiés si des pixels ou des contreformes changent.

@@ -179,7 +179,9 @@ def _color_bitmap_svg(
     )
     # Inspect source details before interpolation can remove them or blend a
     # literal accent into neighbouring paints used by palette recovery.
-    rgba, diagnostics["resampling"] = sample_bitmap(rgba, physical_width, max_colors=max_colors)
+    rgba, diagnostics["resampling"] = sample_bitmap(
+        rgba, physical_width, max_colors=max_colors, recover_flat_paints=cleanup
+    )
     cleanup_info = {
         "enabled": cleanup,
         "changed_pixels": 0,
@@ -497,11 +499,13 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
     resampling = input_analysis.get("resampling", {})
     if resampling.get("unresolved_issues", 0):
         warnings.append(
-            "Some source details could not be preserved within the bitmap sampling budget. Check the interpreted drawing or use the original vector SVG."
+            "Source paint evidence could not fully confirm the reduced palette and details. Check the interpreted drawing or use the original vector SVG."
+            if resampling.get("reference") == "source_alpha_and_flat_paint_cores"
+            else "Some source details could not be preserved within the bitmap sampling budget. Check the interpreted drawing or use the original vector SVG."
         )
     if resampling.get("missing_source_paints"):
         warnings.append(
-            "Some significant literal source paints are absent after palette interpretation and cleanup. Check the interpreted drawing; disable bitmap cleanup to retain intentional paint."
+            "Some significant source paints are absent after palette interpretation and cleanup. Check the interpreted drawing; disable bitmap cleanup to retain intentional paint."
         )
     if input_analysis["background"]["applied"]:
         model = input_analysis["background"].get("model")

@@ -11,6 +11,7 @@ from scipy.ndimage import label
 
 from embroidery_rungs.colors import bitmap_colors, clean_color_regions
 from embroidery_rungs.interpretation import sampling
+from embroidery_rungs.interpretation.paint_reference import discover_flat_paints
 from embroidery_rungs.interpretation.sampling import sample_bitmap
 
 
@@ -33,6 +34,23 @@ def _old_thumbnail(rgba, physical_width_mm):
     image = Image.fromarray(rgba)
     image.thumbnail((side, side), Image.Resampling.LANCZOS)
     return np.asarray(image)
+
+
+def _antialiased_logo(width_mm=20, diameter_mm=0.25):
+    width, height = round(width_mm * 48), round(width_mm * 12)
+    rgba = np.full((height, width, 4), 255, dtype=np.uint8)
+    rgba[..., :3] = (238, 32, 32)
+    rgba[:, width * 3 // 4 :, :3] = (32, 32, 238)
+    cx, cy, radius = width / 3, height / 2, diameter_mm * 24
+    x0, x1 = int(cx - radius - 2), int(cx + radius + 2)
+    y0, y1 = int(cy - radius - 2), int(cy + radius + 2)
+    yy, xx = np.mgrid[y0:y1, x0:x1]
+    coverage = np.clip(radius + 0.5 - np.hypot(xx + 0.5 - cx, yy + 0.5 - cy), 0, 1)
+    rgba[y0:y1, x0:x1, :3] = np.round(
+        np.array([238, 32, 32]) * (1 - coverage[..., None])
+        + np.array([135, 32, 135]) * coverage[..., None]
+    ).astype(np.uint8)
+    return rgba
 
 
 def _topology(mask):
@@ -104,6 +122,76 @@ def test_categorical_fallback_keeps_a_rare_quarter_millimetre_accent_without_fal
         (32, 32, 238),
         (135, 32, 135),
     }
+
+
+@pytest.mark.parametrize("width_mm", [20, 80])
+@pytest.mark.parametrize("diameter_mm", [0.25, 0.5])
+def test_antialiased_rare_circle_is_restored_without_distant_thread_regions(width_mm, diameter_mm):
+    source = _antialiased_logo(width_mm, diameter_mm)
+    expected = {"#ee2020", "#2020ee", "#872087"}
+    baseline = _old_thumbnail(source, width_mm)
+    assert _interpreted_paints(baseline, width_mm, 6) != expected
+    result, report = sample_bitmap(source, width_mm, max_colors=6)
+    assert _interpreted_paints(result, width_mm, 6) == expected
+    assert report["reference"] == "source_alpha_and_flat_paint_cores"
+    assert report["literal_palette_colors"] is None
+    assert report["flat_paint_reference"]["core_coverage"] >= 0.5
+    assert report["passed"] and report["adapted"]
+    labels, paints, _ = bitmap_colors(result, 6)
+    violet = labels == paints.index("#872087") + 1
+    assert label(violet)[1] == 1
+    assert not violet[:, int(result.shape[1] * 0.6) :].any()
+    json.dumps(report, allow_nan=False)
+
+
+def test_disabling_core_recovery_keeps_the_previous_antialiased_bitmap_and_scope():
+    source = _antialiased_logo()
+    result, report = sample_bitmap(source, 20, max_colors=6, recover_flat_paints=False)
+    assert np.array_equal(result, _old_thumbnail(source, 20))
+    assert report["reference"] == "source_alpha"
+    assert not report["adapted"]
+    assert "flat_paint_reference" not in report
+
+
+def test_ambiguous_distant_blend_keeps_the_original_sampling_instead_of_adding_false_threads():
+    source = _antialiased_logo()
+    source[:, source.shape[1] * 3 // 4 - 1, :3] = (135, 32, 135)
+    result, report = sample_bitmap(source, 20, max_colors=6)
+    assert np.array_equal(result, _old_thumbnail(source, 20))
+    assert not report["passed"]
+    assert not report["adapted"]
+    assert report["flat_paint_reference"]["baseline_retained"]
+    assert report["attempts"][-1]["masks"]["#872087"]["components"]["created"] > 0
+
+
+def test_ambiguous_core_recovery_preserves_the_previous_alpha_adaptation_and_rgb_grid():
+    source = _antialiased_logo()
+    source[100:148, 100:102, 3] = 0
+    source[:, source.shape[1] * 3 // 4 - 1, :3] = (135, 32, 135)
+    previous, baseline = sample_bitmap(source, 20, max_colors=6, recover_flat_paints=False)
+    assert baseline["working_pixels"] == [480, 120]
+    assert _topology(previous[..., 3] >= 128) == (1, 1)
+    result, report = sample_bitmap(source, 20, max_colors=6)
+    assert np.array_equal(result, previous)
+    assert report["working_pixels"] == baseline["working_pixels"]
+    assert not report["passed"]
+    assert report["flat_paint_reference"]["baseline_retained"]
+    assert _topology(result[..., 3] >= 128) == (1, 1)
+
+
+def test_an_unreferenced_significant_working_colour_is_reported_as_ambiguous():
+    source = np.full((100, 100, 4), 255, dtype=np.uint8)
+    source[..., :3] = (238, 32, 32)
+    source[:, 75:, :3] = (32, 32, 238)
+    working = source.copy()
+    working[20:24, 20:24, :3] = (128, 128, 128)
+    reference = discover_flat_paints(source, 8.16, max_colors=6)
+    assert reference is not None
+    report = sampling._audit(
+        source, working, 8.16, reference.palette, paint_reference=reference, max_colors=6
+    )
+    assert "#808080" in report["unverified_working_paints"]
+    assert report["issues"] > 0
 
 
 @pytest.mark.parametrize("x", [100, 101, 102, 103])

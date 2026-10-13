@@ -55,7 +55,7 @@ height below the header, without a footer. See [frontend development](frontend/R
 production builds.
 
 The header also displays the installed frontend version beside the application
-name, including on small screens. This release is **0.6.0**.
+name, including on small screens. This release is **0.6.1**.
 
 `pnpm dev` starts Next.js on port 3000 and the Python API on port 8000.
 `FRONTEND_PORT` and `API_PORT` override them. Core-only installation: `uv sync`.
@@ -108,9 +108,14 @@ Before colour interpretation, bitmap reduction checks the source silhouette and,
 for small literal palettes, each paint. If meaningful details disappear or merge,
 the engine tries 24 pixels/mm and then nearest-neighbour sampling for those flat
 palettes only. It never enlarges the source, keeps the 2,048-pixel working limit,
-and reports unresolved differences in **Détails**. This protects graphic details;
-the machine still checks whether they can be sewn. Antialiased or compressed
-colour details and photographs currently receive silhouette checks only.
+and reports unresolved differences in **Détails**. Antialiased flat artwork can
+also use opaque, locally constant source cores to retain small colour accents.
+These estimated paints are checked against the colours actually interpreted on
+each working grid. Ambiguous evidence keeps the usual silhouette-preserving
+reduction and produces a diagnostic. This protects graphic details; the machine
+still checks whether they can be sewn. JPEGs and photographs without enough
+stable paint cores retain silhouette checks only. Disabling raster cleanup also
+disables this estimated-paint recovery.
 
 Compressed flat artwork uses local colour-mixture evidence to clean tiny edge
 fragments. Weak edge shades are assigned to locally supported paints rather

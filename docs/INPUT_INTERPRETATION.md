@@ -67,7 +67,8 @@ retrait du fond et affinage de son contour, à la taille physique demandée ou
 ajustée au cadre. Ce contrôle ne juge donc pas la segmentation du fond.
 L'ancien thumbnail Lanczos à 12 pixels/mm reste le premier candidat. S'il
 altère un détail significatif, le moteur essaie Lanczos à 24 pixels/mm, puis
-le plus proche voisin à 24 pixels/mm pour une petite palette littérale seulement.
+le plus proche voisin à 24 pixels/mm pour une petite palette littérale ou estimée
+à partir de noyaux fiables.
 Au maximum trois candidats sont évalués, sans agrandir la source et avec une
 dimension maximale de 2 048 pixels. Une source déjà assez petite reste inchangée.
 
@@ -83,10 +84,31 @@ Lorsque tous les pixels visibles de la source utilisent au plus `max_colors`
 RGB distincts, chaque peinture littérale est auditée séparément. La réduction
 doit aussi conserver assez de pixels intérieurs littéraux d'un petit aplat pour
 qu'il ne soit pas ensuite confondu avec un mélange de bord par la palette. Les
-RGB cachés sous l'alpha ne participent pas à la détection. Les photos, dégradés
-et contours antialiasés dépassant cette palette reçoivent seulement le contrôle
-de silhouette. Le moteur n'invente pas de palette source pour ces images ; la
-récupération de leurs accents colorés reste une amélioration à venir.
+RGB cachés sous l'alpha ne participent pas à la détection.
+
+Depuis **0.6.1**, `interpretation/paint_reference.py` cherche aussi des noyaux
+d'aplats sur les images antialiasées dont la palette n'est pas littérale. Un noyau
+est opaque et partage le même RGB avec ses quatre voisins opaques. Le moteur
+exige une couverture globale de noyaux d'au moins 50 %, au plus `max_colors`
+couleurs de noyaux, puis des composantes d'au moins 0,01 mm² comportant au moins
+neuf pixels de noyau. Un RGB identique ailleurs, sans noyau propre suffisamment
+soutenu, ne devient pas une référence. Le calcul parcourt la source par tuiles,
+sans palette photographique complète ni agrandissement de la source. Ce sont
+des indices d'aplats probables, pas une reconnaissance sémantique.
+
+Ce chemin compare les masques source soutenus par ces noyaux aux labels réels
+de `bitmap_colors()` sur chaque candidat. Une attribution globale en RGB peut
+confondre un mélange rouge/bleu avec un violet éloigné ; elle n'est donc pas
+utilisée pour ces peintures estimées. Les essais restent Lanczos 12, Lanczos 24
+puis plus proche voisin 24 pixels/mm. Ils n'injectent aucune nouvelle peinture
+ni recoloration globale. Une couleur significative de travail sans référence de
+noyau est signalée comme non corroborée, sans être effacée : elle peut aussi être
+un vrai détail dont la source ne permet pas d'établir un noyau fiable.
+
+Les JPEG à nuances variables, photos et dégradés sans support suffisant restent
+au contrôle alpha seul. Leurs couleurs ne sont pas déclarées vérifiées. Les
+seuils de noyaux ne sont pas relâchés pour leur inventer une palette. Le nettoyage
+désactivé conserve aussi ce comportement antérieur.
 
 `input_analysis.resampling` enregistre les grilles source/travail, leur repère
 physique incluant le padding historique, le mode choisi, les tentatives et les
@@ -96,12 +118,22 @@ de topologie sous le seuil peut donc coexister avec `passed=true`. Les écarts
 alpha et couleur peuvent concerner le même détail ; leur somme n'est pas un
 nombre de détails distincts. Le rapport reste déterministe, sans durée mesurée.
 
-Si aucun candidat ne passe, celui qui présente le moins d'écarts est retenu
-avec un avertissement. Après quantification et nettoyage, `interpreted_palette`
+Si aucun candidat ne passe, le chemin littéral retient celui qui présente le
+moins d'écarts avec un avertissement. Pour les noyaux estimés, le fallback
+conserve le choix qu'aurait fait l'ancien contrôle **alpha seul** parmi les
+candidats Lanczos, avec un avertissement. Il conserve ainsi les contreformes
+qui nécessitent la grille 24 pixels/mm, même lorsque la palette reste ambiguë.
+Après quantification et nettoyage, `interpreted_palette`
 liste les peintures effectivement présentes et `missing_source_paints` signale
-les couleurs littérales significatives entièrement absentes. Ce dernier champ
+les peintures source significatives entièrement absentes. Ce dernier champ
 vaut `null` lorsqu'aucune comparaison de palette source n'a été faite. Il ne
-vérifie pas la conservation de chaque sous-région d'une même couleur.
+vérifie pas la conservation de chaque sous-région d'une même couleur. Pour les
+noyaux estimés, la présence est comparée par HEX exact et peut donc aussi
+signaler un fil dont la nuance a changé, plutôt qu'une disparition géométrique.
+`reference=source_alpha_and_flat_paint_cores` et `flat_paint_reference` précisent
+la couverture et les exigences de noyaux ; `baseline_retained` signale un
+fallback ambigu. Les tentatives enregistrent les couleurs de travail non
+corroborées dans `unverified_working_paints`.
 L'API d'analyse, `generate()`, le CLI JSON et Détails utilisent le même rapport.
 Les contrôles de tracé puis de points machine restent indépendants : une bonne
 réduction ne prouve ni une interprétation parfaite ni une couture qualifiée.

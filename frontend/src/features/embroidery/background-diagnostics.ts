@@ -65,9 +65,13 @@ export function describeResampling(resampling: InputAnalysis["resampling"]) {
     ? `Grille d’analyse : source conservée (${dimensions(resampling.working_pixels)}).`
     : `Grille d’analyse : ${dimensions(resampling.source_pixels)} → ${dimensions(resampling.working_pixels)}${resampling.adapted ? " · résolution ajustée pour préserver les détails" : ""}.`];
   if (resampling.reference !== "source_unchanged") {
-    messages.push(`${resampling.reference === "source_alpha_and_literal_paints" ? "Silhouette et aplats comparés" : "Silhouette comparée"} à la source pour les détails d’au moins ${formatNumber(resampling.detail_area_mm2)} mm². Ce contrôle porte sur l’image, avant le calcul des points.`);
+    const scope = resampling.reference === "source_alpha_and_literal_paints" ? "Silhouette et aplats comparés"
+      : resampling.reference === "source_alpha_and_flat_paint_cores" ? "Silhouette et noyaux d’aplats estimés comparés" : "Silhouette comparée";
+    messages.push(`${scope} à la source pour les détails d’au moins ${formatNumber(resampling.detail_area_mm2)} mm². Ce contrôle porte sur l’image, avant le calcul des points.`);
   }
   if (reductionNeedsReview) messages.push(`${resampling.unresolved_issues > 0 ? `${formatNumber(resampling.unresolved_issues)} écart${resampling.unresolved_issues > 1 ? "s" : ""} mesuré${resampling.unresolved_issues > 1 ? "s" : ""} après réduction` : "Réduction à vérifier"} ; vérifiez le dessin interprété.`);
-  if (missingPaints) messages.push("Des aplats de couleur de la source sont absents après interprétation et nettoyage ; vérifiez le dessin interprété.");
+  if (missingPaints) messages.push(resampling.reference === "source_alpha_and_flat_paint_cores"
+    ? "Des aplats estimés à partir de la source sont absents après interprétation et nettoyage ; vérifiez le dessin interprété."
+    : "Des aplats de couleur de la source sont absents après interprétation et nettoyage ; vérifiez le dessin interprété.");
   return { message: messages.join(" "), needsReview: reductionNeedsReview || missingPaints };
 }

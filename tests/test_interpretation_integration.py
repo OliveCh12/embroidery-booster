@@ -1,7 +1,12 @@
+import io
+import json
+from pathlib import Path
 from xml.etree import ElementTree as ET
 
 import numpy as np
+import pyembroidery as pe
 import pytest
+import resvg_py
 from PIL import Image
 
 from embroidery_rungs import GenerationParams, StitchParams, generate
@@ -113,3 +118,75 @@ def test_half_millimetre_literal_accent_reaches_machine_plan(tmp_path, accent_he
     decisions = [decision for decision in result.direct.decisions if decision["color"] == "#872087"]
     assert decisions
     assert all(decision["method"] != "omitted" for decision in decisions)
+
+
+@pytest.fixture
+def antialiased_accent_png():
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 5">'
+        '<rect width="20" height="5" fill="#ee2020"/>'
+        '<rect x="15" width="5" height="5" fill="#2020ee"/>'
+        '<circle cx="6.6667" cy="2.5" r="0.25" fill="#872087"/></svg>'
+    )
+    return resvg_py.svg_to_bytes(svg_string=svg, width=960, height=240, skip_system_fonts=True)
+
+
+def test_antialiased_colour_accent_reaches_pes_without_remote_penetrations(
+    tmp_path, antialiased_accent_png
+):
+    source = tmp_path / "antialiased.png"
+    source.write_bytes(antialiased_accent_png)
+    result = generate(
+        source,
+        tmp_path / "machine",
+        GenerationParams(design_width_mm=20, background_mode="keep"),
+        stitch_params=StitchParams.for_fabric("stable", machine="brother-skitch-pp1"),
+    )
+    assert set(result.direct.threads) == {"#ee2020", "#2020ee", "#872087"}
+    assert result.direct.stats["omitted_colors"] == 0
+    assert result.direct.stats["unsafe_connections"] == 0
+    plan = json.loads(Path(result.direct.plan_path).read_text())
+    commands = np.asarray(plan["commands"])
+    codes = commands[:, 2].astype(int) & pe.COMMAND_MASK
+    passes = np.cumsum(codes == pe.COLOR_CHANGE)
+    violet = result.direct.threads.index("#872087")
+    points = commands[(codes == pe.STITCH) & (passes == violet), :2]
+    assert len(points)
+    physical = points / 10 + plan["origin_mm"]
+    assert np.linalg.norm(physical - [6.6667, 2.5], axis=1).max() < 1
+    for path in (result.direct.pes_path, result.direct.dst_path):
+        exported = pe.read(path)
+        assert [
+            thread.hex_color().lower() for thread in exported.threadlist
+        ] == result.direct.threads
+        assert np.isfinite(np.asarray(exported.stitches)[:, :2]).all()
+
+
+def test_preflight_core_diagnostics_match_machine_generation(tmp_path, antialiased_accent_png):
+    pytest.importorskip("flask")
+    from embroidery_rungs.web.app import create_app
+
+    app = create_app({"TESTING": True, "OUTPUT_ROOT": tmp_path / "jobs"})
+    settings = {
+        "design_width": "20",
+        "background_mode": "keep",
+        "fabric": "stable",
+        "machine": "brother-skitch-pp1",
+        "max_colors": "6",
+    }
+    client = app.test_client()
+    preflight = client.post(
+        "/api/analyze",
+        data={**settings, "file": (io.BytesIO(antialiased_accent_png), "accent.png")},
+    )
+    assert preflight.status_code == 200
+    assert not (tmp_path / "jobs").exists()
+    generated = client.post(
+        "/api/convert",
+        data={**settings, "file": (io.BytesIO(antialiased_accent_png), "accent.png")},
+    )
+    assert generated.status_code == 200, generated.get_json()
+    assert preflight.get_json()["input_analysis"] == generated.get_json()["input_analysis"]
+    report = generated.get_json()["input_analysis"]["resampling"]
+    assert report["reference"] == "source_alpha_and_flat_paint_cores"
+    assert report["missing_source_paints"] == []

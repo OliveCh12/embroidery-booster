@@ -66,7 +66,7 @@ export interface TraceAudit {
 }
 export interface ResamplingAnalysis {
   source_pixels: [number, number]; working_pixels: [number, number];
-  reference: "source_unchanged" | "source_alpha" | "source_alpha_and_literal_paints";
+  reference: "source_unchanged" | "source_alpha" | "source_alpha_and_literal_paints" | "source_alpha_and_flat_paint_cores";
   resampling: "none" | "lanczos" | "nearest"; adapted: boolean;
   detail_area_mm2: number; passed: boolean; topology_preserved: boolean; unresolved_issues: number;
   interpreted_palette?: string[]; missing_source_paints?: string[] | null;

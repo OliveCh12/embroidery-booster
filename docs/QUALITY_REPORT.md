@@ -1,5 +1,76 @@
 # Validation du moteur direct — 13 octobre 2026
 
+## Version 0.6.1 : accents anticrénelés et preuves de peinture source
+
+Le quatrième lot retrouve les noyaux opaques et constants des aplats avant
+réduction, même lorsque leurs bords comportent beaucoup de nuances. Il compare
+les candidats avec la palette réellement produite par `bitmap_colors` ; une
+proximité RGB globale pouvait inventer du violet entre deux aplats rouge/bleu.
+Aucune couleur n'est injectée dans l'image. Si les preuves couleur restent
+ambiguës, le moteur conserve la réduction historique qui protège la silhouette,
+y compris les contreformes alpha. Le contrat, les seuils et l'opt-out sont
+précisés dans [l'interprétation](INPUT_INTERPRETATION.md#préserver-les-détails-avant-la-palette).
+
+Le [rapport avant/après](benchmarks/source-paint-cores-2026-10-13.json) compare
+**78 entrées** à `d27c73a`, avec sources identiques par empreinte : les 47 cas
+précédents, 29 contrôles à vérité connue et deux champs de couleur continus.
+Les conversions aboutissent sans erreur ; **66 SVG restent identiques et 12
+changent**. Dans les 19 accents supplémentaires connus, la conservation passe
+**de 6 à 12** : quatre cercles/traits anticrénelés et deux H JPEG à qualités
+35/75 sont récupérés. Les quatre cercles restés absents au lot 0.6.0 sont aussi
+corrigés. Les dix contrôles négatifs ne produisent aucun nouveau parasite ; un
+bord flouté passe de cinq peintures interprétées à deux, celles de sa source.
+
+Quatre contrôles de couture à 20 mm, profil PP1, sont relus en PES et DST :
+
+| Contrôle | Avant | Après |
+|---|---:|---:|
+| Cercle violet anticrénelé de 0,5 mm | 2 fils, 272 points | 3 fils, 331 points |
+| Trait oblique violet anticrénelé de 0,5 mm | 2 fils, 288 points | 3 fils, 333 points |
+| Pastille noire anticrénelée | 276 points, noir `#0d1010` | 331 points, noir source `#101010` |
+| Bord rouge/bleu flouté à 3 px | 4 fils, 247 points | 2 fils, 238 points |
+
+Les coordonnées sont finies, les fils et changements de couleur correspondent
+aux plans et aucune région n'est omise sur ces quatre contrôles. Sur **7/7
+références historiques**, SVG interprétés, labels, topologies, commandes, fils,
+décisions, statistiques, previews et octets PES/DST restent strictement identiques.
+Le drapeau conserve ses 58 micro-régions omises : ce lot ne change pas le
+planificateur de points.
+
+La mesure porte seulement sur la préparation : une chauffe puis sept passages,
+en processus séparés, sur la machine de développement dont la charge concurrente
+n'est pas contrôlée. Elle documente un coût de fidélité, pas une accélération.
+
+| Entrée | Médiane avant → après | p95 avant → après |
+|---|---:|---:|
+| Pepsi | 0,643 → 0,651 s | 0,655 → 0,669 s |
+| Phénix | 0,299 → 0,328 s | 0,304 → 0,333 s |
+| Union Jack | 0,640 → 1,680 s | 0,653 → 1,782 s |
+| Cercle violet anticrénelé, 20 mm | 0,015 → 0,119 s | 0,015 → 0,160 s |
+| Bord flouté, 20 mm | 0,014 → 0,089 s | 0,014 → 0,096 s |
+
+Le pic RSS total du drapeau passe de 636 à 662 Mio. Les stress de 16 MP restent
+bornés à une grille de travail de 960² : 0,82 s / 574 Mio pour un damier et
+0,34 s / 263 Mio pour un RGB opaque à nombreuses nuances. Ces pics incluent
+Python, les imports et bibliothèques natives ; le RGB de stress n'est pas une
+photo sémantique. Les budgets source/travail restent 16 MP / 2 048 px maximum.
+
+**Limites : sept accents JPEG restent perdus**, 14 diagnostics de noyaux restent
+non résolus et le petit parasite préexistant de la diagonale JPEG 35 subsiste.
+Les deux H JPEG restaurés possèdent des noyaux constants exploitables : aucune
+tolérance JPEG ni promesse générale de restauration des photos n'est ajoutée.
+Les contrôles portent sur la fidélité graphique et les fichiers exportés ; ils
+ne prouvent ni un résultat cousu ni l'acceptation par un fabricant.
+
+Validation : **808 tests Python**, **132 tests frontend**, Ruff, TypeScript,
+ESLint, build Next.js isolé et contenu de la wheel 0.6.1 vérifiés. Le parcours web
+produit les trois fils et 331 points du cercle ; les téléchargements PES/DST
+sont relus avec deux changements de couleur et des coordonnées finies. Le header
+affiche v0.6.1 et la simulation a été contrôlée en light/dark. Les régressions
+critiques sont reproductibles par les tests du dépôt. Les scripts complets du
+corpus, snapshots et images utilisateur sont des artefacts locaux ignorés ;
+le rapport précise les empreintes, paramètres et conditions de reproduction.
+
 ## Version 0.6.0 : détails conservés avant réduction
 
 Le troisième lot inspecte le bitmap source avant le thumbnail et la palette.

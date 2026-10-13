@@ -171,6 +171,7 @@ describe("source resampling feedback", () => {
     expect(summary?.message).toContain("1 600 × 1 000 px → 960 × 600 px");
     expect(summary?.message).toContain("résolution ajustée pour préserver les détails");
     expect(summary?.message).toContain("Silhouette et aplats comparés");
+    expect(summary?.message).not.toContain("estimés");
     expect(summary?.message).toContain("d’au moins 0,01 mm²");
     expect(summary?.message).toContain("avant le calcul des points");
     expect(summary?.message).not.toContain("brodable");
@@ -222,5 +223,23 @@ describe("source resampling feedback", () => {
       expect(summary?.message).not.toContain("absents après interprétation");
       expect(summary?.message).not.toContain("couleurs conservées");
     }
+  });
+
+  it("distinguishes measured flat-paint cores from literal source paints", () => {
+    const summary = describeResampling({ ...resampling, reference: "source_alpha_and_flat_paint_cores" });
+    expect(summary?.needsReview).toBe(false);
+    expect(summary?.message).toContain("Silhouette et noyaux d’aplats estimés comparés à la source");
+    expect(summary?.message).toContain("d’au moins 0,01 mm²");
+    expect(summary?.message).toContain("avant le calcul des points");
+    expect(summary?.message).not.toContain("couleurs exactes");
+    expect(summary?.message).not.toContain("fidélité totale");
+  });
+
+  it("flags an estimated missing paint without calling it an exact source colour or failed reduction", () => {
+    const summary = describeResampling({ ...resampling, reference: "source_alpha_and_flat_paint_cores", missing_source_paints: ["#872087"] });
+    expect(summary?.needsReview).toBe(true);
+    expect(summary?.message).toContain("Des aplats estimés à partir de la source sont absents après interprétation et nettoyage");
+    expect(summary?.message).not.toContain("Des aplats de couleur de la source sont absents");
+    expect(summary?.message).not.toContain("Réduction à vérifier");
   });
 });
