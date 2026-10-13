@@ -78,7 +78,7 @@ function Timeline({ plan, colorMode, onToggleContrast }: { plan: StitchPlan; col
               <ToggleSetting label="Liaisons, sauts et ancrages" value={travel} onChange={setTravel} />
               <Button size="sm" variant="secondary" isDisabled={cursor === plan.count} onPress={() => seek(Math.min(plan.count, cursor + 1))}><StepForward size={16} />Commande suivante</Button>
               <p className="text-xs leading-relaxed text-muted">Continu traverse toutes les couleurs ; Par fil attend votre reprise à chaque changement. Modifier le mode ajuste les prochains arrêts et ne reprend pas une lecture en pause.</p>
-              <p className="text-xs leading-relaxed text-muted">Le mode Couleurs réelles conserve les fils d’origine. Contraste ajuste seulement les teintes peu lisibles à l’écran ; la liste des fils et les fichiers restent inchangés. La sous-couche est grisée, les sauts en pointillés. Vert : départ, rouge : aiguille.</p>
+              <p className="text-xs leading-relaxed text-muted">Le mode Couleurs réelles conserve les fils d’origine, y compris pour la sous-couche. Contraste ajuste seulement les teintes peu lisibles à l’écran ; la liste des fils et les fichiers restent inchangés. Les sauts sont en pointillés. Vert : départ, rouge : aiguille.</p>
               <p className="text-xs leading-relaxed text-muted">Dessin : {formatNumber(plan.bounds[2] - plan.bounds[0])} × {formatNumber(plan.bounds[3] - plan.bounds[1])} mm. Grille de 10 mm.</p>
               <p className="text-xs leading-relaxed text-muted">Simulation à {plan.stitchesPerMinute} points/min, accélérée ×{speed}. Sauts, coupes et changements de fil ne sont pas chronométrés.</p>
             </Popover.Dialog></Popover.Content>

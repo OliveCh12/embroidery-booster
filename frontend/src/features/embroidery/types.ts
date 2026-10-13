@@ -82,6 +82,7 @@ export interface InputAnalysis {
     retained_accent_colors?: number | null;
     edge_blend_pixels?: number | null;
     dark_ink_edge_pixels?: number | null;
+    palette_edge_pixels?: number | null;
     alpha_fragments_removed?: number | null; alpha_fragment_pixels?: number | null;
   };
 }

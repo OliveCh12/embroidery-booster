@@ -213,9 +213,11 @@ The generic profile's 400 SPM is an explicit simulation assumption.
 
 Travel and locks have their own command ranges. `analysis.stitch_breakdown`
 counts top, underlay, sewn travel, lock and initial-entry penetrations exactly
-once; the context node at each run's start is not another stitch. Underlay is
-grey in playback, connections amber and locks violet; preview toggles do not
-alter machine commands.
+once; the context node at each run's start is not another stitch. Underlay uses
+the active thread colour and diameter in playback. Optional connections are
+amber and locks violet; preview toggles do not alter machine commands. Static
+SVG/PNG previews read the machine commands directly, including sewn support,
+travel and locks in the active spool colour. Needle-up jumps are not drawn there.
 
 ## Quality evidence and limitations
 

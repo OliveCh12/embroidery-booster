@@ -44,6 +44,49 @@ def _interior_flat_accents(
     return np.unique(packed[eligible & (neighbours <= 1)])
 
 
+def _local_palette_edges(
+    labels: np.ndarray,
+    pixel_values: np.ndarray,
+    values: np.ndarray,
+    labs: np.ndarray,
+    paints: np.ndarray,
+    paint_labs: np.ndarray,
+    nearest: np.ndarray,
+) -> tuple[np.ndarray, int]:
+    """Resolve weak compression colours using supported nearby paints only."""
+    visible = labels > 0
+    errors = np.linalg.norm(labs - paint_labs[nearest], axis=1)
+    dark_paint = (paints.max(axis=1) <= 40) & (np.ptp(paints, axis=1) <= 12)
+    # Genuine black dots remain valid even when JPEG gives them a gray/chromatic
+    # fringe. Literal palettes and SVG paints never enter this recovery path.
+    ink = dark_paint[nearest] & ((values.max(axis=1) <= 35) | (np.ptp(values, axis=1) <= 12))
+    weak_values = (errors > 14) & ~ink
+    weak = np.zeros(labels.shape, dtype=bool)
+    weak[visible] = weak_values[pixel_values]
+    if not weak.any():
+        return labels, 0
+    confident = np.zeros(labels.shape, dtype=bool)
+    confident[visible] = errors[pixel_values] <= 10
+    rows, columns = np.nonzero(weak)
+    neighbours = np.zeros((len(rows), len(paints)), dtype=bool)
+    # A short source-pixel fringe accommodates compressed edges without using
+    # a whole image's remote paint. Store neighbourhoods only for weak pixels.
+    for index in range(len(paints)):
+        supported = confident & (labels == index + 1)
+        nearby = binary_dilation(supported, structure=np.ones((3, 3)), iterations=6)
+        neighbours[:, index] = nearby[rows, columns]
+    own = neighbours[np.arange(len(rows)), labels[rows, columns] - 1]
+    eligible = ~own & (neighbours.sum(axis=1) >= 2)
+    if not eligible.any():
+        return labels, 0
+    source_values = pixel_values[weak[visible]][eligible]
+    distances = np.linalg.norm(labs[source_values, None, :] - paint_labs[None, :, :], axis=2)
+    distances[~neighbours[eligible]] = np.inf
+    result = labels.copy()
+    result[rows[eligible], columns[eligible]] = distances.argmin(axis=1) + 1
+    return result, int(eligible.sum())
+
+
 def separate_colors(rgba: np.ndarray, max_colors: int = 12) -> tuple[np.ndarray, list[str], bool]:
     """Return disjoint labels (0 = transparent) and an RGB thread palette.
 
@@ -171,6 +214,7 @@ def bitmap_colors(
         "palette_consolidated_pixels": 0,
         "retained_accent_colors": 0,
         "dark_ink_edge_pixels": 0,
+        "palette_edge_pixels": 0,
     }
     if diagnostics is not None:
         diagnostics.update(info)
@@ -246,14 +290,20 @@ def bitmap_colors(
         | (pixels[:, 1].astype(np.uint32) << 8)
         | pixels[:, 2]
     )
-    assigned = nearest[np.searchsorted(packed_values, packed_pixels)] + 1
+    pixel_values = np.searchsorted(packed_values, packed_pixels)
+    assigned = nearest[pixel_values] + 1
+    labels = np.zeros(visible.shape, dtype=np.uint8)
+    labels[visible] = assigned
+    labels, edge_pixels = _local_palette_edges(
+        labels, pixel_values, values, labs, values[seeds], labs[seeds], nearest
+    )
+    assigned = labels[visible]
     areas = np.bincount(assigned, minlength=len(seeds) + 1)[1:]
     used = np.flatnonzero(areas)
     used = used[np.argsort(-areas[used], kind="stable")]
     remap = np.zeros(len(seeds) + 1, dtype=np.uint8)
     remap[used + 1] = np.arange(1, len(used) + 1)
-    labels = np.zeros(visible.shape, dtype=np.uint8)
-    labels[visible] = remap[assigned]
+    labels = remap[labels]
     colors = ["#" + "".join(f"{int(c):02x}" for c in values[seeds[i]]) for i in used]
     if diagnostics is not None:
         # Compare spatial complexity with the ordinary palette only on the flat
@@ -261,6 +311,7 @@ def bitmap_colors(
         baseline, baseline_colors, _ = separate_colors(rgba, max_colors)
         diagnostics.update(
             flat_paints_recovered=True,
+            palette_edge_pixels=edge_pixels,
             retained_accent_colors=len(seeds) - dominant_paints,
             palette_consolidated_pixels=int(
                 counts[np.any(values != values[seeds][nearest], axis=1)].sum()

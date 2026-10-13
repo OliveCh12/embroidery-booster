@@ -7,7 +7,7 @@ import { pointAt, rulerMarks, STITCH_PHASE, viewport, type StitchPlan } from "./
 
 interface CanvasOptions { underlay: boolean; travel: boolean; colorMode: PreviewColorMode }
 
-class StitchRenderer {
+export class StitchRenderer {
   private cursor = 0;
   private target = 0;
   private frame = 0;
@@ -102,14 +102,14 @@ class StitchRenderer {
       const travel = sewn && plan.phases[index] === STITCH_PHASE.travel;
       const lock = sewn && plan.phases[index] === STITCH_PHASE.lock;
       if (!sewn && !jump || underlay && !this.options.underlay || (travel || lock) && !this.options.travel) continue;
-      const nextStyle = jump ? "jump" : underlay ? "underlay" : travel ? "travel" : lock ? "lock" : this.displayThreads[plan.colors[index]];
+      const nextStyle = jump ? "jump" : travel ? "travel" : lock ? "lock" : this.displayThreads[plan.colors[index]];
       if (nextStyle !== style) {
         if (drawing) stroke();
         style = nextStyle; drawing = true;
-        outline = !jump && !underlay && !travel && !lock && this.outlinedThreads[plan.colors[index]];
+        outline = !jump && !travel && !lock && this.outlinedThreads[plan.colors[index]];
         ctx.beginPath(); ctx.setLineDash(jump ? [3, 4] : []);
-        ctx.strokeStyle = jump || travel ? this.colors.travel : lock ? this.colors.lock : underlay ? this.colors.underlay : nextStyle;
-        ctx.lineWidth = jump ? 0.7 : underlay || travel || lock ? Math.max(0.5, 0.15 * this.transform.scale) : Math.max(0.65, 0.3 * this.transform.scale);
+        ctx.strokeStyle = jump || travel ? this.colors.travel : lock ? this.colors.lock : nextStyle;
+        ctx.lineWidth = jump ? 0.7 : travel || lock ? Math.max(0.5, 0.15 * this.transform.scale) : Math.max(0.65, 0.3 * this.transform.scale);
         ctx.lineCap = "round"; ctx.lineJoin = "round";
       }
       ctx.moveTo(this.x(plan.points[(index - 1) * 2]), this.y(plan.points[(index - 1) * 2 + 1]));

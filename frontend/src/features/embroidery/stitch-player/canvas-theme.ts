@@ -6,7 +6,6 @@ export function canvasTheme(resolveColor: (expression: string) => string) {
     grid: resolveColor("color-mix(in srgb, var(--border) 55%, var(--surface))"),
     hoop: resolveColor("var(--border-secondary)"),
     label: resolveColor("var(--muted)"),
-    underlay: resolveColor("var(--muted)"),
     travel: resolveColor("var(--warning-soft-foreground)"),
     lock: resolveColor("var(--accent-soft-foreground)"),
     start: resolveColor("var(--success-soft-foreground)"),

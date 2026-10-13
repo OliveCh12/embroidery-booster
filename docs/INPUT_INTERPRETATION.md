@@ -160,6 +160,17 @@ et palettes exactes restent distincts. Photos et dégradés conservent la
 quantification bornée habituelle. Ce choix peut modifier des nuances fines :
 désactiver `raster_cleanup` conserve l'interprétation de palette antérieure.
 
+La proximité Lab globale ne suffit pas pour les bords : une nuance bleu/gris
+compressée peut être plus proche du noir des lettres que du bleu et du blanc
+voisins. Sur les aplats récupérés uniquement, les pixels éloignés de leur fil
+assigné (**ΔE > 14**) sont réaffectés si ce fil n'a aucun pixel de confiance
+(**ΔE ≤ 10**) dans un rayon de six pixels source et si au moins deux autres
+peintures ont un support local. La nouvelle attribution choisit seulement parmi
+ces voisins. Les pixels noirs ou gris neutres associés au noir restent protégés.
+Cette règle n'efface pas de composante, ne change ni RGB ni alpha, ne touche pas
+les palettes littérales/SVG ni les photos, et reste désactivable avec le nettoyage.
+`palette_edge_pixels` compte les réaffectations dans les diagnostics.
+
 Un logo presque noir avec alpha explicite peut conserver un gris de matting sur
 son bord. Le nettoyage récupère cette frange seulement si au moins 97 % du dessin
 est sombre, son noyau varie peu, aucun accent chromatique n'existe, et tous les
@@ -230,8 +241,12 @@ Les ancrages sécurisent le fil avant/après les coupes. Des milliers de petites
 îles de couleur multiplient ces opérations : c'est un problème d'interprétation
 en amont, pas une raison de supprimer tous les ancrages ou sous-couches.
 
-Le lecteur distingue couverture, sous-couche grise, liaison ambre, ancrage violet
-et saut pointillé. `direct.analysis.stitch_breakdown` compte les pénétrations
+Le lecteur affiche la sous-couche avec le fil actif et le même diamètre que la
+couverture : une fondation rouge ne doit pas apparaître comme du fil noir ou gris.
+Les liaisons ambre, ancrages violets et sauts pointillés restent des repères
+techniques activables. Les aperçus SVG/PNG statiques dessinent uniquement les
+segments réellement cousus, dans la couleur active des commandes machine.
+`direct.analysis.stitch_breakdown` compte les pénétrations
 exactes par phase, sans doubler les points de contexte partagés entre chemins.
 Les sauts restent des déplacements aiguille levée. Masquer une phase dans
 l'aperçu ne la supprime pas du PES.

@@ -37,6 +37,10 @@ real thread colours by default. **Contraste** adapts only poorly visible colours
 for on-screen reading (dark threads on dark fabric, pale threads on light fabric).
 The list always shows real spool colours; machine files are unchanged. This display
 choice persists when switching stitch variants. Turn it off to return to real colours.
+Underlay uses the active thread colour and diameter, just like the machine;
+it can be hidden to inspect the top layer. Optional travel/jump/lock markers
+use technical colours. Static SVG/PNG previews show sewn thread only, using
+the actual command order and spool changes, without needle-up jump lines.
 In **Auto**, **Comparer les stratégies** generates qualified alternatives and
 selects a recommendation. The compact variant selector switches playback,
 diagnostics and PES/DST downloads together. Identical machine plans are shown
@@ -90,7 +94,11 @@ region counts. Review the interpreted SVG to confirm important details and
 backgrounds. See [input interpretation](docs/INPUT_INTERPRETATION.md).
 
 Compressed flat artwork uses local colour-mixture evidence to clean tiny edge
-fragments. For black/white logos, background-coloured pockets beside thick strokes
+fragments. Weak edge shades are assigned to locally supported paints rather
+than borrowing an unrelated remote thread, such as black lettering beside a
+blue/white badge. Détails reports the number of reassigned edge pixels. Literal
+paints and real black accents remain protected.
+For black/white logos, background-coloured pockets beside thick strokes
 can be interpreted as transparent counters; thin outlined badges and multicolour
 white paint are retained. This is a reported geometric inference, not object
 recognition. Disable raster cleanup to retain the original interior paint.
@@ -247,7 +255,7 @@ and command ranges for top stitches, underlay, sewn travel and locks. Exact need
 counts distinguish these phases in `analysis.stitch_breakdown`. Machine files are
 encoded with [pyembroidery](https://github.com/EmbroidePy/pyembroidery); round-trip
 tests verify sewn coordinates. Playback follows these commands and displays
-needle-up travel. Grey underlay can be hidden; themed connections, jumps and
+needle-up travel. Underlay in the active thread colour can be hidden; themed connections, jumps and
 locks share a separate visibility control. Its timing counts needle cycles only, excluding manual thread
 changes, machine acceleration and cutting.
 

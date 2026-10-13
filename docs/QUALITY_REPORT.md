@@ -1,5 +1,61 @@
 # Validation du moteur direct — 13 octobre 2026
 
+## Parasites de couleur : image, aperçu et points machine
+
+Le Pepsi fourni révélait deux causes indépendantes : les fondations rouge/bleu
+étaient affichées en gris technique, et certaines nuances de bord compressées
+recevaient le fil noir distant par proximité Lab globale. L'aperçu utilise
+désormais le fil actif pour les sous-couches ; les SVG/PNG statiques suivent les
+commandes cousues et n'affichent pas les déplacements aiguille levée.
+
+La correction bitmap utilise seulement des peintures de confiance présentes
+dans le voisinage d'une nuance faible. Elle conserve l'alpha, les noyaux opaques,
+les vrais détails noirs, les palettes littérales et les peintures SVG. Le nombre
+de pixels réattribués est visible dans **Détails → Interprétation du dessin**.
+Les règles et leur opt-out sont décrits dans [l'interprétation](INPUT_INTERPRETATION.md#palette-et-parasites-bitmap).
+
+| Pepsi, même taille 80 mm et priorité satin | Avant | Après |
+|---|---:|---:|
+| Composantes noires interprétées | 53 | 6, liseré et lettres |
+| Régions visibles après interprétation | 58 | 11 |
+| Pixels de bord réattribués | 0 | 77 |
+| Pénétrations noires dans les anciens micro-îlots parasites | 25 | 0 |
+| Pénétrations noires à plus de 1 mm du noir réel de la source | 107 | 0 |
+| Points machine totaux | 12 594 | 12 459 |
+| Coupes planifiées | 174 | 131 |
+| Fils | 4 | 4 |
+| Couverture structurelle de chaque fil | 100 % | 100 % |
+
+Le second audit inclut **toutes** les phases cousues : surface, sous-couche,
+liaisons, ancrages et pénétrations d'entrée. Le rayon de 1 mm est une référence
+conservative propre à cette source de faible résolution ; 68 points satin et
+une liaison du liseré se trouvent à environ 0,52 mm du noir source sans être des
+parasites. Aucun segment cousu n'entre à plus de 0,35 mm dans une autre peinture
+interprétée. Ce dernier contrôle, seul, n'aurait pas détecté une erreur en amont
+dans la palette : il faut aussi comparer l'interprétation à l'image originale.
+
+La relecture **PES et DST** retrouve exactement les positions des pénétrations,
+les segments cousus, leur couleur active et les quatre fils du JSON. Le nombre
+de coupes décodées peut différer selon le format, notamment l'heuristique DST
+fondée sur les sauts ; aucune égalité de ces commandes n'est revendiquée.
+
+Phénix (2 709 points), Falcon (4 124) et le drapeau (9 483) ont aussi été
+régénérés : palettes et commandes inchangées, PES/DST identiques octet par octet,
+couverture structurelle de chaque fil à 100 %. Les régressions synthétiques
+protègent les yeux, lettres et points noirs opaques, les petits aplats gris,
+les transparences, les rotations/reflets et le nettoyage désactivé. Un gris
+neutre ambigu reste conservé ; le contexte local ne suffit pas à le supprimer.
+
+Le surcoût de la palette, médiane de trois passages après chauffe, est de
+**7 ms** pour Pepsi (436 × 436 px utiles) et **74 ms** pour un aplat synthétique
+de 1 800 × 1 800 px. Ces mesures isolent le helper, sans démontrer un gain global
+de génération. Les résultats détaillés sont dans le [rapport des parasites](benchmarks/colour-artifacts-2026-10-13.json).
+
+Validation finale : **645 tests Python**, **112 tests frontend**, Ruff,
+TypeScript, ESLint et build Next.js de production passent. Le renderer est
+testé en light/dark et contraste ; le masquage des fondations ne crée aucune
+liaison entre couleurs. Cette validation ne remplace pas un essai sur tissu.
+
 ## Comparaison des méthodes et performances
 
 La [matrice actuelle](benchmarks/fill-methods-2026-10-13.json) compare **14

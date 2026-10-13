@@ -54,38 +54,37 @@ def _preview_svg(plan: StitchPlan, viewport_mm, path):
         height=str(height),
         fill="white",
     )
-    for block in plan.blocks:
-        points = block.points
-        if len(points) < 2:
-            continue
-        d = "M" + " L".join(f"{p[0]:.2f},{p[1]:.2f}" for p in points)
-        ET.SubElement(
-            root,
-            "path",
-            d=d,
-            fill="none",
-            stroke="#a3acbc"
-            if block.kind == "underlay"
-            else "#728486"
-            if block.kind == "travel"
-            else plan.threads[block.color_index],
-            **{"stroke-width": "0.3", "stroke-linecap": "round", "stroke-linejoin": "round"},
-        )
-    # Export previews include every penetration/lock, and distinguish jumps.
-    coordinates = np.asarray(plan.commands)
-    jump_segments = []
-    for previous, current in zip(coordinates[:-1], coordinates[1:], strict=True):
-        d = f"M{previous[0] / 10:.2f},{previous[1] / 10:.2f} L{current[0] / 10:.2f},{current[1] / 10:.2f}"
-        if current[2] == pe.JUMP:
-            jump_segments.append(d)
-    ET.SubElement(
-        root,
-        "path",
-        d=" ".join(jump_segments),
-        fill="none",
-        stroke="#89979d",
-        **{"stroke-width": "0.08", "stroke-dasharray": "0.5 0.5"},
-    )
+    # The static preview shows sewn thread, including support and locks, in
+    # machine order. Technical grey underlay looked like foreign-colour stitches.
+    # Read commands rather than block metadata so trims/jumps cannot become seams.
+    thread = 0
+    segments = []
+    connected = False
+
+    def flush():
+        if segments:
+            ET.SubElement(
+                root,
+                "path",
+                d=" ".join(segments),
+                fill="none",
+                stroke=plan.threads[thread],
+                **{"stroke-width": "0.3", "stroke-linecap": "round", "stroke-linejoin": "round"},
+            )
+            segments.clear()
+
+    for previous, current in zip(plan.commands[:-1], plan.commands[1:], strict=True):
+        code = current[2] & pe.COMMAND_MASK
+        if code == pe.COLOR_CHANGE:
+            flush()
+            thread += 1
+        sewn = code == pe.STITCH and previous[2] & pe.COMMAND_MASK == pe.STITCH
+        if sewn:
+            if not connected:
+                segments.append(f"M{previous[0] / 10:.2f},{previous[1] / 10:.2f}")
+            segments.append(f"L{current[0] / 10:.2f},{current[1] / 10:.2f}")
+        connected = sewn
+    flush()
     ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
 
 

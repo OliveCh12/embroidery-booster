@@ -1,0 +1,706 @@
+{
+  "date": "2026-10-13",
+  "baseline_commit": "bfffe276a9a986aa7bd964eeb8f4a2e1072164cc",
+  "scope": "Palette fidelity and colour-accurate preview; geometric audits are not a physical sew-out.",
+  "pepsi": {
+    "before": {
+      "threads": [
+        "#ffffff",
+        "#ff1301",
+        "#0e0f95",
+        "#010101"
+      ],
+      "stats": {
+        "stitches": 12594,
+        "trims": 174,
+        "jumps": 313,
+        "colors": 4,
+        "omitted_regions": 0,
+        "short_stitches": 0,
+        "crowded_satin_penetrations": 0,
+        "structural_coverage": 1.0
+      },
+      "interpreted_regions": 58,
+      "corrected_edge_pixels": 0,
+      "source_black_audit": {
+        "source_tiny_components": 47,
+        "source_tiny_pixels": 75,
+        "black_needles_in_tiny_source_components": 25,
+        "black_needles_gt1mm_from_actual_source_ink": 107,
+        "needle_phases_gt1mm_from_source_ink": {
+          "entry": 39,
+          "fill": 18,
+          "lock": 12,
+          "running": 35,
+          "satin": 0,
+          "travel": 3,
+          "underlay": 0
+        },
+        "border_diagnostic_gt05mm": {
+          "entry": 39,
+          "fill": 18,
+          "lock": 12,
+          "running": 35,
+          "satin": 68,
+          "travel": 4,
+          "underlay": 0
+        },
+        "source_core_distance_note": "1 mm excludes source AA fringe plus compensated satin contour. >0.5 mm includes 68 legitimate satin needles on this low-resolution outline.",
+        "sewn_tiny_source_components": [
+          2,
+          11,
+          12,
+          13,
+          15,
+          16,
+          17,
+          18,
+          19,
+          23,
+          29,
+          33,
+          34,
+          39,
+          44,
+          46,
+          50,
+          52,
+          53
+        ],
+        "source_core_definition": "Original visible nearly-neutral RGB<=45, no semantic deletion."
+      },
+      "machine_equivalence": {
+        "pes": {
+          "stitch_points_equal": true,
+          "sewn_segments_equal": true,
+          "sewn_segment_colors_equal": true,
+          "thread_palette_equal": true,
+          "trims": 312,
+          "jumps": 313
+        },
+        "dst": {
+          "stitch_points_equal": true,
+          "sewn_segments_equal": true,
+          "sewn_segment_colors_equal": true,
+          "thread_palette_equal": true,
+          "trims": 174,
+          "jumps": 313
+        }
+      },
+      "per_colour": {
+        "#ffffff": {
+          "penetrations": 5673,
+          "foreign_035mm_penetrations": 0,
+          "foreign_050mm_penetrations": 0,
+          "by_phase": {
+            "lock": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "satin": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "travel": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "underlay": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "fill": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            }
+          },
+          "top_metrics": {
+            "coverage": 0.8431,
+            "structural_coverage": 1.0,
+            "iou": 0.805,
+            "spill_mm2": 90.33,
+            "missing_mm2": 299.77,
+            "uncovered_p95_mm": 0.083,
+            "uncovered_max_mm": 0.3,
+            "structural_missing_mm2": 0.01,
+            "largest_gap_mm2": 0.01,
+            "stitches": 3610,
+            "trims": 0,
+            "jumps": 520,
+            "jump_length_mm": 881.8,
+            "max_stitch_mm": 4.7,
+            "short_stitches": 0
+          }
+        },
+        "#ff1301": {
+          "penetrations": 1537,
+          "foreign_035mm_penetrations": 0,
+          "foreign_050mm_penetrations": 0,
+          "by_phase": {
+            "travel": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "underlay": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "fill": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "lock": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            }
+          },
+          "top_metrics": {
+            "coverage": 0.8184,
+            "structural_coverage": 1.0,
+            "iou": 0.8063,
+            "spill_mm2": 15.29,
+            "missing_mm2": 184.81,
+            "uncovered_p95_mm": 0.083,
+            "uncovered_max_mm": 0.167,
+            "structural_missing_mm2": 0.0,
+            "largest_gap_mm2": 0.0,
+            "stitches": 1056,
+            "trims": 0,
+            "jumps": 65,
+            "jump_length_mm": 156.5,
+            "max_stitch_mm": 3.8,
+            "short_stitches": 0
+          }
+        },
+        "#0e0f95": {
+          "penetrations": 1511,
+          "foreign_035mm_penetrations": 0,
+          "foreign_050mm_penetrations": 0,
+          "by_phase": {
+            "travel": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "underlay": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "fill": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "lock": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            }
+          },
+          "top_metrics": {
+            "coverage": 0.8192,
+            "structural_coverage": 1.0,
+            "iou": 0.8073,
+            "spill_mm2": 14.99,
+            "missing_mm2": 183.79,
+            "uncovered_p95_mm": 0.083,
+            "uncovered_max_mm": 0.167,
+            "structural_missing_mm2": 0.0,
+            "largest_gap_mm2": 0.0,
+            "stitches": 1048,
+            "trims": 0,
+            "jumps": 65,
+            "jump_length_mm": 137.0,
+            "max_stitch_mm": 3.8,
+            "short_stitches": 0
+          }
+        },
+        "#010101": {
+          "penetrations": 3873,
+          "foreign_035mm_penetrations": 0,
+          "foreign_050mm_penetrations": 0,
+          "by_phase": {
+            "fill": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "lock": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "running": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "travel": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "underlay": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "satin": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            }
+          },
+          "top_metrics": {
+            "coverage": 0.905,
+            "structural_coverage": 1.0,
+            "iou": 0.8038,
+            "spill_mm2": 127.91,
+            "missing_mm2": 96.54,
+            "uncovered_p95_mm": 0.083,
+            "uncovered_max_mm": 0.353,
+            "structural_missing_mm2": 0.03,
+            "largest_gap_mm2": 0.03,
+            "stitches": 2727,
+            "trims": 0,
+            "jumps": 172,
+            "jump_length_mm": 446.6,
+            "max_stitch_mm": 6.51,
+            "short_stitches": 0
+          }
+        }
+      },
+      "black_components": 53
+    },
+    "after": {
+      "threads": [
+        "#ffffff",
+        "#0e0f95",
+        "#ff1301",
+        "#010101"
+      ],
+      "stats": {
+        "stitches": 12459,
+        "trims": 131,
+        "jumps": 274,
+        "colors": 4,
+        "omitted_regions": 0,
+        "short_stitches": 0,
+        "crowded_satin_penetrations": 0,
+        "structural_coverage": 1.0
+      },
+      "interpreted_regions": 11,
+      "corrected_edge_pixels": 77,
+      "source_black_audit": {
+        "source_tiny_components": 47,
+        "source_tiny_pixels": 75,
+        "black_needles_in_tiny_source_components": 0,
+        "black_needles_gt1mm_from_actual_source_ink": 0,
+        "needle_phases_gt1mm_from_source_ink": {
+          "entry": 0,
+          "fill": 0,
+          "lock": 0,
+          "satin": 0,
+          "travel": 0,
+          "underlay": 0
+        },
+        "border_diagnostic_gt05mm": {
+          "entry": 0,
+          "fill": 0,
+          "lock": 0,
+          "satin": 68,
+          "travel": 1,
+          "underlay": 0
+        },
+        "source_core_distance_note": "1 mm excludes source AA fringe plus compensated satin contour. >0.5 mm includes 68 legitimate satin needles on this low-resolution outline.",
+        "sewn_tiny_source_components": [],
+        "source_core_definition": "Original visible nearly-neutral RGB<=45, no semantic deletion."
+      },
+      "machine_equivalence": {
+        "pes": {
+          "stitch_points_equal": true,
+          "sewn_segments_equal": true,
+          "sewn_segment_colors_equal": true,
+          "thread_palette_equal": true,
+          "trims": 273,
+          "jumps": 274
+        },
+        "dst": {
+          "stitch_points_equal": true,
+          "sewn_segments_equal": true,
+          "sewn_segment_colors_equal": true,
+          "thread_palette_equal": true,
+          "trims": 131,
+          "jumps": 274
+        }
+      },
+      "per_colour": {
+        "#ffffff": {
+          "penetrations": 5642,
+          "foreign_035mm_penetrations": 0,
+          "foreign_050mm_penetrations": 0,
+          "by_phase": {
+            "lock": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "satin": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "travel": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "underlay": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "fill": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            }
+          },
+          "top_metrics": {
+            "coverage": 0.8429,
+            "structural_coverage": 1.0,
+            "iou": 0.8049,
+            "spill_mm2": 90.13,
+            "missing_mm2": 300.33,
+            "uncovered_p95_mm": 0.083,
+            "uncovered_max_mm": 0.3,
+            "structural_missing_mm2": 0.01,
+            "largest_gap_mm2": 0.01,
+            "stitches": 3610,
+            "trims": 0,
+            "jumps": 519,
+            "jump_length_mm": 869.5,
+            "max_stitch_mm": 4.7,
+            "short_stitches": 0
+          }
+        },
+        "#0e0f95": {
+          "penetrations": 1512,
+          "foreign_035mm_penetrations": 0,
+          "foreign_050mm_penetrations": 0,
+          "by_phase": {
+            "travel": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "underlay": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "fill": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "lock": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            }
+          },
+          "top_metrics": {
+            "coverage": 0.8192,
+            "structural_coverage": 1.0,
+            "iou": 0.8071,
+            "spill_mm2": 15.29,
+            "missing_mm2": 184.15,
+            "uncovered_p95_mm": 0.083,
+            "uncovered_max_mm": 0.118,
+            "structural_missing_mm2": 0.0,
+            "largest_gap_mm2": 0.0,
+            "stitches": 1057,
+            "trims": 0,
+            "jumps": 66,
+            "jump_length_mm": 188.2,
+            "max_stitch_mm": 3.9,
+            "short_stitches": 0
+          }
+        },
+        "#ff1301": {
+          "penetrations": 1539,
+          "foreign_035mm_penetrations": 0,
+          "foreign_050mm_penetrations": 0,
+          "by_phase": {
+            "travel": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "underlay": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "fill": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "lock": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            }
+          },
+          "top_metrics": {
+            "coverage": 0.8183,
+            "structural_coverage": 1.0,
+            "iou": 0.8062,
+            "spill_mm2": 15.26,
+            "missing_mm2": 185.01,
+            "uncovered_p95_mm": 0.083,
+            "uncovered_max_mm": 0.167,
+            "structural_missing_mm2": 0.0,
+            "largest_gap_mm2": 0.0,
+            "stitches": 1055,
+            "trims": 0,
+            "jumps": 65,
+            "jump_length_mm": 158.4,
+            "max_stitch_mm": 3.8,
+            "short_stitches": 0
+          }
+        },
+        "#010101": {
+          "penetrations": 3766,
+          "foreign_035mm_penetrations": 0,
+          "foreign_050mm_penetrations": 0,
+          "by_phase": {
+            "fill": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "lock": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "travel": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "underlay": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            },
+            "satin": {
+              "foreign_035mm_length": 0.0,
+              "foreign_050mm_length": 0.0
+            }
+          },
+          "top_metrics": {
+            "coverage": 0.9049,
+            "structural_coverage": 1.0,
+            "iou": 0.8072,
+            "spill_mm2": 122.73,
+            "missing_mm2": 96.37,
+            "uncovered_p95_mm": 0.083,
+            "uncovered_max_mm": 0.353,
+            "structural_missing_mm2": 0.03,
+            "largest_gap_mm2": 0.03,
+            "stitches": 2632,
+            "trims": 0,
+            "jumps": 130,
+            "jump_length_mm": 311.3,
+            "max_stitch_mm": 6.51,
+            "short_stitches": 0
+          }
+        }
+      },
+      "black_components": 6
+    }
+  },
+  "palette_performance": {
+    "pepsi": {
+      "baseline_median_seconds": 0.07106924999970943,
+      "baseline_seconds": [
+        0.07045329100219533,
+        0.07075020900811069,
+        0.09493120799015742,
+        0.07106924999970943
+      ],
+      "local_median_seconds": 0.07807958299235906,
+      "local_seconds": [
+        0.07908945799863432,
+        0.07527070799551439,
+        0.07960845799243543,
+        0.07807958299235906
+      ],
+      "corrected_pixels": 77,
+      "shape": [
+        436,
+        436,
+        4
+      ],
+      "overhead_seconds": 0.007010332992649637
+    },
+    "flat1800": {
+      "baseline_median_seconds": 1.5790469579951605,
+      "baseline_seconds": [
+        1.5600140000024112,
+        1.547881791004329,
+        1.6014215839968529,
+        1.5790469579951605
+      ],
+      "local_median_seconds": 1.6531368750002002,
+      "local_seconds": [
+        1.6625837089959532,
+        1.6522067920013797,
+        1.6531368750002002,
+        1.6740521669998998
+      ],
+      "corrected_pixels": 391,
+      "shape": [
+        1800,
+        1800,
+        4
+      ],
+      "overhead_seconds": 0.07408991700503975
+    }
+  },
+  "performance_method": "Same bitmap_colors call with local helper enabled/disabled; four samples, median of final three after warmup. Local developer environment.",
+  "audit_definitions": {
+    "source_black_far_distance_mm": 1.0,
+    "source_black_core": "visible nearly-neutral source RGB<=45; original grid aligned through prepared SVG viewBox438,padding1",
+    "contour_compensation": "69 remaining >0.5mm source-core points after cleanup =68satin +1travel near outline at~0.52mm; they are outside the parasite count",
+    "foreign_thread": "all sewn phases, distance>0.35mm from own INTERPRETED colour in another visible paint; jumps excluded"
+  },
+  "regression_corpus": [
+    {
+      "case": "phoenix",
+      "stitches_before": 2709,
+      "stitches_after": 2709,
+      "threads_equal": true,
+      "threads_after": [
+        "#090909"
+      ],
+      "per_color_coverage_before": {
+        "#090909": 1.0
+      },
+      "per_color_coverage_after": {
+        "#090909": 1.0
+      },
+      "foreign_035mm_penetrations_before": {
+        "#090909": 0
+      },
+      "foreign_035mm_penetrations_after": {
+        "#090909": 0
+      },
+      "machine_equivalence_after": {
+        "pes": {
+          "stitch_points_equal": true,
+          "sewn_segments_equal": true,
+          "sewn_segment_colors_equal": true,
+          "thread_palette_equal": true,
+          "trims": 61,
+          "jumps": 62
+        },
+        "dst": {
+          "stitch_points_equal": true,
+          "sewn_segments_equal": true,
+          "sewn_segment_colors_equal": true,
+          "thread_palette_equal": true,
+          "trims": 18,
+          "jumps": 62
+        }
+      },
+      "commands_equal": true,
+      "machine_file_bytes_equal": {
+        "pes": true,
+        "dst": true
+      }
+    },
+    {
+      "case": "falcon",
+      "stitches_before": 4124,
+      "stitches_after": 4124,
+      "threads_equal": true,
+      "threads_after": [
+        "#131414"
+      ],
+      "per_color_coverage_before": {
+        "#131414": 1.0
+      },
+      "per_color_coverage_after": {
+        "#131414": 1.0
+      },
+      "foreign_035mm_penetrations_before": {
+        "#131414": 0
+      },
+      "foreign_035mm_penetrations_after": {
+        "#131414": 0
+      },
+      "machine_equivalence_after": {
+        "pes": {
+          "stitch_points_equal": true,
+          "sewn_segments_equal": true,
+          "sewn_segment_colors_equal": true,
+          "thread_palette_equal": true,
+          "trims": 81,
+          "jumps": 82
+        },
+        "dst": {
+          "stitch_points_equal": true,
+          "sewn_segments_equal": true,
+          "sewn_segment_colors_equal": true,
+          "thread_palette_equal": true,
+          "trims": 45,
+          "jumps": 82
+        }
+      },
+      "commands_equal": true,
+      "machine_file_bytes_equal": {
+        "pes": true,
+        "dst": true
+      }
+    },
+    {
+      "case": "flag",
+      "stitches_before": 9483,
+      "stitches_after": 9483,
+      "threads_equal": true,
+      "threads_after": [
+        "#c8102e",
+        "#ffffff",
+        "#012169"
+      ],
+      "per_color_coverage_before": {
+        "#c8102e": 1.0,
+        "#ffffff": 1.0,
+        "#012169": 1.0
+      },
+      "per_color_coverage_after": {
+        "#c8102e": 1.0,
+        "#ffffff": 1.0,
+        "#012169": 1.0
+      },
+      "foreign_035mm_penetrations_before": {
+        "#c8102e": 0,
+        "#ffffff": 0,
+        "#012169": 0
+      },
+      "foreign_035mm_penetrations_after": {
+        "#c8102e": 0,
+        "#ffffff": 0,
+        "#012169": 0
+      },
+      "machine_equivalence_after": {
+        "pes": {
+          "stitch_points_equal": true,
+          "sewn_segments_equal": true,
+          "sewn_segment_colors_equal": true,
+          "thread_palette_equal": true,
+          "trims": 222,
+          "jumps": 223
+        },
+        "dst": {
+          "stitch_points_equal": true,
+          "sewn_segments_equal": true,
+          "sewn_segment_colors_equal": true,
+          "thread_palette_equal": true,
+          "trims": 90,
+          "jumps": 223
+        }
+      },
+      "commands_equal": true,
+      "machine_file_bytes_equal": {
+        "pes": true,
+        "dst": true
+      }
+    }
+  ],
+  "tests": {
+    "palette_cases": "tests/test_local_palette_edges.py",
+    "machine_colour_cases": "tests/test_colour_artifacts.py",
+    "static_preview": "tests/test_preview_colors.py",
+    "canvas": "frontend/src/features/embroidery/stitch-player/canvas.test.ts"
+  }
+}
