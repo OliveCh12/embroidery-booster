@@ -39,7 +39,7 @@ export function EmbroideryWorkspace() {
 
   const error = generation.error?.message;
   return <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[300px_minmax(0,1fr)] lg:grid-cols-[320px_minmax(0,1fr)]">
-    <section className="flex min-h-0 min-w-0 flex-col gap-4 md:col-start-2 md:row-start-1" aria-label="Résultat de la broderie">
+    <section className="flex min-h-0 min-w-0 flex-col gap-4 md:col-start-2 md:row-start-1 md:border-l md:border-border md:pl-4" aria-label="Résultat de la broderie">
       {capabilities.isError && <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Title>Moteur indisponible</Alert.Title><Alert.Description>{capabilities.error.message}</Alert.Description><Button size="sm" variant="secondary" className="mt-2" onPress={() => { void capabilities.refetch(); }}>Réessayer</Button></Alert.Content></Alert>}
       {error && <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Title>Traitement impossible</Alert.Title><Alert.Description>{error}</Alert.Description></Alert.Content></Alert>}
       <ResultPane file={file} sourcePreview={preview} result={generation.data} busy={generation.isPending}

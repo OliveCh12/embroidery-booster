@@ -2,17 +2,18 @@
 
 import { Alert, Button, Label, ListBox, Popover, Select, Slider, Spinner } from "@heroui/react";
 import { useQuery } from "@tanstack/react-query";
-import { Pause, Play, RotateCcw, SkipForward, SlidersHorizontal, StepForward } from "lucide-react";
+import { Contrast, Pause, Play, RotateCcw, SkipForward, SlidersHorizontal, StepForward } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { ToggleSetting } from "../controls";
 import { StitchCanvas } from "./canvas";
+import type { PreviewColorMode } from "./canvas-theme";
 import { advancePlayback, buildThreadSequence, eventLabel, parseStitchPlan, type StitchPlan } from "./model";
 import { sewingTime, ThreadList } from "./thread-list";
 import styles from "./stitch-player.module.css";
 
-function Timeline({ plan }: { plan: StitchPlan }) {
+function Timeline({ plan, colorMode, onToggleContrast }: { plan: StitchPlan; colorMode: PreviewColorMode; onToggleContrast: () => void }) {
   const [cursor, setCursor] = useState(plan.count);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState("150");
@@ -53,13 +54,42 @@ function Timeline({ plan }: { plan: StitchPlan }) {
   }, [playing, speed, pauseAtColor, plan]);
 
   return <div className="flex min-h-full min-w-0 flex-1 flex-col gap-4 md:h-full">
-    <div className="grid min-h-0 flex-1 gap-4 @2xl:grid-cols-[180px_minmax(0,1fr)]">
-      <ThreadList plan={plan} steps={threads} cursor={cursor} onSeek={seek} />
-      <div className="order-1 flex min-h-0 min-w-0 flex-col gap-4 @2xl:order-none">
-        <StitchCanvas plan={plan} cursor={cursor} underlay={underlay} travel={travel} />
+    <div className="relative min-h-[360px] min-w-0 flex-1 md:min-h-[280px]">
+      <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-4"
+        onClick={event => event.stopPropagation()} onPaste={event => event.stopPropagation()}
+        onDrop={event => { event.preventDefault(); event.stopPropagation(); }} onDragEnter={event => event.stopPropagation()}
+        onDragOver={event => { event.preventDefault(); event.stopPropagation(); }} onDragLeave={event => event.stopPropagation()}>
+        <ThreadList plan={plan} steps={threads} cursor={cursor} onSeek={seek} />
+        <div className="flex shrink-0 items-center gap-1">
+          <Button size="sm" variant={colorMode === "contrast" ? "secondary" : "ghost"} aria-label="Contraste d’affichage" aria-pressed={colorMode === "contrast"}
+            aria-description="Ajuste uniquement les couleurs peu lisibles dans l’aperçu. Les fils réels et les fichiers restent inchangés."
+            className="shrink-0 gap-2 px-2" onPress={onToggleContrast}>
+            <Contrast size={15} aria-hidden="true" />{colorMode === "contrast" ? "Contraste actif" : "Contraste"}
+          </Button>
+          <Popover>
+            <Button size="sm" variant="ghost" isIconOnly aria-label="Options de l’aperçu"><SlidersHorizontal size={16} /></Button>
+            <Popover.Content placement="bottom end"><Popover.Dialog className="flex w-72 flex-col gap-4 p-4">
+              <Popover.Heading>Options de l’aperçu</Popover.Heading>
+              <Select value={speed} onChange={value => { if (typeof value === "string") setSpeed(value); }} aria-label="Vitesse de simulation" variant="secondary">
+                <Label>Vitesse de simulation</Label><Select.Trigger className="min-h-8 py-1"><Select.Value /><Select.Indicator /></Select.Trigger>
+                <Select.Popover><ListBox aria-label="Vitesse de simulation">{["1", "10", "60", "150", "240"].map(value => <ListBox.Item key={value} id={value} textValue={`×${value}`}><Label>×{value}</Label><ListBox.ItemIndicator /></ListBox.Item>)}</ListBox></Select.Popover>
+              </Select>
+              <ToggleSetting label="Afficher la sous-couche" value={underlay} onChange={setUnderlay} />
+              <ToggleSetting label="Liaisons, sauts et ancrages" value={travel} onChange={setTravel} />
+              <Button size="sm" variant="secondary" isDisabled={cursor === plan.count} onPress={() => seek(Math.min(plan.count, cursor + 1))}><StepForward size={16} />Commande suivante</Button>
+              <p className="text-xs leading-relaxed text-muted">Continu traverse toutes les couleurs ; Par fil attend votre reprise à chaque changement. Modifier le mode ajuste les prochains arrêts et ne reprend pas une lecture en pause.</p>
+              <p className="text-xs leading-relaxed text-muted">Le mode Couleurs réelles conserve les fils d’origine. Contraste ajuste seulement les teintes peu lisibles à l’écran ; la liste des fils et les fichiers restent inchangés. La sous-couche est grisée, les sauts en pointillés. Vert : départ, rouge : aiguille.</p>
+              <p className="text-xs leading-relaxed text-muted">Dessin : {formatNumber(plan.bounds[2] - plan.bounds[0])} × {formatNumber(plan.bounds[3] - plan.bounds[1])} mm. Grille de 10 mm.</p>
+              <p className="text-xs leading-relaxed text-muted">Simulation à {plan.stitchesPerMinute} points/min, accélérée ×{speed}. Sauts, coupes et changements de fil ne sont pas chronométrés.</p>
+            </Popover.Dialog></Popover.Content>
+          </Popover>
+        </div>
+      </div>
+      <div className="absolute inset-x-0 bottom-0 top-10 flex min-h-0">
+        <StitchCanvas plan={plan} cursor={cursor} underlay={underlay} travel={travel} colorMode={colorMode} />
       </div>
     </div>
-    <div className="flex shrink-0 flex-wrap items-center gap-4">
+    <div className="flex shrink-0 flex-wrap items-center gap-4 border-t border-border pt-4">
       <div className="flex shrink-0 items-center gap-1" aria-label="Commandes de lecture">
         <Button size="sm" variant="secondary" isIconOnly aria-label={playing ? "Mettre en pause" : waitingForThread ? "Reprendre la lecture" : "Lire la broderie"} onPress={() => playing ? setPlaying(false) : play()}>{playing ? <Pause size={16} /> : <Play size={16} />}</Button>
         <Button size="sm" variant="ghost" isIconOnly aria-label="Revenir au premier point" onPress={() => seek(0)}><RotateCcw size={15} /></Button>
@@ -75,30 +105,14 @@ function Timeline({ plan }: { plan: StitchPlan }) {
         <Slider.Track><Slider.Fill /><Slider.Thumb aria-label="Position de lecture" /></Slider.Track>
       </Slider>
       <span className="shrink-0 text-xs text-muted tabular-nums" title="Temps de couture estimé, hors déplacements et changements de bobine">{sewingTime(sewn / plan.stitchesPerMinute)} / {sewingTime(total / plan.stitchesPerMinute)}</span>
-      <Popover>
-        <Button size="sm" variant="ghost" isIconOnly aria-label="Options de l’aperçu"><SlidersHorizontal size={16} /></Button>
-        <Popover.Content placement="top end"><Popover.Dialog className="flex w-72 flex-col gap-4 p-4">
-          <Popover.Heading>Options de l’aperçu</Popover.Heading>
-          <Select value={speed} onChange={value => { if (typeof value === "string") setSpeed(value); }} aria-label="Vitesse de simulation" variant="secondary">
-            <Label>Vitesse de simulation</Label><Select.Trigger className="min-h-8 py-1"><Select.Value /><Select.Indicator /></Select.Trigger>
-            <Select.Popover><ListBox aria-label="Vitesse de simulation">{["1", "10", "60", "150", "240"].map(value => <ListBox.Item key={value} id={value} textValue={`×${value}`}><Label>×{value}</Label><ListBox.ItemIndicator /></ListBox.Item>)}</ListBox></Select.Popover>
-          </Select>
-          <ToggleSetting label="Afficher la sous-couche" value={underlay} onChange={setUnderlay} />
-          <ToggleSetting label="Liaisons, sauts et ancrages" value={travel} onChange={setTravel} />
-          <Button size="sm" variant="secondary" isDisabled={cursor === plan.count} onPress={() => seek(Math.min(plan.count, cursor + 1))}><StepForward size={16} />Commande suivante</Button>
-          <p className="text-xs leading-relaxed text-muted">Continu traverse toutes les couleurs ; Par fil attend votre reprise à chaque changement. Modifier le mode ajuste les prochains arrêts et ne reprend pas une lecture en pause.</p>
-          <p className="text-xs leading-relaxed text-muted">La sous-couche est grisée. Le fin contour des fils peu contrastés est un repère d’affichage, pas un fil supplémentaire. Les sauts sont en pointillés. Vert : départ, rouge : aiguille.</p>
-          <p className="text-xs leading-relaxed text-muted">Dessin : {formatNumber(plan.bounds[2] - plan.bounds[0])} × {formatNumber(plan.bounds[3] - plan.bounds[1])} mm. Grille de 10 mm.</p>
-          <p className="text-xs leading-relaxed text-muted">Simulation à {plan.stitchesPerMinute} points/min, accélérée ×{speed}. Sauts, coupes et changements de fil ne sont pas chronométrés.</p>
-        </Popover.Dialog></Popover.Content>
-      </Popover>
     </div>
   </div>;
 }
 
 export function StitchPlayer({ url }: { url: string }) {
+  const [colorMode, setColorMode] = useState<PreviewColorMode>("real");
   const query = useQuery({ queryKey: ["stitch-plan", url], queryFn: async ({ signal }) => parseStitchPlan(await apiRequest<unknown>(url, { signal })), staleTime: Infinity });
   if (query.isError) return <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Title>Aperçu indisponible</Alert.Title><Alert.Description>{query.error.message}</Alert.Description><Button variant="secondary" size="sm" className="mt-4" onPress={() => { void query.refetch(); }}>Réessayer</Button></Alert.Content></Alert>;
   if (!query.data) return <div className="flex min-h-64 flex-1 items-center justify-center gap-4 text-muted" role="status"><Spinner />Chargement des points machine…</div>;
-  return <Timeline key={url} plan={query.data} />;
+  return <Timeline key={url} plan={query.data} colorMode={colorMode} onToggleContrast={() => setColorMode(mode => mode === "real" ? "contrast" : "real")} />;
 }

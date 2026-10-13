@@ -1,6 +1,7 @@
+export type PreviewColorMode = "real" | "contrast";
+
 export function canvasTheme(resolveColor: (expression: string) => string) {
   return {
-    background: resolveColor("var(--background)"),
     textile: resolveColor("var(--surface)"),
     grid: resolveColor("color-mix(in srgb, var(--border) 55%, var(--surface))"),
     hoop: resolveColor("var(--border-secondary)"),
@@ -46,4 +47,24 @@ function luminance(hex: string) {
 export function threadNeedsOutline(thread: string, textile: string) {
   const first = luminance(thread), second = luminance(textile);
   return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05) < 3;
+}
+
+export function threadDisplayColor(thread: string, textile: string, mode: PreviewColorMode) {
+  if (mode === "real" || !threadNeedsOutline(thread, textile)) return thread;
+  const channels = [1, 3, 5].map(offset => parseInt(thread.slice(offset, offset + 2), 16));
+  const surface = luminance(textile);
+  const whiteContrast = 1.05 / (surface + 0.05), blackContrast = (surface + 0.05) / 0.05;
+  const target = whiteContrast > blackContrast ? 255 : 0;
+  const blend = (amount: number) => `#${channels.map(channel =>
+    Math.round(channel + (target - channel) * amount).toString(16).padStart(2, "0")
+  ).join("")}`;
+  // Work on display colours only; use the least change that remains readable
+  // after 8-bit rounding, preserving already contrasted thread colours exactly.
+  let low = 0, high = 1;
+  for (let index = 0; index < 20; index++) {
+    const middle = (low + high) / 2;
+    if (threadNeedsOutline(blend(middle), textile)) low = middle;
+    else high = middle;
+  }
+  return blend(high);
 }

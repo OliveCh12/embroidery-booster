@@ -122,10 +122,16 @@ couleurs des fils ni les commandes machine. Le poids du fil et les pauses
 de lecture restent distincts du calcul de couture côté Python.
 
 Le lecteur expose une seule commande Lire/Pause et un mode Continu/Par fil.
-Continu à ×150 est le défaut. Les fils restent dans une liste compacte avec
-leurs heures de passage et comptes de points. Le canvas résout les tokens
-HeroUI après l'application de la classe de thème ; un fin contour de contraste
-ne modifie pas les couleurs machine. Les réglages utilisent cinq sections
+Continu à ×150 est le défaut. Le bouton flottant Fil/Fils ouvre une liste compacte
+avec heures de passage et comptes de points ; elle ne réserve aucune colonne du
+visualisateur. Les panneaux et les barres de commandes utilisent des séparateurs,
+sans card autour de l'aperçu. Seul le cadre physique est peint, avec ses graduations
+depuis 0 jusqu'à sa dimension exacte ; l'extérieur du canvas reste transparent.
+Le canvas résout les tokens HeroUI après l'application de la classe de thème.
+Les couleurs réelles sont le défaut. Le mode Contraste dérive une palette de
+lecture pour les couleurs peu visibles, sans modifier le modèle ou les exports.
+Ce choix est conservé entre variantes ; la liste affiche toujours les vrais fils.
+Les réglages utilisent cinq sections
 Accordion avec icônes. La validation rouvre la section et le panneau mobile
 avant la focalisation native d'un champ invalide.
 La timeline garde les commandes exactes et les interactions clavier React Aria,

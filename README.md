@@ -23,7 +23,7 @@ pnpm dev
 Open <http://127.0.0.1:3000>. Import an SVG or image on the preview side by file
 selection, drag-and-drop or clipboard paste. Choose its physical size, machine,
 fabric, thread and stabilizer; generate, review the interpreted artwork and
-stitch playback, then download PES. The viewer lists thread passes with descriptive
+stitch playback, then download PES. The floating **Fil/Fils** control lists thread passes with descriptive
 colour names, stitch counts and estimated start times; HEX values are available
 on hover. Select a pass to seek to its start. The compact Play/Pause control uses
 **Continu** by default at **×150**, or **Par fil** to pause before the next colour.
@@ -31,8 +31,12 @@ Preview options contain simulation speed, command stepping and phase visibility.
 **Détails** opens a right-hand panel for quality checks, warnings and logs.
 Parameters are grouped into five collapsible sections, from design/hoop and
 materials to stitch strategy, image interpretation and advanced settings.
-The canvas follows the applied HeroUI palette. A subtle outline keeps low-contrast
-threads visible without changing their colours or machine files.
+The viewer uses the hoop and millimetre rulers directly, with separators instead
+of a surrounding card. The canvas follows the applied HeroUI palette and displays
+real thread colours by default. **Contraste** adapts only poorly visible colours
+for on-screen reading (dark threads on dark fabric, pale threads on light fabric).
+The list always shows real spool colours; machine files are unchanged. This display
+choice persists when switching stitch variants. Turn it off to return to real colours.
 In **Auto**, **Comparer les stratégies** generates qualified alternatives and
 selects a recommendation. The compact variant selector switches playback,
 diagnostics and PES/DST downloads together. Identical machine plans are shown

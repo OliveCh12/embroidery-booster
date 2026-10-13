@@ -12,7 +12,7 @@ import type { GenerationResult, VariantId } from "./types";
 import { VARIANT_LABELS, variantOptions, variantReason, variantResult } from "./variants";
 
 export function PreviewFrame({ src, alt, expand = false }: { src: string; alt: string; expand?: boolean }) {
-  return <div className={`relative overflow-hidden rounded-xl border border-border bg-white ${expand ? "min-h-64 flex-1 md:min-h-40" : "aspect-[4/3] max-h-[520px]"}`}><img src={src} alt={alt} className="absolute inset-0 size-full object-contain p-4" /></div>;
+  return <div className={`relative overflow-hidden bg-white ${expand ? "min-h-64 flex-1 md:min-h-40" : "aspect-[4/3] max-h-[520px]"}`}><img src={src} alt={alt} className="absolute inset-0 size-full object-contain" /></div>;
 }
 export function DownloadLink({ href, children, primary = false }: { href: string; children: ReactNode; primary?: boolean }) {
   return <a href={href} download className={buttonVariants({ variant: primary ? "primary" : "secondary", size: "sm" })}><Download size={15} />{children}</a>;
@@ -99,8 +99,8 @@ function ActivityPanel({ result }: { result: GenerationResult }) {
     onDrop={event => { event.preventDefault(); event.stopPropagation(); }} onDragEnter={event => event.stopPropagation()}
     onDragOver={event => { event.preventDefault(); event.stopPropagation(); }} onDragLeave={event => event.stopPropagation()}>
     <Drawer>
-      <Button variant="ghost" size="sm" aria-description={needsReview ? "Des remarques sont à consulter avant de broder." : undefined}>
-        <PanelRight size={15} aria-hidden="true" />Détails{needsReview && <span className="size-1.5 rounded-full bg-warning" aria-hidden="true" />}
+      <Button variant="ghost" size="sm" aria-label="Détails" className="w-9 gap-1 px-0 @sm:w-auto @sm:gap-2 @sm:px-3" aria-description={needsReview ? "Des remarques sont à consulter avant de broder." : undefined}>
+        <PanelRight size={15} aria-hidden="true" /><span className="hidden @sm:inline">Détails</span>{needsReview && <span className="size-1.5 rounded-full bg-warning" aria-hidden="true" />}
       </Button>
       <Drawer.Backdrop variant="opaque">
         <Drawer.Content placement="right">
@@ -150,7 +150,7 @@ export function ResultPane({ file, sourcePreview, result, busy, importError, onS
             <Tabs.Panel id="stitches" className="mt-0 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-0"><StitchPlayer url={selected.direct.files.plan_json} /></Tabs.Panel>
             <Tabs.Panel id="source" className="mt-0 min-h-0 flex-1 overflow-y-auto overscroll-contain p-0"><SourcePreview sourcePreview={sourcePreview} result={selected} /></Tabs.Panel>
           </Tabs>
-          <div className="flex shrink-0 flex-wrap items-center gap-4"><DownloadLink href={selected.direct.files.pes} primary>PES · Brother</DownloadLink><DownloadLink href={selected.direct.files.dst}>DST</DownloadLink><span className="ml-auto text-xs text-muted">{formatNumber(selected.direct.stats.stitches)} points · {selected.direct.threads.length} fil{selected.direct.threads.length > 1 ? "s" : ""}</span></div>
+          <div className="flex shrink-0 flex-wrap items-center gap-4 border-t border-border pt-4"><DownloadLink href={selected.direct.files.pes} primary>PES · Brother</DownloadLink><DownloadLink href={selected.direct.files.dst}>DST</DownloadLink><span className="ml-auto text-xs text-muted">{formatNumber(selected.direct.stats.stitches)} points · {selected.direct.threads.length} fil{selected.direct.threads.length > 1 ? "s" : ""}</span></div>
         </div>}
     </FileUpload>
   </div>;

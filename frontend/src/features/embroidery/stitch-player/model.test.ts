@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advancePlayback, buildThreadSequence, describeThreadColor, eventLabel, parseStitchPlan, pointAt, threadStepStatus, viewport } from "./model";
+import { advancePlayback, buildThreadSequence, describeThreadColor, eventLabel, parseStitchPlan, pointAt, rulerMarks, threadStepStatus, viewport } from "./model";
 
 const example = {
   schema_version: 3, units: "0.1mm", coordinate_frame: "hoop_center", threads: ["#ffffff", "#ce1126"],
@@ -102,6 +102,24 @@ describe("physical stitch plan", () => {
     expect(frame.centerY).toBe(250);
     expect(frame.left + 50 * frame.scale).toBeCloseTo(frame.centerX);
     expect(frame.top + 40 * frame.scale).toBeCloseTo(frame.centerY);
+  });
+
+  it.each([10, 20])("labels both physical hoop edges at a %s mm ruler pitch", step => {
+    const marks = rulerMarks(100, step);
+    expect(marks[0]).toBe(0);
+    expect(marks[marks.length - 1]).toBe(100);
+    expect(marks).toContain(20);
+    expect(marks).toContain(80);
+    const frame = viewport(400, 300, 100, 100);
+    expect(frame.left + marks[0] * frame.scale).toBe(frame.left);
+    expect(frame.left + marks[marks.length - 1] * frame.scale).toBeCloseTo(frame.centerX + 50 * frame.scale);
+  });
+
+  it("includes exact custom dimensions and avoids crowded terminal ruler labels", () => {
+    expect(rulerMarks(95, 20)).toEqual([0, 20, 40, 60, 80, 95]);
+    expect(rulerMarks(91, 10)).toEqual([0, 10, 20, 30, 40, 50, 60, 70, 80, 91]);
+    expect(rulerMarks(95.5, 20)).toEqual([0, 20, 40, 60, 80, 95.5]);
+    expect(rulerMarks(10, 20)).toEqual([0, 10]);
   });
 
   it("masks machine metadata bits without changing base commands", () => {

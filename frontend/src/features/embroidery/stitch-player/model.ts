@@ -144,6 +144,12 @@ export function viewport(width: number, height: number, hoopWidth: number, hoopH
   return { scale, centerX: width / 2, centerY: height / 2, left: (width - hoopWidth * scale) / 2, top: (height - hoopHeight * scale) / 2 };
 }
 
+export function rulerMarks(size: number, step: number): number[] {
+  const marks = Array.from({ length: Math.ceil(size / step) }, (_, index) => index * step);
+  if (marks.length > 1 && size - marks[marks.length - 1] < step / 2) marks.pop();
+  return [...marks, size];
+}
+
 export function pointAt(plan: StitchPlan, cursor: number): [number, number] | null {
   const index = Math.min(plan.count, Math.max(0, Math.floor(cursor))) - 1;
   return index < 0 ? null : [plan.points[index * 2], plan.points[index * 2 + 1]];

@@ -2,10 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
-import { readCanvasTheme, threadNeedsOutline } from "./canvas-theme";
-import { pointAt, STITCH_PHASE, viewport, type StitchPlan } from "./model";
+import { readCanvasTheme, threadDisplayColor, threadNeedsOutline, type PreviewColorMode } from "./canvas-theme";
+import { pointAt, rulerMarks, STITCH_PHASE, viewport, type StitchPlan } from "./model";
 
-interface CanvasOptions { underlay: boolean; travel: boolean }
+interface CanvasOptions { underlay: boolean; travel: boolean; colorMode: PreviewColorMode }
 
 class StitchRenderer {
   private cursor = 0;
@@ -18,6 +18,7 @@ class StitchRenderer {
   private overlay: CanvasRenderingContext2D;
   private firstStitch: number;
   private colors: ReturnType<typeof readCanvasTheme>;
+  private displayThreads: string[];
   private outlinedThreads: boolean[];
 
   constructor(private canvas: HTMLCanvasElement, private needle: HTMLCanvasElement, private plan: StitchPlan, private options: CanvasOptions) {
@@ -26,7 +27,8 @@ class StitchRenderer {
     this.context = context; this.overlay = overlay;
     this.firstStitch = plan.codes.indexOf(plan.command.stitch);
     this.colors = readCanvasTheme(canvas);
-    this.outlinedThreads = plan.threads.map(color => threadNeedsOutline(color, this.colors.textile));
+    this.displayThreads = plan.threads.map(color => threadDisplayColor(color, this.colors.textile, options.colorMode));
+    this.outlinedThreads = plan.threads.map(color => options.colorMode === "real" && threadNeedsOutline(color, this.colors.textile));
   }
 
   resize(width: number, height: number) {
@@ -55,15 +57,13 @@ class StitchRenderer {
     this.cursor = 0;
     const ctx = this.context, { width, height } = this;
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = this.colors.background;
-    ctx.fillRect(0, 0, width, height);
     const { left, top, scale } = this.transform, hoop = this.plan.hoop;
     ctx.fillStyle = this.colors.textile;
     ctx.fillRect(left, top, hoop.width * scale, hoop.height * scale);
     ctx.strokeStyle = this.colors.grid;
     ctx.lineWidth = 0.5; ctx.setLineDash([]); ctx.beginPath();
-    for (let mm = Math.ceil(-hoop.width / 20) * 10; mm <= hoop.width / 2; mm += 10) { ctx.moveTo(this.x(mm), top); ctx.lineTo(this.x(mm), top + hoop.height * scale); }
-    for (let mm = Math.ceil(-hoop.height / 20) * 10; mm <= hoop.height / 2; mm += 10) { ctx.moveTo(left, this.y(mm)); ctx.lineTo(left + hoop.width * scale, this.y(mm)); }
+    for (let mm = 0; mm <= hoop.width; mm += 10) { ctx.moveTo(left + mm * scale, top); ctx.lineTo(left + mm * scale, top + hoop.height * scale); }
+    for (let mm = 0; mm <= hoop.height; mm += 10) { ctx.moveTo(left, top + mm * scale); ctx.lineTo(left + hoop.width * scale, top + mm * scale); }
     ctx.stroke();
     ctx.strokeStyle = this.colors.hoop;
     ctx.lineWidth = 1; ctx.strokeRect(left, top, hoop.width * scale, hoop.height * scale);
@@ -71,9 +71,9 @@ class StitchRenderer {
     ctx.fillStyle = this.colors.label;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     const labelStep = scale < 3 ? 20 : 10;
-    for (let mm = Math.ceil(-hoop.width / (2 * labelStep)) * labelStep; mm <= hoop.width / 2; mm += labelStep) ctx.fillText(String(mm + hoop.width / 2), this.x(mm), top + hoop.height * scale + 16);
+    for (const mm of rulerMarks(hoop.width, labelStep)) ctx.fillText(String(mm), left + mm * scale, top + hoop.height * scale + 16);
     ctx.textAlign = "right";
-    for (let mm = Math.ceil(-hoop.height / (2 * labelStep)) * labelStep; mm <= hoop.height / 2; mm += labelStep) ctx.fillText(String(mm + hoop.height / 2), left - 8, this.y(mm));
+    for (const mm of rulerMarks(hoop.height, labelStep)) ctx.fillText(String(mm), left - 8, top + mm * scale);
     ctx.textAlign = "center"; ctx.fillText(`${hoop.width} × ${hoop.height} mm`, width / 2, top - 14);
     this.canvas.dataset.ready = "false";
   }
@@ -102,7 +102,7 @@ class StitchRenderer {
       const travel = sewn && plan.phases[index] === STITCH_PHASE.travel;
       const lock = sewn && plan.phases[index] === STITCH_PHASE.lock;
       if (!sewn && !jump || underlay && !this.options.underlay || (travel || lock) && !this.options.travel) continue;
-      const nextStyle = jump ? "jump" : underlay ? "underlay" : travel ? "travel" : lock ? "lock" : plan.threads[plan.colors[index]];
+      const nextStyle = jump ? "jump" : underlay ? "underlay" : travel ? "travel" : lock ? "lock" : this.displayThreads[plan.colors[index]];
       if (nextStyle !== style) {
         if (drawing) stroke();
         style = nextStyle; drawing = true;
@@ -145,7 +145,7 @@ class StitchRenderer {
   }
 }
 
-export function StitchCanvas({ plan, cursor, underlay, travel }: { plan: StitchPlan; cursor: number; underlay: boolean; travel: boolean }) {
+export function StitchCanvas({ plan, cursor, underlay, travel, colorMode = "real" }: { plan: StitchPlan; cursor: number; underlay: boolean; travel: boolean; colorMode?: PreviewColorMode }) {
   const wrapper = useRef<HTMLDivElement>(null), canvas = useRef<HTMLCanvasElement>(null), needle = useRef<HTMLCanvasElement>(null);
   const renderer = useRef<StitchRenderer | null>(null);
   const latestCursor = useRef(cursor);
@@ -157,7 +157,7 @@ export function StitchCanvas({ plan, cursor, underlay, travel }: { plan: StitchP
     let current: StitchRenderer | null = null, observer: ResizeObserver | null = null;
     // next-themes applies its DOM class in a parent effect, after this child effect.
     const frame = requestAnimationFrame(() => {
-      const instance = new StitchRenderer(drawing, overlay, plan, { underlay, travel });
+      const instance = new StitchRenderer(drawing, overlay, plan, { underlay, travel, colorMode });
       current = instance; renderer.current = instance;
       instance.setCursor(latestCursor.current);
       observer = new ResizeObserver(([entry]) => instance.resize(entry.contentRect.width, entry.contentRect.height));
@@ -167,9 +167,9 @@ export function StitchCanvas({ plan, cursor, underlay, travel }: { plan: StitchP
       cancelAnimationFrame(frame); observer?.disconnect(); current?.destroy();
       if (renderer.current === current) renderer.current = null;
     };
-  }, [plan, resolvedTheme, underlay, travel]);
-  useEffect(() => { latestCursor.current = cursor; renderer.current?.setCursor(cursor); }, [cursor, plan, resolvedTheme, underlay, travel]);
-  return <div ref={wrapper} className="relative min-h-64 flex-1 overflow-hidden rounded-xl border border-border @2xl:min-h-40" role="img" aria-label={`Cadre ${plan.hoop.width} par ${plan.hoop.height} mm. ${plan.stitches[cursor]} points cousus. Grille de 10 mm. Vert : premier point, rouge : aiguille.`}>
+  }, [plan, resolvedTheme, underlay, travel, colorMode]);
+  useEffect(() => { latestCursor.current = cursor; renderer.current?.setCursor(cursor); }, [cursor, plan, resolvedTheme, underlay, travel, colorMode]);
+  return <div ref={wrapper} className="relative min-h-0 flex-1 overflow-hidden bg-transparent" role="img" aria-label={`Cadre ${plan.hoop.width} par ${plan.hoop.height} mm. ${plan.stitches[cursor]} points cousus. Grille de 10 mm. ${colorMode === "contrast" ? "Contraste visuel : couleurs adaptées pour la lecture, fils et exports inchangés." : "Couleurs réelles des fils."} Vert : premier point, rouge : aiguille.`}>
     <canvas ref={canvas} className="absolute inset-0 size-full" aria-hidden="true" />
     <canvas ref={needle} className="pointer-events-none absolute inset-0 size-full" aria-hidden="true" />
   </div>;
