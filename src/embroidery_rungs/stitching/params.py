@@ -57,6 +57,7 @@ class StitchParams:
     machine: str = "generic"
     stitch_type: str = "auto"
     auto_strategy: str = "balanced"
+    density_percent: int | None = None
 
     @classmethod
     def for_fabric(
@@ -115,6 +116,12 @@ class StitchParams:
         )
 
     def validate(self) -> None:
+        if self.density_percent is not None and (
+            isinstance(self.density_percent, bool)
+            or not isinstance(self.density_percent, int)
+            or not 80 <= self.density_percent <= 120
+        ):
+            raise ValueError("density_percent must be an integer between 80 and 120.")
         if self.stitch_type not in ("auto", "satin", "fill", "running"):
             raise ValueError("stitch_type must be 'auto', 'satin', 'fill' or 'running'.")
         if self.auto_strategy not in ("balanced", "satin_preferred"):

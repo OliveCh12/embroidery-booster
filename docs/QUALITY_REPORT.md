@@ -1,6 +1,114 @@
 # Validation du moteur direct — 13 octobre 2026
 
-## Propositions automatiques comparées
+## Comparaison des méthodes et performances
+
+La [matrice actuelle](benchmarks/fill-methods-2026-10-13.json) compare **14
+échantillons et cinq politiques**, avant/après la référence `650e164` : Auto
+équilibré, priorité satin, satin strict, tatami uniforme et contours. Elle comprend
+Phénix, Falcon, Nike bitmap, Pepsi, drapeau, courbes, pointes, branches,
+contreformes et petits détails. Tous sont générés à 80 mm, profil PP1, tissu
+stable, fil 40 wt et support à découper. Les images utilisateur restent locales ;
+le rapport conserve leurs noms et empreintes, pas les images.
+
+**Le satin strict passe désormais sur 11 cas sur 14, contre 4 auparavant.**
+Les 67 politiques acceptées sur 70, contre 60 auparavant, restent accompagnées
+de leurs diagnostics ; un export réussi n'est pas une qualification sur tissu.
+Les trois refus satin sont conservés : couverture insuffisante de Pepsi,
+directions incompatibles entre homologues du drapeau, et microîlots opaques du
+SVG Nike historique sous la résolution satin. Les retirer ou les convertir en
+tatami à l'insu de l'utilisateur aurait dénaturé le mode imposé.
+
+| Image réelle | Nouveau résultat satin strict | Changement d'interprétation |
+|---|---|---|
+| Phénix | 3 171 points, 18 coupes, trois régions entièrement satin, aucune omission | Un unique fragment alpha de 0,0069 mm² est retiré au bord du même trait noir |
+| Falcon | 4 298 points, 30 coupes, trois régions entièrement satin, aucune omission | 4 fils / 313 régions deviennent 1 fil noir / 3 régions ; 1 091 gris de bord partiellement transparents sont normalisés |
+| Nike bitmap | Les trois régions passent le satin strict | La palette monochrome et les évidements sont conservés |
+| Pepsi | L'Auto reste disponible ; le satin strict reste refusé | Quatre fils, blanc intérieur et contour noir restent préservés |
+
+Phénix et Falcon passent les contrôles de couverture structurelle, points courts,
+crowding et trajets supprimés. Les rubans directionnels complètent les rails MAT
+qui laissaient des caps et jonctions découverts. Les six orientations possibles,
+le plafond de 64 colonnes par région et les contrôles dans le repère machine
+bornent ce travail. Les homologues gardent une stratégie et une décomposition
+cohérentes ; les pointes très fines et le satin droit font l'objet de régressions.
+
+### Temps mesurés
+
+Les temps incluent interprétation, génération, previews et export, mais excluent
+le démarrage/import Python et la relecture machine. Les trois cas simples sont
+des **médianes de trois exécutions** dans le même environnement de développement.
+Les logos sont des observations à une exécution, dont certaines réalisées
+pendant les tests ; elles ne constituent pas des benchmarks matériels isolés.
+
+| Cas / politique | Avant | Après |
+|---|---:|---:|
+| Colonne droite / satin | 0,173 s | 0,091 s |
+| Courbe en S / tatami | 0,756 s | 0,384 s |
+| Pointe / satin | 0,304 s | 0,153 s |
+| Phénix / Auto seul | 1,911 s | 0,925 s |
+| Falcon / Auto seul | 7,351 s | 1,122 s |
+| Phénix / comparaison complète | 3,873 s | 2,098 s |
+| Falcon / comparaison complète | 7,268 s | 3,360 s |
+
+La comparaison recommande désormais le Phénix tout satin. Le choix « Satin
+uniforme » partage ce plan déjà qualifié, sans répéter sa génération. Sur Falcon,
+les cinq options sont calculées ; l'Auto reste en tatami avec zéro aire manquante
+structurelle, alors que le satin ajoute 0,03 mm² manquants et davantage de sauts
+(749 contre 609 mm), malgré moins de coupes (30 contre 45). Ce classement prudent
+ne prétend pas choisir le plus beau reflet du fil. Les contours ne participent
+jamais au classement des surfaces pleines.
+
+Le pic RSS des processus mesurés est de 138–300 Mio après, contre 138–306 Mio
+avant, hors appels de comparaison. Il inclut Python, bibliothèques natives,
+génération et audits ; ce n'est pas une mesure des seules allocations Python.
+
+### Densité et preuves machine
+
+Douze plans supplémentaires/références évaluent satin et tatami à 80/100/120 %
+sur Phénix et Falcon. Les rangs de surface se densifient ; les fondations tatami
+restent à 816/1 030 points et le satin Phénix à 620 points. **Falcon satin à 120 %
+change de décomposition** : 57 colonnes et 66 coupes contre 24 et 30 à 100 %,
+avec 1 074 points de soutien contre 847. Le pourcentage n'est donc pas une
+promesse de croissance linéaire du nombre total de points, ni d'amélioration
+visuelle. **100 % reste le point de départ recommandé.** Le réglage est relatif
+au matériau et ne crée pas de construction 3D avec mousse.
+
+Au total, **212 appels de génération et 205 paires PES/DST relues** vérifient
+cadre, longueurs, sauts, coordonnées et changements de couleur ; les fils PES
+concordent. Les fichiers acceptés respectent ces contraintes. Une connexion
+proposée dans Pepsi/contours est retirée : le champ historique
+`unsafe_connections` compte les propositions rejetées, pas des points dangereux
+émis. Le rapport distingue ces rejets, les omissions et les mesures de couverture.
+
+La couverture structurelle emploie une tolérance de 0,25 mm autour d'un modèle
+de fil de 0,3 mm. Par exemple, Phénix satin a 100 % structurels mais 97,58 %
+selon le modèle de fil sans cette tolérance. **Aucun résultat cousu ni relief réel
+n'est certifié.** Consulter le [protocole de couture](SEWOUT.md).
+
+Le moteur fonctionne immédiatement avec un classement déterministe des audits.
+Un apprentissage de préférences pourra aider plus tard, avec des résultats
+cousus annotés par matériau ; des préférences sur captures 2D seules ne prouvent
+ni la stabilité du tissu ni la qualité professionnelle. Aucun modèle lourd ou
+base de données de validations obligatoires n'est ajouté.
+
+```bash
+uv run python scripts/benchmark_fill_methods.py --phase both --baseline-ref 650e164 \
+  --phoenix /chemin/logo_phoenix.png --falcon /chemin/logo_falcon.png \
+  --nike /chemin/nike.png --pepsi /chemin/pepsi.png \
+  --output output/performance-quality
+uv run python scripts/benchmark_fill_methods.py --phase current --policy comparison \
+  --case phoenix --phoenix /chemin/logo_phoenix.png \
+  --output output/performance-comparison
+```
+
+Validation : **579 tests Python, 61 tests frontend**, Ruff, TypeScript, ESLint
+et build Next.js. L'interface a généré Phénix/Auto tout satin et Falcon/Satin
+strict, avec un fil noir et des liens PES cohérents ; les thèmes clair/sombre
+sont vérifiés. La galerie locale est recalculée sur les 31 SVG existants, à
+80 mm profil PP1, avec une couverture structurelle globale ≥99,95 % ; ses
+diagnostics d'omissions restent consultables.
+
+## Référence précédente — propositions automatiques comparées
 
 Le [benchmark des variantes](benchmarks/automatic-variants-2026-10-13.json)
 évalue **12 entrées et 29 plans distincts**, à 80 mm, profil PP1, tissu stable,
@@ -48,7 +156,7 @@ Les deux bitmaps sont facultatifs et restent hors du dépôt. Les mesures décri
 la géométrie des points sur la grille de 0,1 mm, avec la tolérance structurelle
 de 0,25 mm ; elles ne prouvent pas l'opacité, la tension ni le relief sur tissu.
 
-La validation finale passe : **503 tests Python**, **54 tests frontend**, Ruff,
+La référence précédente `650e164` passe : **503 tests Python**, **54 tests frontend**, Ruff,
 TypeScript, ESLint et build Next.js. Les changements de proposition et de liens
 PES sont vérifiés dans l'interface sur Nike et Pepsi, avec des layouts de
 390 × 844 et 1440 × 1000 pixels et les thèmes clair/sombre. Les tests protègent

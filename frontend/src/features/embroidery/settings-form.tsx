@@ -88,12 +88,14 @@ export function SettingsForm({ settings: s, onChange, capabilities, busy, canGen
           <ChoiceSetting label="Type de points" value={s.stitch_type} onChange={value => update("stitch_type", value)} disabled={busy} options={STITCH_TYPE_OPTIONS} />
           {s.stitch_type === "auto" && capabilities?.automatic_variants && <>
             <ToggleSetting label="Comparer les stratégies" value={s.compare_strategies} onChange={value => update("compare_strategies", value)} disabled={busy} />
-            <p className="text-xs leading-relaxed text-muted">Comparez les variantes équilibrée, priorité satin et tatami uniforme. Le moteur recommande une proposition contrôlée.</p>
+            <p className="text-xs leading-relaxed text-muted">Le moteur teste les stratégies équilibrée, priorité satin, satin uniforme, tatami uniforme et contours. Les rendus identiques sont regroupés.</p>
           </>}
           {s.stitch_type === "satin" && <p className="text-xs leading-relaxed text-muted">Les colonnes larges sont divisées en satins adjacents. Les jonctions qui échouent aux contrôles restent refusées ; Auto peut choisir le tatami.</p>}
           {s.stitch_type === "running" && <p className="text-xs leading-relaxed text-muted">Le point droit suit les lignes fines ; il ne couvre pas une surface comme le satin ou le tatami.</p>}
           <ToggleSetting label="Ajustement automatique" value={s.auto_adjust} onChange={value => update("auto_adjust", value)} disabled={busy} />
           <p className="text-xs leading-relaxed text-muted">Densité, compensation et sous-couche adaptées au dessin et au tissu. Désactivez l’ajustement pour utiliser les réglages avancés.</p>
+          <NumberSetting label="Densité de surface (%)" value={s.density_percent} onChange={value => update("density_percent", value ?? NaN)} min={80} max={120} disabled={busy || !s.auto_adjust} />
+          <p className="text-xs leading-relaxed text-muted">100 % reprend la densité du tissu. Augmenter rapproche les rangs, sans ajouter de couches ni de relief 3D. En mode manuel, les pas avancés déterminent la densité.</p>
         </SettingsSection>
         <SettingsSection id="interpretation" title="Interprétation de l’image" summary={`Fond : ${BACKGROUND_MODE_LABELS[s.background_mode]} · ${s.preserve_colors ? `${s.max_colors} couleurs max.` : "Monochrome"}`} icon={ScanLine}>
           <ChoiceSetting label="Fond du dessin" value={s.background_mode} onChange={value => update("background_mode", value)} disabled={busy} options={BACKGROUND_MODE_OPTIONS} />

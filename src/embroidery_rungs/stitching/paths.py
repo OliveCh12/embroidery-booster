@@ -69,22 +69,42 @@ def satin_points(a, b, params: StitchParams, *, underlay=False) -> np.ndarray:
         compensation = np.minimum(params.pull_compensation_mm, widths * 0.1)
         a, b = a - directions * compensation[:, None], b + directions * compensation[:, None]
     points = []
+    history = [[], []]
+    # Two endpoints can move by sqrt(2) * 0.1 mm relative to one another during
+    # machine rounding. Shorten inner fans with that headroom, then audit the
+    # actual machine points; raw rail advance alone misses crowded corners.
+    minimum = params.min_stitch_mm + np.sqrt(2) * 0.1
     for i in range(len(a)):
-        side = i % 2
+        side = len(points) % 2
         edge, other = (a[i], b[i]) if side == 0 else (b[i], a[i])
         candidate = edge
-        if not underlay and i >= 2:
-            rail = a if side == 0 else b
-            advance = np.linalg.norm(rail[i] - rail[i - 2])
-            if advance < params.min_stitch_mm:
-                # Short-stitch fan: keep regular outer pitch while spreading
-                # compressed inner penetrations over deterministic inset bands.
-                bands = min(4, math.ceil(params.min_stitch_mm / max(advance, 0.01)))
-                depth = min((i // 2 % bands) * (params.min_stitch_mm + 0.08), widths[i] * 0.3)
-                candidate = edge + (other - edge) * depth / max(np.linalg.norm(other - edge), 1e-8)
+        previous = np.asarray(history[side][-4:])
+        if not underlay and len(previous):
+            advance = np.linalg.norm(previous - edge, axis=1).min()
+            if advance < min(minimum, pitch * 0.85):
+                vector = other - edge
+                width = np.linalg.norm(vector)
+                depths = np.arange(1, 6) * (params.min_stitch_mm + 0.1)
+                depths = np.unique(np.r_[0.0, depths[depths <= width * 0.4], width * 0.4])
+                choices = edge + depths[:, None] * vector / max(width, 1e-8)
+                distances = np.linalg.norm(choices[:, None, :] - previous[None, :, :], axis=2)
+                clearance = distances.min(axis=1)
+                valid = np.flatnonzero(clearance >= minimum)
+                # An extremely thin tip may have no legal fan position. Keep
+                # the best bounded shortening; the strict candidate audit can
+                # still reject it instead of silently accepting needle bunching.
+                index = valid[0] if len(valid) else int(np.argmax(clearance))
+                candidate = choices[index]
+        if not underlay and points and np.linalg.norm(candidate - points[-1]) < minimum:
+            # Near a taper's tip, blindly emitting every half-row forces the
+            # machine filter to remove alternating penetrations and bunch the
+            # surviving points. Advance to the next row on the same side until
+            # a useful stitch fits; normal-width satin keeps its configured pitch.
+            continue
         points.append(candidate)
+        history[side].append(candidate)
     # Finish the terminal cross-section rather than leaving a half-covered cap.
-    terminal = b[-1] if (len(a) - 1) % 2 == 0 else a[-1]
+    terminal = b[-1] if (len(points) - 1) % 2 == 0 else a[-1]
     if np.linalg.norm(points[-1] - terminal) >= params.min_stitch_mm:
         points.append(terminal)
     result = np.asarray(points)

@@ -10,7 +10,7 @@ export const DEFAULT_SETTINGS: GenerationSettings = {
   design_width: null, hoop_width: 100, hoop_height: 100, fit_to_hoop: true,
   stitch_spacing: 0.4, fill_spacing: 0.4, pull_compensation: 0.15,
   running_length: 2.5, max_stitch: 8, max_satin_width: 7, underlay: true,
-  auto_adjust: true, auto_fill_angle: true, fill_angle: 45,
+  auto_adjust: true, density_percent: 100, auto_fill_angle: true, fill_angle: 45,
   raster_threshold: null, raster_invert: false, max_colors: 6, preserve_colors: true,
   background_mode: "auto", stitch_type: "auto", raster_cleanup: true,
   compare_strategies: true,
@@ -31,7 +31,10 @@ export function applyMaterialPreset(settings: GenerationSettings, fabric: Fabric
 export function generationForm(file: File, settings: GenerationSettings): FormData {
   const data = new FormData();
   data.set("file", file);
-  for (const [key, value] of Object.entries(settings)) if (value !== null) data.set(key, String(value));
+  for (const [key, value] of Object.entries(settings)) {
+    if (key === "density_percent" && !settings.auto_adjust) continue;
+    if (value !== null) data.set(key, String(value));
+  }
   data.set("compare_strategies", String(settings.stitch_type === "auto" && settings.compare_strategies));
   return data;
 }

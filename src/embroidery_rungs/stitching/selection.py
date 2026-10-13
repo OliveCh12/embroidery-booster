@@ -15,6 +15,7 @@ from ..svg_manager import UNITS_PER_MM
 from .planner import CandidateGeometryError, UnstitchableRegion, build_stitch_plan
 from .quality import coverage_needs_review, measure_plan, satin_crowding
 from .rails import _valid_rail_pieces
+from .satin_geometry import directional_columns
 
 
 def _fill_angle(polygon, params):
@@ -231,7 +232,36 @@ def _geometry_key(mask, transform):
     )
 
 
-def select_stitch_types(elements, mask, transform, params, *, origin_mm=None, geometry_cache=None):
+def _safe_satin(metrics):
+    return (
+        not coverage_needs_review(metrics)
+        and metrics["unsafe_connections"] == 0
+        and metrics["omitted_regions"] == 0
+        and metrics["crowded_satin_penetrations"] == 0
+    )
+
+
+def _audit_satin(elements, params, origin, component, transform, scale, audit):
+    if audit is not None:
+        return audit(elements)
+    candidate = build_stitch_plan(elements, params, origin_mm=origin)
+    metrics, _ = measure_plan(
+        candidate,
+        np.pad(component, 3),
+        scale,
+        np.array([transform.e, transform.f]) + 3,
+    )
+    metrics.update(
+        crowded_satin_penetrations=satin_crowding(candidate, params.min_stitch_mm),
+        unsafe_connections=candidate.stats["unsafe_connections"],
+        omitted_regions=candidate.stats["omitted_regions"],
+    )
+    return metrics
+
+
+def select_stitch_types(
+    elements, mask, transform, params, *, origin_mm=None, geometry_cache=None, satin_audit=None
+):
     """Choose one top-layer strategy per connected region; never patch satin with fill."""
     minimum_width = max(
         2 * params.min_stitch_mm, {30: 0.75, 40: 0.6, 60: 0.45}[params.thread_weight]
@@ -326,6 +356,7 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None, ge
         ]
         broad = source.intersection(unary_union(wide)).area / source.area if wide else 0.0
         split_count = 0
+        directional_count = 0
         if wide and (
             params.stitch_type == "satin"
             or (
@@ -414,22 +445,11 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None, ge
         ):
             try:
                 ordered = route_columns(satin)
-                candidate = build_stitch_plan(ordered, params, origin_mm=origin_mm)
-                metrics, _ = measure_plan(
-                    candidate,
-                    np.pad(component, 3),
-                    scale,
-                    np.array([local_transform.e, local_transform.f]) + 3,
+                metrics = _audit_satin(
+                    ordered, params, origin_mm, component, local_transform, scale, satin_audit
                 )
                 candidates["satin"] = metrics
-                metrics["crowded_satin_penetrations"] = satin_crowding(
-                    candidate, params.min_stitch_mm
-                )
-                if (
-                    not coverage_needs_review(metrics)
-                    and candidate.stats["unsafe_connections"] == 0
-                    and metrics["crowded_satin_penetrations"] == 0
-                ):
+                if _safe_satin(metrics):
                     option, method, reason = (
                         ordered,
                         "satin",
@@ -440,6 +460,64 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None, ge
             except ValueError as exc:
                 candidates["satin"] = {"error": str(exc)}
                 reason = "satin_geometry_rejected"
+        if (
+            option is None
+            and width >= minimum_width
+            and (
+                params.stitch_type == "satin"
+                or (
+                    preferred
+                    and source.area / max(width**2, 1e-6) >= 1.5
+                    and width <= 3 * float_limit
+                )
+            )
+        ):
+            angle = _fill_angle(source, params)
+            angles = sorted({angle, (angle + 90) % 180, 0.0, 45.0, 90.0, 135.0})
+            directional = component_geometry.setdefault("directional", {})
+            alternatives = []
+            for sweep_angle in angles:
+                if sweep_angle not in directional:
+                    raw = directional_columns(source, sweep_angle, 0.0)
+                    for element in raw:
+                        element["rail_a"].setflags(write=False)
+                        element["rail_b"].setflags(write=False)
+                    directional[sweep_angle] = tuple(raw)
+                elements = [
+                    {
+                        **e,
+                        "rail_a": e["rail_a"].copy(),
+                        "rail_b": e["rail_b"].copy(),
+                        "allowed_area": source.buffer(params.pull_compensation_mm + 0.08),
+                    }
+                    for e in directional[sweep_angle]
+                ]
+                elements = _split_columns(elements, float_limit, params)
+                if elements and len(elements) <= 64:
+                    difference = abs((sweep_angle - angle + 90) % 180 - 90)
+                    alternatives.append((len(elements), difference, sweep_angle, elements))
+            # Prefer fewer seams, then the region's long direction. There are at
+            # most six orientations, reused across automatic variants; every
+            # attempted interpretation passes its own actual machine audit.
+            attempts = []
+            for _, _, sweep_angle, elements in sorted(alternatives, key=lambda a: a[:3]):
+                try:
+                    ordered = route_columns(elements)
+                    metrics = _audit_satin(
+                        ordered, params, origin_mm, component, local_transform, scale, satin_audit
+                    )
+                    attempts.append({"sweep_angle_deg": sweep_angle, **metrics})
+                    if _safe_satin(metrics):
+                        option, method, reason = ordered, "satin", "complete_directional_columns"
+                        split_count = sum("split_columns" in e for e in ordered)
+                        directional_count = len(ordered)
+                        candidates["directional_satin"] = {**metrics, "attempts": attempts}
+                        angle = None
+                        break
+                except ValueError as exc:
+                    attempts.append({"sweep_angle_deg": sweep_angle, "error": str(exc)})
+            if option is None:
+                candidates["directional_satin"] = {"attempts": attempts}
         if option is None:
             if params.stitch_type == "satin":
                 failure = (
@@ -500,6 +578,10 @@ def select_stitch_types(elements, mask, transform, params, *, origin_mm=None, ge
                 "mat_coverage": round(covered, 4),
                 "broad_fraction": round(broad, 4),
                 "split_satin_columns": split_count if method == "satin" else 0,
+                "directional_satin_columns": directional_count if method == "satin" else 0,
+                "canonical_satin_angle_deg": option[0].get("directional_satin_angle_deg")
+                if directional_count and method == "satin"
+                else None,
                 "safe_satin_width_mm": round(float_limit, 2),
                 "fill_angle_deg": angle,
                 "candidates": candidates,

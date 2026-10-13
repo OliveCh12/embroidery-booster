@@ -130,6 +130,7 @@ def _color_bitmap_svg(
     pixel_size_mm=None,
     hoop_size_mm=None,
     infer_counters=True,
+    recover_alpha_fragments=True,
 ):
     background_info = {}
     # Flood the source before resampling: Lanczos otherwise mixes opaque blank
@@ -183,6 +184,8 @@ def _color_bitmap_svg(
         labels = clean_color_regions(
             labels, colors, pixels_per_mm, cleanup_info, rgba=rgba if reduced else None
         )
+        if recover_alpha_fragments:
+            labels = _remove_alpha_fragments(labels, rgba, pixels_per_mm, cleanup_info)
     else:
         count = sum(label(labels == index)[1] for index in range(1, len(colors) + 1))
         cleanup_info.update(regions_before=count, regions_after=count)
@@ -232,6 +235,49 @@ def _color_bitmap_svg(
             ET.SubElement(root, "path", fill=color, attrib={"fill-rule": "evenodd", "d": path})
     ET.ElementTree(root).write(svg_path, encoding="utf-8", xml_declaration=True)
     return str(svg_path)
+
+
+def _remove_alpha_fragments(labels, rgba, pixels_per_mm, diagnostics):
+    """Discard only sub-resolution soft-alpha dust beside the same opaque mark."""
+    diagnostics.update(alpha_fragments_removed=0, alpha_fragment_pixels=0)
+    if not np.any((labels > 0) & (rgba[..., 3] < 224)):
+        return labels
+    components, count = label(labels > 0)
+    areas = np.bincount(components.ravel(), minlength=count + 1)
+    small = (areas > 0) & (areas <= min(4, 0.02 * pixels_per_mm**2))
+    small[0] = False
+    strong = np.bincount(components[rgba[..., 3] >= 224], minlength=count + 1) > 0
+    candidates = np.flatnonzero(small & ~strong)
+    if not len(candidates):
+        return labels
+    compact = np.zeros(count + 1, dtype=np.int32)
+    compact[candidates] = np.arange(1, len(candidates) + 1)
+    result = labels.copy()
+    removed = 0
+    pixels = 0
+    for candidate, box in zip(candidates, find_objects(compact[components]), strict=True):
+        if max(axis.stop - axis.start for axis in box) / pixels_per_mm > 0.25:
+            continue
+        patch = tuple(
+            slice(max(0, axis.start - 1), min(size, axis.stop + 1))
+            for axis, size in zip(box, labels.shape, strict=True)
+        )
+        mask = components[patch] == candidate
+        paints = np.unique(labels[patch][mask])
+        if len(paints) != 1 or np.any(rgba[patch][mask, 3] >= 224):
+            continue
+        neighbours = binary_dilation(mask, structure=np.ones((3, 3), bool)) & ~mask
+        stable = areas[components[patch]] >= 0.5 * pixels_per_mm**2
+        if not np.any(neighbours & stable & (labels[patch] == paints[0])):
+            continue
+        result[patch][mask] = 0
+        removed += 1
+        pixels += int(mask.sum())
+    diagnostics.update(alpha_fragments_removed=removed, alpha_fragment_pixels=pixels)
+    if removed:
+        diagnostics["removed_pixels"] += pixels
+        diagnostics["reason"] = "partial_alpha_edge_fragments"
+    return result
 
 
 def _monochrome_counters(labels, colors, background_info, cleanup):
@@ -408,6 +454,7 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
                         pixel_size_mm=svg.width / UNITS_PER_MM / rendered.width,
                         hoop_size_mm=hoop_size,
                         infer_counters=False,
+                        recover_alpha_fragments=False,
                     )
                 )
     else:
@@ -449,6 +496,14 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
             "Background kept because the image perimeter is ambiguous; choose Keep or Remove explicitly after checking the artwork."
         )
     cleaning = input_analysis["cleanup"]
+    if cleaning.get("dark_ink_edge_pixels"):
+        warnings.append(
+            f"Recovered {cleaning['dark_ink_edge_pixels']} partially transparent gray edge pixels as the dominant near-black ink; opaque gray paint and colored accents remain distinct."
+        )
+    if cleaning.get("alpha_fragments_removed"):
+        warnings.append(
+            f"Removed {cleaning['alpha_fragments_removed']} sub-resolution partially transparent fragments next to the same paint; opaque and isolated details were preserved."
+        )
     if cleaning.get("changed_pixels"):
         warnings.append(
             f"Reduced {cleaning['changed_pixels']} small adjacent colour speckles ({cleaning['changed_area_mm2']:.2f} mm²); isolated or contrasting accents were preserved. Disable raster cleanup to retain every colour detail."

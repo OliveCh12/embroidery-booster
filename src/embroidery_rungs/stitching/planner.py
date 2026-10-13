@@ -103,7 +103,11 @@ def _make_blocks(elements, params):
             paths.append(
                 (
                     "running",
-                    resample_running(points, min(params.running_length_mm, params.max_stitch_mm)),
+                    resample_running(
+                        points,
+                        min(params.running_length_mm, params.max_stitch_mm),
+                        tolerance=0.04,
+                    ),
                 )
             )
         else:

@@ -144,10 +144,23 @@ evaluate additional rail sweeps and retain suitable satin companions instead
 of unifying them with a filled body; it never bypasses machine-grid audits and
 falls back to tatami for incomplete or crowded columns. **Uniform fill** uses
 tatami with the requested global fill angle on all sewable surfaces.
+**All satin** requires complete satin coverage and reports failures separately.
+**Running outlines** sew contours rather than solid surfaces and cannot win the
+surface recommendation. Exact duplicates retain all equivalent strategy names.
+
+When medial-axis rails fail, strict satin and satin-preferred Auto can evaluate
+up to six deterministic directional decompositions, each bounded to 64 paired
+rail columns per region. Sweep topology events separate branches and preserve
+holes. Large compact regions remain tatami in ordinary Auto; forcing satin does
+not remove width, crowding or coverage checks. The fallback audit uses the final
+artwork frame and 0.1 mm machine grid. Inner fans and narrow caps shorten or
+skip penetrations only when the resulting top stitches retain audited coverage.
 
 Prepared visible labels and canonical geometry are reused, with lazy medial
 axes cached per region. Stitches, underlay and their quality measurements are
 rebuilt independently. Exact command/palette duplicates produce one export.
+A fully qualified all-satin plan also fulfills the strict-satin comparison
+without repeating its geometry and machine audit.
 An unsuccessful alternative does not discard a successful primary plan.
 Explicit Satin/Fill/Running requests do not trigger variants.
 Above 256 visible colour regions, comparison retains just balanced and reports
@@ -159,6 +172,15 @@ Recommendations compare actual safety and coverage diagnostics first; a safe
 satin gain is an aesthetic preference only among qualified alternatives.
 They do not optimize thread count into a supposed beauty metric or increase
 density to mask deficient geometry. The balanced plan wins equivalent choices.
+An explicit `density_percent` (80–120, web default 100) divides the material's reference row pitch
+by the requested percentage. It is idempotent across shared preparation and
+digitizing; thread weight and fabric retain their physical spacing bounds.
+Without this request (`None`), existing library/CLI spacing is preserved within
+material bounds. Explicit 100 resets to the material reference, including after
+a manual spacing change. Manual spacing takes precedence when automatic adjustment is disabled. Density
+modifies the top layer, not the number of foundations. This follows the principle
+of [satin density relative to a preset](https://docs.wilcom.com/embroiderystudio/27/en/OnlineHelp/Digitizing/stitches/stitches-8.htm)
+and [joint fabric, underlay and compensation settings](https://docs.wilcom.com/embroiderystudio/28/en/OnlineHelp/Digitizing/properties/properties-9.htm).
 Common image ambiguities and all remaining omissions remain visible in the
 diagnostics. Physical stitch appearance still requires material-specific sewing
 validation, as commercial

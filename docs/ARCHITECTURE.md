@@ -21,6 +21,7 @@ src/embroidery_rungs/
     analysis.py            Analyse des régions et ajustements bornés
     regions.py             Repères locaux et équivalences géométriques
     rails.py               Colonnes internes issues de l'axe médian
+    satin_geometry.py      Rubans directionnels, branches et contreformes
     selection.py           Candidats satin/running/tatami et angle surfacique
     consistency.py         Politique commune aux homologues, audit machine final
     paths.py               Échantillonnage des points supérieurs
@@ -65,8 +66,9 @@ output/                   Jobs et artefacts générés, ignorés par Git
    Publier les fichiers seulement après réussite de la génération.
 
 Avec `compare_strategies=True`, la préparation d'image et de palette est commune
-aux propositions équilibrée, priorité satin et tatami uniforme. Les repères
-canoniques, contours et axes médians réutilisables sont mis en cache uniquement
+aux propositions équilibrée, priorité satin, tout satin, tatami uniforme et
+contours au point droit. Les repères canoniques, contours, décompositions
+directionnelles et axes médians réutilisables sont mis en cache uniquement
 pour cette génération. Chaque proposition construit et audite son propre plan ;
 aucun plan mutable n'est partagé. `variants.py` classe les diagnostics avant les
 préférences de texture, conserve le choix équilibré à égalité et déduplique les
@@ -74,7 +76,7 @@ commandes machine identiques. Le résultat principal pointe vers la recommandati
 les alternatives conservent leurs propres fichiers et diagnostics. Un mode forcé
 ne déclenche pas de comparaison.
 Au-delà de 256 régions visibles, seule la proposition équilibrée est calculée
-et les deux alternatives non calculées sont signalées. Ce budget opérationnel
+et les quatre alternatives non calculées sont signalées. Ce budget opérationnel
 borne la répétition des audits ; il ne modifie ni l'image ni les limites machine.
 
 Le visualisateur choisit une proposition sans requête de génération supplémentaire.

@@ -54,8 +54,12 @@ def test_comparison_shares_interpretation_and_lazy_geometry(svg_file, tmp_path, 
         "compute_medial_axis": 1,
     }
     assert result.recommended_variant == "balanced"
-    assert [variant.id for variant in result.variants] == ["balanced", "uniform_fill"]
-    assert result.variants[0].equivalent_strategies == ["satin_preferred"]
+    assert [variant.id for variant in result.variants] == [
+        "balanced",
+        "uniform_fill",
+        "running_outline",
+    ]
+    assert result.variants[0].equivalent_strategies == ["satin_preferred", "uniform_satin"]
     assert result.direct is result.variants[0].direct
     assert Path(result.direct.pes_path).name == "shape_direct.pes"
     assert Path(result.variants[1].direct.pes_path).name == "shape_uniform_fill_direct.pes"
@@ -142,7 +146,7 @@ def test_failed_alternative_preserves_successful_balanced_result(svg_file, tmp_p
     monkeypatch.setattr(variants, "digitize", fail_fill)
     result = generate(_column(svg_file), tmp_path / "out", compare_strategies=True)
     assert result.recommended_variant == "balanced"
-    assert len(result.variants) == 1
+    assert [v.id for v in result.variants] == ["balanced", "running_outline"]
     assert result.skipped_variants == [
         {"id": "uniform_fill", "reason": "Alternative exceeds its stitch budget."}
     ]
@@ -182,12 +186,17 @@ def test_comparison_region_budget_only_limits_alternatives(svg_file, monkeypatch
                 "region_count": region_count,
                 "limit": MAX_COMPARISON_REGIONS,
             }
-            for identifier in ("satin_preferred", "uniform_fill")
+            for identifier in (
+                "satin_preferred",
+                "uniform_fill",
+                "uniform_satin",
+                "running_outline",
+            )
         ]
         assert "comparison_limited" in candidates[0].reasons
         assert "no_meaningful_gain" not in candidates[0].reasons
     else:
-        assert calls == ["balanced", "satin_preferred", "fill"]
+        assert calls == ["balanced", "satin_preferred", "fill", "running"]
         assert skipped == []
         assert "comparison_limited" not in candidates[0].reasons
 
@@ -293,6 +302,35 @@ def test_recommendation_keeps_balanced_ties_and_ignores_raw_stitch_count():
     balanced = _candidate("balanced", stitches=5000)
     fill = _candidate("uniform_fill", stitches=300)
     assert recommend_variant([balanced, fill]) == "balanced"
+
+
+def test_outline_is_never_recommended_in_place_of_surface_coverage():
+    balanced = _candidate("balanced", status="needs_review", omitted_regions=1)
+    outline = _candidate("running_outline")
+    assert recommend_variant([balanced, outline]) == "balanced"
+
+
+def test_complete_satin_comparison_reuses_an_independently_equivalent_strict_plan(
+    svg_file, tmp_path, monkeypatch
+):
+    from embroidery_rungs.stitching import variants
+
+    source = _column(svg_file)
+    strict = generate(source, tmp_path / "strict", stitch_params=StitchParams(stitch_type="satin"))
+    original = variants.digitize
+
+    def avoid_repeating_satin(svg, params, **kwargs):
+        assert params.stitch_type != "satin"
+        return original(svg, params, **kwargs)
+
+    monkeypatch.setattr(variants, "digitize", avoid_repeating_satin)
+    compared = generate(source, tmp_path / "compared", compare_strategies=True)
+    match = next(v for v in compared.variants if "uniform_satin" in v.equivalent_strategies)
+    strict_data = json.loads(Path(strict.direct.plan_path).read_text())
+    assert _data(match)["commands"] == strict_data["commands"]
+    assert match.quality["purpose"] == "surface"
+    outline = next(v for v in compared.variants if v.id == "running_outline")
+    assert outline.quality["purpose"] == "outline"
 
 
 def test_coverage_distances_below_structural_tolerance_are_equivalent():

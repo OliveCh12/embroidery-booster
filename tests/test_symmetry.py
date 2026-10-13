@@ -178,8 +178,8 @@ def test_translation_preserves_non_round_region_paths_in_local_coordinates(tmp_p
         np.testing.assert_allclose(points_a, points_b - offset, atol=0.100001, rtol=0)
 
 
-@pytest.mark.parametrize("width", [0.5, 0.6, 0.8])
-def test_narrow_fork_does_not_advertise_a_phantom_foundation(tmp_path, width):
+@pytest.mark.parametrize("width,method", [(0.5, "fill"), (0.6, "fill"), (0.8, "satin")])
+def test_narrow_fork_does_not_advertise_a_phantom_foundation(tmp_path, width, method):
     body = (
         f'<path fill="none" stroke="black" stroke-width="{width}" stroke-linejoin="round" '
         'd="M20 40L40 20L60 40M40 20V55"/>'
@@ -187,11 +187,12 @@ def test_narrow_fork_does_not_advertise_a_phantom_foundation(tmp_path, width):
     result, _ = _generate(tmp_path, body, width=80, height=80)
     assert len(result.decisions) == 1
     decision = result.decisions[0]
-    assert decision["method"] == "fill"
-    assert result.stats["underlay_stitches"] == 0
-    assert decision["actual_top_metrics"]["underlay_stitches"] == 0
-    assert not decision["underlay"]
-    assert decision["underlay_strategy"] == "none"
+    assert decision["method"] == method
+    actual_support = decision["actual_top_metrics"]["underlay_stitches"]
+    assert result.stats["underlay_stitches"] == actual_support
+    assert decision["underlay"] == (actual_support > 0)
+    assert decision["underlay_strategy"] == ("center" if method == "satin" else "none")
+    assert (actual_support > 0) == (method == "satin")
 
 
 def test_equivalent_narrow_forks_share_the_actual_foundation_policy(tmp_path):

@@ -154,6 +154,7 @@ result = generate(
         thread_weight=40,
         stabilizer="cutaway",
         machine="brother-skitch-pp1",
+        density_percent=100,
     ),
     compare_strategies=True,
 )
@@ -182,7 +183,25 @@ previous outputs.
 
 Use `StitchParams(auto_strategy="satin_preferred")` to generate the satin-emphasis
 Auto proposal alone. It retains tatami fallback and all safety checks. With
-comparison enabled, the engine evaluates its fixed balanced/satin/fill set.
+comparison enabled, the engine evaluates balanced Auto, satin-preferred Auto,
+strict all-satin, uniform tatami and running outlines. Identical plans are
+exported once and list their equivalent strategies. Running outlines remain a
+deliberate contour style and are never recommended as a solid surface.
+
+Strict satin can divide branched silhouettes into paired directional rails
+when the medial axis leaves caps or junctions uncovered. Wide rails become
+adjacent safe-width columns; every candidate still passes the final machine-grid
+coverage and penetration checks. It never disguises tatami as satin. Genuinely
+unsewable details or excessive decomposition still produce an explicit refusal.
+
+Set `density_percent=80` through `120` (web default `100`) or CLI
+`--density-percent 110` to adjust surface density relative to the fabric/thread
+preset. Higher percentages put rows closer together. With `auto_adjust=False`,
+explicit satin/fill spacing takes precedence.
+Without a density request (`None`), existing library/CLI spacing is preserved
+within material bounds; explicit `100` selects the material's reference pitch.
+Density does not add extra underlay layers, and it is not a 3D-puff setting: foam embroidery needs dedicated
+construction and a physical sew-out.
 
 **Migration from 0.3:** editable rail/rung exports and external embroidery
 workflows have been removed. The API accepts only `method="direct"`, which is

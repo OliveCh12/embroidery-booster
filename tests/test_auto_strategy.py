@@ -175,7 +175,7 @@ def test_geometry_cache_is_invalidated_when_source_geometry_changes(tmp_path, mo
     assert calls == 2
 
 
-def test_preferred_nike_retains_fill_when_satin_coverage_and_regularity_fail(tmp_path):
+def test_preferred_nike_replaces_incomplete_mat_with_audited_directional_satin(tmp_path):
     source = Path(__file__).resolve().parents[1] / "examples/nike.svg"
     params = StitchParams.for_fabric(
         "stable", machine="brother-skitch-pp1", auto_strategy="satin_preferred"
@@ -190,8 +190,27 @@ def test_preferred_nike_retains_fill_when_satin_coverage_and_regularity_fail(tmp
     plan, _ = digitize(load_svg_paths(prepared)[0], params)
     body = max(plan.decisions, key=lambda d: d["area_mm2"])
     assert body["mat_evaluated"]
-    assert body["method"] == "fill"
-    satin = body["candidates"]["satin"]
-    assert satin["structural_coverage"] < 0.999
-    assert satin["crowded_satin_penetrations"] > 0
+    assert body["method"] == "satin"
+    assert body["reason"] == "complete_directional_columns"
+    assert body["directional_satin_columns"] == 3
+    assert body["candidates"]["satin"]["structural_coverage"] < 0.999
+    directional = body["candidates"]["directional_satin"]
+    assert directional["structural_coverage"] >= 0.999
+    assert directional["crowded_satin_penetrations"] == directional["unsafe_connections"] == 0
+    assert_machine_quality(plan)
+
+
+def test_equivalent_fallback_satin_regions_keep_the_same_direction_and_foundation(tmp_path):
+    svg = document(
+        tmp_path,
+        '<path d="M5 5H30V9H9V30H5Z"/><path d="M75 65H50V61H71V40H75Z"/>',
+    )
+    params = StitchParams.for_fabric("stable", machine="brother-skitch-pp1", stitch_type="satin")
+    plan, _ = digitize(svg, params)
+    assert {d["method"] for d in plan.decisions} == {"satin"}
+    assert {d["reason"] for d in plan.decisions} == {"complete_directional_columns"}
+    assert len({d["equivalence_group"] for d in plan.decisions}) == 1
+    assert len({d["canonical_satin_angle_deg"] for d in plan.decisions}) == 1
+    assert len({d["satin_angle_deg"] for d in plan.decisions}) == 1
+    assert len({d["underlay_strategy"] for d in plan.decisions}) == 1
     assert_machine_quality(plan)

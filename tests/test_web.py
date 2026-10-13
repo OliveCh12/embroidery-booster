@@ -71,7 +71,7 @@ def test_automatic_variant_previews_and_downloads_share_artwork(app):
     assert response.status_code == 200
     result = response.get_json()
     variants = result["variants"]
-    assert 1 <= len(variants) <= 3
+    assert 1 <= len(variants) <= 5
     selected = next(v for v in variants if v["id"] == result["recommended_variant"])
     assert selected["direct"] == result["direct"]
     assert len({tuple(v["direct"]["threads"]) for v in variants}) == 1
@@ -154,6 +154,9 @@ def test_web_bitmap_size_and_interpreted_artwork(app):
         {"hoop_width": "5"},
         {"underlay": "maybe"},
         {"compare_strategies": "maybe"},
+        {"density_percent": "79"},
+        {"density_percent": "121"},
+        {"density_percent": "100.5"},
         {"method": "both"},
         {"debug": "true"},
     ],
@@ -162,6 +165,23 @@ def test_bad_web_parameters_return_400(app, extra):
     data = {"file": (io.BytesIO(SVG), "logo.svg"), **extra}
     assert app.test_client().post("/api/convert", data=data).status_code == 400
     assert not Path(app.config["OUTPUT_ROOT"]).exists()
+
+
+def test_web_density_is_applied_once_and_returned_with_effective_pitch(app):
+    response = app.test_client().post(
+        "/api/convert",
+        data={
+            "file": (io.BytesIO(SVG), "logo.svg"),
+            "density_percent": "120",
+            "fabric": "stable",
+            "stitch_spacing": "0.6",
+            "fill_spacing": "0.6",
+        },
+    )
+    assert response.status_code == 200
+    params = response.get_json()["direct"]["params"]
+    assert params["density_percent"] == 120
+    assert params["satin_spacing_mm"] == params["fill_spacing_mm"] == pytest.approx(0.333)
 
 
 def test_invalid_upload_is_removed_and_restart_preserves_jobs(app):

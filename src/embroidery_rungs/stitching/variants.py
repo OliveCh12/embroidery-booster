@@ -125,12 +125,14 @@ def recommend_variant(variants: list[PlannedVariant]) -> str:
     """Keep balanced on equivalent diagnostics; prefer substantive, audited satin."""
     best = variants[0]
     for candidate in variants[1:]:
+        if candidate.id == "running_outline":
+            continue
         proposed_rank, current_rank = _safety_rank(candidate.quality), _safety_rank(best.quality)
         if proposed_rank < current_rank:
             best = candidate
         elif (
             proposed_rank == current_rank
-            and candidate.id == "satin_preferred"
+            and candidate.id in ("satin_preferred", "uniform_satin")
             and _safe_satin_improvement(candidate, best)
         ):
             best = candidate
@@ -143,8 +145,28 @@ def _fingerprint(plan):
     return digest.digest()
 
 
+def _complete_satin(variant):
+    quality = variant.quality
+    return (
+        quality["status"] == "geometric_checks_passed"
+        and variant.plan.decisions
+        and all(d["method"] == "satin" for d in variant.plan.decisions)
+        and not any(
+            quality[key]
+            for key in (
+                "unsafe_connections",
+                "crowded_satin_penetrations",
+                "short_stitches",
+                "omitted_regions",
+                "omitted_colors",
+                "failed_coverage_layers",
+            )
+        )
+    )
+
+
 def plan_variants(svg, params: StitchParams):
-    """Compare three policies on one artwork; never relax any machine safety gate."""
+    """Compare supported styles on one artwork; retain machine safety gates."""
     if params.stitch_type != "auto":
         raise ValueError("Automatic strategy comparison requires stitch_type='auto'.")
     started = time.perf_counter()
@@ -154,6 +176,8 @@ def plan_variants(svg, params: StitchParams):
         ("balanced", replace(params, auto_strategy="balanced")),
         ("satin_preferred", replace(params, auto_strategy="satin_preferred")),
         ("uniform_fill", replace(params, stitch_type="fill", auto_fill_angle=False)),
+        ("uniform_satin", replace(params, stitch_type="satin")),
+        ("running_outline", replace(params, stitch_type="running")),
     )
     variants, skipped, fingerprints = [], [], {}
     comparison_limited = prepared.analysis["region_count"] > MAX_COMPARISON_REGIONS
@@ -172,6 +196,13 @@ def plan_variants(svg, params: StitchParams):
         )
         policies = policies[:1]
     for variant_id, variant_params in policies:
+        if variant_id == "uniform_satin":
+            complete = next((v for v in variants if _complete_satin(v)), None)
+            if complete is not None:
+                # A fully audited satin plan already fulfills this request.
+                # Reuse it instead of generating an identical interpretation.
+                complete.equivalent_strategies.append(variant_id)
+                continue
         started = time.perf_counter()
         try:
             plan, layers = digitize(svg, variant_params, prepared=prepared)
@@ -187,17 +218,23 @@ def plan_variants(svg, params: StitchParams):
         reasons = ["shared_interpretation", "audit_first"]
         if variant_id == "uniform_fill":
             reasons.append("uniform_texture")
+        elif variant_id == "uniform_satin":
+            reasons.append("all_satin")
+        elif variant_id == "running_outline":
+            reasons.append("outline_only")
         elif variant_id == "satin_preferred":
             reasons.append("qualified_columns")
         else:
             reasons.append("balanced_default")
         if plan.analysis["quality_status"] == "needs_review":
             reasons.append("needs_review")
+        quality = _quality(plan, layers)
+        quality["purpose"] = "outline" if variant_id == "running_outline" else "surface"
         candidate = PlannedVariant(
             variant_id,
             plan,
             layers,
-            _quality(plan, layers),
+            quality,
             reasons,
             time.perf_counter()
             - started
@@ -207,7 +244,9 @@ def plan_variants(svg, params: StitchParams):
         fingerprints[fingerprint] = candidate
     recommended = recommend_variant(variants)
     selected = next(v for v in variants if v.id == recommended)
-    if recommended == "satin_preferred" and _safe_satin_improvement(selected, variants[0]):
+    if recommended in ("satin_preferred", "uniform_satin") and _safe_satin_improvement(
+        selected, variants[0]
+    ):
         selected.reasons.append("safe_satin_gain")
     elif recommended != "balanced":
         selected.reasons.append("improved_geometry")

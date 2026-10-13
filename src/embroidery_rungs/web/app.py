@@ -157,6 +157,8 @@ def create_app(config=None):
                     setattr(stitch_params, name, float(request.form[field]))
             if "max_colors" in request.form:
                 stitch_params.max_colors = int(request.form["max_colors"])
+            if "density_percent" in request.form:
+                stitch_params.density_percent = int(request.form["density_percent"])
             for name in ("preserve_colors", "underlay", "auto_adjust", "auto_fill_angle"):
                 setattr(stitch_params, name, boolean(name, getattr(stitch_params, name)))
             stitch_params.thread_color = request.form.get(

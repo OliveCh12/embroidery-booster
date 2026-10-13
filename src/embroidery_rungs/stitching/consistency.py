@@ -44,7 +44,10 @@ def _color_policy(groups, params):
         if (
             params.stitch_type == "auto"
             and policies[group] == "satin"
-            and len({len(m.elements) for m in members}) > 1
+            and len(
+                {(len(m.elements), m.decision.get("canonical_satin_angle_deg")) for m in members}
+            )
+            > 1
         ):
             policies[group] = "fill"
     if params.stitch_type != "auto" or params.auto_strategy == "satin_preferred":
@@ -274,6 +277,24 @@ def select_consistent_regions(
                 }
                 for e in member_geometry["mat"]
             ]
+
+        def audit_satin(selected, region=region):
+            framed = [{**element, "frame": region.frame} for element in selected]
+            candidate = build_stitch_plan(framed, params, origin_mm=origin)
+            offset = (
+                np.array(
+                    [transform.e - region.bounds[1].start, transform.f - region.bounds[0].start]
+                )
+                + 3
+            )
+            metrics, _ = measure_plan(candidate, np.pad(region.source_mask, 3), scale, offset)
+            metrics.update(
+                crowded_satin_penetrations=satin_crowding(candidate, params.min_stitch_mm),
+                unsafe_connections=candidate.stats["unsafe_connections"],
+                omitted_regions=candidate.stats["omitted_regions"],
+            )
+            return metrics
+
         selected, decisions = select_stitch_types(
             elements,
             local_mask,
@@ -281,6 +302,7 @@ def select_consistent_regions(
             local_params,
             origin_mm=local_origin,
             geometry_cache=member_geometry["selection"],
+            satin_audit=audit_satin if preferred or params.stitch_type == "satin" else None,
         )
         if decisions:
             decisions[0]["mat_evaluated"] = needs_mat
@@ -300,6 +322,17 @@ def select_consistent_regions(
     policies, color_angle, converted = _color_policy(groups, params)
     for group, members in groups.items():
         method = policies[group]
+        if (
+            params.stitch_type == "satin"
+            and len(
+                {(len(m.elements), m.decision.get("canonical_satin_angle_deg")) for m in members}
+            )
+            > 1
+        ):
+            raise ValueError(
+                "Satin requested, but equivalent regions need incompatible column directions "
+                "on the machine grid. Use automatic or fill stitching, or simplify the shape."
+            )
         representative = next((m for m in members if m.decision["method"] == "fill"), members[0])
         angle = _fill_angle(representative.polygons[0], representative.params)
         color_texture = (
@@ -367,6 +400,14 @@ def select_consistent_regions(
                     else "equivalent_region_consensus"
                     if method != decision["method"]
                     else decision["reason"],
+                    "directional_satin_columns": decision.get("directional_satin_columns", 0)
+                    if method == "satin"
+                    else 0,
+                    "satin_angle_deg": region.frame.angle_to_world(
+                        decision["canonical_satin_angle_deg"]
+                    )
+                    if method == "satin" and decision.get("canonical_satin_angle_deg") is not None
+                    else None,
                     "requested_stitch_type": params.stitch_type,
                     "auto_strategy": params.auto_strategy,
                     "strategy_scope": "color" if color_texture else "region",

@@ -132,6 +132,8 @@ def test_machine_profile_is_available_via_cli(tmp_path, capsys):
                 str(EXAMPLES / "straight.svg"),
                 "--machine",
                 "brother-skitch-pp1",
+                "--density-percent",
+                "120",
                 "--output-dir",
                 str(tmp_path),
                 "--json",
@@ -143,6 +145,52 @@ def test_machine_profile_is_available_via_cli(tmp_path, capsys):
     assert settings["machine"] == "brother-skitch-pp1"
     assert settings["max_colors"] == 6
     assert settings["max_satin_width_mm"] == 7
+    assert settings["density_percent"] == 120
+    assert settings["satin_spacing_mm"] == pytest.approx(0.333)
+
+
+@pytest.mark.parametrize("kind", ["satin", "fill"])
+def test_density_changes_top_pitch_without_adding_extra_underlay_layers(tmp_path, kind):
+    plans = []
+    for density in (80, 100, 120):
+        result = generate(
+            EXAMPLES / "straight.svg",
+            tmp_path / str(density),
+            stitch_params=StitchParams.for_fabric(
+                "stable", stitch_type=kind, density_percent=density, machine="brother-skitch-pp1"
+            ),
+        ).direct
+        plans.append(result)
+        assert result.stats["short_stitches"] == 0
+        assert result.stats["unsafe_connections"] == 0
+        assert result.stats["crowded_satin_penetrations"] == 0
+        assert result.stats["max_stitch_mm"] <= 8
+        assert result.stats["structural_coverage"] >= 0.999
+        commands = np.asarray(json.loads(Path(result.plan_path).read_text())["commands"])
+        for filename in (result.pes_path, result.dst_path):
+            exported = np.asarray(pe.read(filename).stitches)
+            assert np.array_equal(
+                exported[(exported[:, 2].astype(int) & pe.COMMAND_MASK) == pe.STITCH, :2],
+                commands[commands[:, 2] == pe.STITCH, :2],
+            )
+    assert plans[0].stats["stitches"] < plans[1].stats["stitches"] < plans[2].stats["stitches"]
+    assert len({p.stats["underlay_stitches"] for p in plans}) == 1
+
+
+@pytest.mark.parametrize("sample", ["ring", "s-curve", "holes", "star"])
+def test_running_outlines_keep_curves_without_rejected_connection_fragments(tmp_path, sample):
+    result = generate(
+        EXAMPLES / f"{sample}.svg",
+        tmp_path,
+        GenerationParams(design_width_mm=80, fit_to_hoop=True),
+        stitch_params=StitchParams.for_fabric(
+            "stable", machine="brother-skitch-pp1", stitch_type="running"
+        ),
+    ).direct
+    assert {d["method"] for d in result.decisions} == {"running"}
+    assert result.stats["unsafe_connections"] == 0
+    assert result.stats["short_stitches"] == 0
+    assert result.stats["max_stitch_mm"] <= 8
 
 
 @pytest.mark.parametrize("choice", ["auto", "satin"])

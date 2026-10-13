@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeBackground } from "./background-diagnostics";
+import { describeBackground, describeBitmapCleanup } from "./background-diagnostics";
 import type { InputAnalysis } from "./types";
 
 const legacy: NonNullable<InputAnalysis["background"]> = {
@@ -65,5 +65,33 @@ describe("background interpretation feedback", () => {
     expect(summary.message).toContain("Désactivez le nettoyage");
     expect(summary.message).not.toContain("aplats intérieurs sont préservés");
     expect(summary.metrics).toContainEqual({ label: "Évidements monochromes", value: "2" });
+  });
+});
+
+describe("bitmap ink recovery feedback", () => {
+  const cleanup: NonNullable<InputAnalysis["cleanup"]> = {
+    enabled: true, changed_pixels: 0, removed_pixels: 0, regions_before: 3, regions_after: 3,
+    changed_area_mm2: 0, reason: "no_safe_speckles",
+  };
+
+  it("omits ink recovery when absent or disabled", () => {
+    expect(describeBitmapCleanup(undefined)).toEqual([]);
+    expect(describeBitmapCleanup(cleanup)).toEqual([]);
+    expect(describeBitmapCleanup({ ...cleanup, dark_ink_edge_pixels: 0, alpha_fragments_removed: 0 })).toEqual([]);
+  });
+
+  it("explains gray alpha fringe recovery without claiming all grays were removed", () => {
+    const messages = describeBitmapCleanup({ ...cleanup, dark_ink_edge_pixels: 1091 });
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain("même fil noir");
+    expect(messages[0]).toContain("gris opaques et accents colorés sont préservés");
+  });
+
+  it("reports the partial-alpha fragment separately from color cleanup", () => {
+    const messages = describeBitmapCleanup({ ...cleanup, alpha_fragments_removed: 1, alpha_fragment_pixels: 1 });
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain("1 fragment d’antialiasing trop fin retiré");
+    expect(messages[0]).toContain("(1 pixel)");
+    expect(messages[0]).toContain("détails opaques ou isolés sont préservés");
   });
 });

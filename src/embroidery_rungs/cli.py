@@ -65,6 +65,11 @@ def parse_arguments(argv=None):
     )
     parser.add_argument("--no-underlay", action="store_true", help="Disable direct underlay")
     parser.add_argument(
+        "--density-percent",
+        type=int,
+        help="Automatic material density, 80–120 percent (100 = preset)",
+    )
+    parser.add_argument(
         "--no-auto-adjust",
         action="store_true",
         help="Use requested settings without automatic adjustments",
@@ -136,6 +141,7 @@ def main(argv=None):
                 max_stitch_mm=args.max_stitch,
                 underlay=not args.no_underlay,
                 auto_adjust=not args.no_auto_adjust,
+                density_percent=args.density_percent,
                 auto_fill_angle=args.fill_angle is None,
                 stitch_type=args.stitch_type,
                 hoop_width_mm=args.hoop_width,

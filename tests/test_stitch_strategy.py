@@ -73,16 +73,22 @@ def test_strict_satin_divides_broad_columns_without_raising_the_float_limit(tmp_
     ],
     ids=["corner", "branch"],
 )
-def test_incomplete_corners_and_branches_keep_the_machine_gate_and_explain_failure(tmp_path, shape):
+def test_corners_and_branches_use_audited_satin_decomposition_when_requested(tmp_path, shape):
     svg = document(tmp_path, shape)
     automatic, _ = digitize(svg, StitchParams())
-    assert {d["method"] for d in automatic.decisions} == {"fill"}
+    assert {d["method"] for d in automatic.decisions} <= {"fill", "satin"}
     assert automatic.stats["structural_coverage"] >= 0.999
     assert automatic.stats["unsafe_connections"] == automatic.stats["short_stitches"] == 0
-    with pytest.raises(
-        ValueError, match="Satin requested.*uncovered areas or crowded penetrations"
-    ):
-        digitize(svg, StitchParams(stitch_type="satin"))
+    assert automatic.stats["crowded_satin_penetrations"] == 0
+    satin, _ = digitize(svg, StitchParams(stitch_type="satin"))
+    assert {d["method"] for d in satin.decisions} == {"satin"}
+    assert satin.stats["structural_coverage"] >= 0.999
+    assert satin.stats["unsafe_connections"] == satin.stats["short_stitches"] == 0
+    assert satin.stats["crowded_satin_penetrations"] == 0
+    assert satin.decisions[0]["reason"] in (
+        "complete_directional_columns",
+        "complete_regular_column",
+    )
 
 
 @pytest.mark.parametrize("choice", ["auto", "satin"])

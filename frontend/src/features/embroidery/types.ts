@@ -24,7 +24,7 @@ export interface GenerationSettings {
   design_width: number | null; hoop_width: number; hoop_height: number; fit_to_hoop: boolean;
   stitch_spacing: number; fill_spacing: number; pull_compensation: number;
   running_length: number; max_stitch: number; max_satin_width: number; underlay: boolean;
-  auto_adjust: boolean; auto_fill_angle: boolean; fill_angle: number;
+  auto_adjust: boolean; density_percent: number; auto_fill_angle: boolean; fill_angle: number;
   raster_threshold: number | null; raster_invert: boolean; max_colors: number; preserve_colors: boolean;
   background_mode: BackgroundMode; stitch_type: StitchType; raster_cleanup: boolean;
   compare_strategies: boolean;
@@ -33,6 +33,7 @@ export interface StitchParams {
   satin_spacing_mm: number; fill_spacing_mm: number; pull_compensation_mm: number;
   running_length_mm: number; max_stitch_mm: number; max_satin_width_mm: number;
   hoop_width_mm: number; hoop_height_mm: number; underlay: boolean; auto_adjust: boolean;
+  density_percent?: number | null;
   fill_angle_deg: number; auto_fill_angle: boolean; machine: Machine; fabric: Fabric;
   thread_weight: number; stabilizer: Stabilizer;
   stitch_type: StitchType;
@@ -77,6 +78,8 @@ export interface InputAnalysis {
     palette_changed_area_mm2?: number | null; regions_after_palette?: number | null;
     retained_accent_colors?: number | null;
     edge_blend_pixels?: number | null;
+    dark_ink_edge_pixels?: number | null;
+    alpha_fragments_removed?: number | null; alpha_fragment_pixels?: number | null;
   };
 }
 export interface DirectResult {
@@ -85,10 +88,10 @@ export interface DirectResult {
   params: StitchParams; requested_params: StitchParams; analysis: DesignAnalysis; adjustments: Adjustment[];
   warnings?: string[];
 }
-export type VariantId = "balanced" | "satin_preferred" | "uniform_fill";
+export type VariantId = "balanced" | "satin_preferred" | "uniform_fill" | "uniform_satin" | "running_outline";
 export interface GenerationVariant {
   id: VariantId; direct: DirectResult;
-  quality: { status: DesignAnalysis["quality_status"]; ranking_basis: string; method_area_mm2: Record<"satin" | "fill" | "running" | "omitted", number>; structural_coverage: number; largest_gap_mm2: number };
+  quality: { status: DesignAnalysis["quality_status"]; ranking_basis: string; method_area_mm2: Record<"satin" | "fill" | "running" | "omitted", number>; structural_coverage: number; largest_gap_mm2: number; purpose?: "surface" | "outline" };
   reasons: string[]; equivalent_strategies: VariantId[];
 }
 export interface GenerationResult {

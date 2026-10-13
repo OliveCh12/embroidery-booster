@@ -38,6 +38,25 @@ describe("Python generation contract", () => {
     expect(form.get("stitch_type")).toBe("auto");
     expect(form.get("raster_cleanup")).toBe("true");
     expect(form.get("compare_strategies")).toBe("true");
+    expect(form.get("density_percent")).toBe("100");
+  });
+
+  it("sends the selected surface density while retaining explicit manual spacings", () => {
+    expect(generationForm(file, { ...DEFAULT_SETTINGS, density_percent: 120 }).get("density_percent")).toBe("120");
+    const manual = generationForm(file, { ...DEFAULT_SETTINGS, auto_adjust: false, density_percent: 80, stitch_spacing: 0.45, fill_spacing: 0.5 });
+    expect(manual.get("auto_adjust")).toBe("false");
+    expect(manual.has("density_percent")).toBe(false);
+    expect(manual.get("stitch_spacing")).toBe("0.45");
+    expect(manual.get("fill_spacing")).toBe("0.5");
+  });
+
+  it("requests the textile reference again when switching manual settings back to auto at 100%", () => {
+    const settings = { ...DEFAULT_SETTINGS, auto_adjust: false, stitch_spacing: 0.6, fill_spacing: 0.6 };
+    expect(generationForm(file, settings).has("density_percent")).toBe(false);
+    const automatic = generationForm(file, { ...settings, auto_adjust: true });
+    expect(automatic.get("density_percent")).toBe("100");
+    expect(settings.stitch_spacing).toBe(0.6);
+    expect(settings.fill_spacing).toBe(0.6);
   });
 
   it("starts with the PP1 hoop and conservative thread palette", () => {
@@ -91,13 +110,14 @@ describe("Python generation contract", () => {
 
   it("uses server presets while preserving unrelated settings and manual custom underlay", () => {
     const capabilities = { material_presets: { stretch: { "60": { stitch_spacing: 0.333, fill_spacing: 0.444, pull_compensation: 0.22, underlay: true } }, custom: { "40": { stitch_spacing: 0.4, fill_spacing: 0.4, pull_compensation: 0.15, underlay: true } } } } as Capabilities;
-    const source = { ...DEFAULT_SETTINGS, design_width: 70, underlay: false, stabilizer: "cutaway" as const };
+    const source = { ...DEFAULT_SETTINGS, design_width: 70, underlay: false, stabilizer: "cutaway" as const, density_percent: 110 };
     const adjusted = applyMaterialPreset(source, "stretch", "60", capabilities);
     expect(adjusted.stitch_spacing).toBe(0.333);
     expect(adjusted.fill_spacing).toBe(0.444);
     expect(adjusted.underlay).toBe(true);
     expect(adjusted.design_width).toBe(70);
     expect(adjusted.stabilizer).toBe("cutaway");
+    expect(adjusted.density_percent).toBe(110);
     expect(source.underlay).toBe(false);
     expect(applyMaterialPreset(source, "custom", "40", capabilities).underlay).toBe(false);
   });

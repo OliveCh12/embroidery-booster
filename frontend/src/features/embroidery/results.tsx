@@ -4,12 +4,12 @@ import { Accordion, Button, Chip, Drawer, Label, ListBox, Select, Spinner, Tabs,
 import { Download, FileImage, PanelRight } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { formatNumber } from "@/lib/format";
-import { describeBackground } from "./background-diagnostics";
+import { describeBackground, describeBitmapCleanup } from "./background-diagnostics";
 import { FileUpload } from "./file-upload";
 import { BACKGROUND_MODE_LABELS, STITCH_TYPE_LABELS } from "./settings";
 import { StitchPlayer } from "./stitch-player/stitch-player";
 import type { GenerationResult, VariantId } from "./types";
-import { VARIANT_LABELS, variantReason, variantResult } from "./variants";
+import { VARIANT_LABELS, variantOptions, variantReason, variantResult } from "./variants";
 
 export function PreviewFrame({ src, alt, expand = false }: { src: string; alt: string; expand?: boolean }) {
   return <div className={`relative overflow-hidden rounded-xl border border-border bg-white ${expand ? "min-h-64 flex-1 md:min-h-40" : "aspect-[4/3] max-h-[520px]"}`}><img src={src} alt={alt} className="absolute inset-0 size-full object-contain p-4" /></div>;
@@ -18,7 +18,7 @@ export function DownloadLink({ href, children, primary = false }: { href: string
   return <a href={href} download className={buttonVariants({ variant: primary ? "primary" : "secondary", size: "sm" })}><Download size={15} />{children}</a>;
 }
 
-const parameterLabels: Record<string, string> = { satin_spacing_mm: "Pas satin", fill_spacing_mm: "Pas fill", pull_compensation_mm: "Compensation", underlay: "Sous-couche", max_satin_width_mm: "Largeur satin maximale", max_stitch_mm: "Longueur maximale", running_length_mm: "Point droit", fill_angle_deg: "Angle fill" };
+const parameterLabels: Record<string, string> = { satin_spacing_mm: "Pas satin", fill_spacing_mm: "Pas tatami", pull_compensation_mm: "Compensation", underlay: "Sous-couche", max_satin_width_mm: "Largeur satin maximale", max_stitch_mm: "Longueur maximale", running_length_mm: "Point droit", fill_angle_deg: "Angle tatami", density_percent: "Densité de surface (%)" };
 function settingValue(value: number | boolean) { return typeof value === "boolean" ? value ? "activée" : "désactivée" : formatNumber(value); }
 function InputDiagnostics({ result }: { result: GenerationResult }) {
   const background = result.input_analysis?.background, cleanup = result.input_analysis?.cleanup;
@@ -33,6 +33,7 @@ function InputDiagnostics({ result }: { result: GenerationResult }) {
     {!!description?.metrics.length && <dl className="grid grid-cols-2 gap-4">{description.metrics.map(item => <div key={item.label}><dt>{item.label}</dt><dd className="mt-1 font-medium text-foreground tabular-nums">{item.value}</dd></div>)}</dl>}
     {(cleanup?.palette_consolidated_pixels ?? 0) > 0 && <p>Nuances liées à la compression consolidées : {cleanup?.palette_source_colors != null && cleanup.palette_colors != null ? `${formatNumber(cleanup.palette_source_colors)} nuances d’image → ${formatNumber(cleanup.palette_colors)} couleurs de fil. ` : ""}{cleanup?.regions_before != null && cleanup.regions_after_palette != null ? `${formatNumber(cleanup.regions_before)} → ${formatNumber(cleanup.regions_after_palette)} îlots de couleur. ` : ""}{cleanup?.palette_changed_area_mm2 != null ? `${formatNumber(cleanup.palette_changed_area_mm2)} mm² de nuances ajustées. ` : ""}{(cleanup?.retained_accent_colors ?? 0) > 0 ? `${formatNumber(cleanup!.retained_accent_colors!)} couleur${cleanup!.retained_accent_colors! > 1 ? "s" : ""} de détail préservée${cleanup!.retained_accent_colors! > 1 ? "s" : ""}. ` : ""}Les zones transparentes sont conservées.</p>}
     {(cleanup?.changed_pixels ?? 0) > 0 && <p>Nettoyage : {(cleanup?.regions_after_palette ?? cleanup?.regions_before) != null && cleanup?.regions_after != null ? `${formatNumber((cleanup.regions_after_palette ?? cleanup.regions_before)!)} → ${formatNumber(cleanup.regions_after)} îlots de couleur · ` : ""}{cleanup?.changed_area_mm2 != null ? `${formatNumber(cleanup.changed_area_mm2)} mm² modifiés.` : ""}{(cleanup?.removed_pixels ?? 0) > 0 ? " Des parasites isolés trop fins pour être cousus ont été retirés." : " Les transparences du dessin sont conservées."}</p>}
+    {describeBitmapCleanup(cleanup).map(message => <p key={message}>{message}</p>)}
   </div>;
 }
 
@@ -45,7 +46,7 @@ function Diagnostics({ result }: { result: GenerationResult }) {
         <p>Le même dessin, les mêmes fils et les mêmes réglages de tissu sont utilisés. La recommandation privilégie les contrôles de couverture et de sécurité ; elle ne prédit pas le rendu cousu.</p>
         {result.variants.map(item => <div key={item.id} className="flex flex-col gap-1">
           <p className="font-medium text-foreground">{VARIANT_LABELS[item.id]}{item.id === result.recommended_variant ? " · recommandé" : ""}{item.direct.analysis.quality_status === "needs_review" && <span className="font-normal text-warning"> · à vérifier</span>}</p>
-          <p>{formatNumber(item.direct.stats.structural_coverage * 100)} % de couverture · {formatNumber(item.direct.stats.stitches)} points · {item.direct.stats.satin_regions} satin · {item.direct.stats.fill_regions} tatami</p>
+          <p>{item.quality.purpose === "outline" ? "Contours uniquement" : `${formatNumber(item.direct.stats.structural_coverage * 100)} % de couverture`} · {formatNumber(item.direct.stats.stitches)} points · {item.direct.stats.satin_regions} satin · {item.direct.stats.fill_regions} tatami · {item.direct.stats.running_regions} point droit</p>
           {item.direct.stats.omitted_regions > 0 && <p className="text-warning">{formatNumber(item.direct.stats.omitted_regions)} détail{item.direct.stats.omitted_regions > 1 ? "s" : ""} non cousu{item.direct.stats.omitted_regions > 1 ? "s" : ""}.</p>}
           {item.reasons.filter(reason => !["shared_interpretation", "audit_first"].includes(reason) && !(reason === "balanced_default" && item.reasons.includes("no_meaningful_gain"))).map(reason => <p key={reason}>{variantReason(reason)}</p>)}
           {item.equivalent_strategies.length > 0 && <p>Résultat identique : {item.equivalent_strategies.map(id => VARIANT_LABELS[id]).join(", ")}.</p>}
@@ -65,7 +66,7 @@ function Diagnostics({ result }: { result: GenerationResult }) {
         </dl>
         <p className="text-xs leading-relaxed text-muted">Mesure sur la couche supérieure des points exportés, avec une tolérance de 0,25 mm autour du fil. Elle décrit la géométrie ; le tissu, le fil et le stabilisateur influencent le résultat cousu.</p>
         <dl className="grid grid-cols-2 gap-4 text-xs text-muted">
-          {[{ label: "Pas satin", value: `${formatNumber(direct.params.satin_spacing_mm)} mm` }, { label: "Pas fill", value: `${formatNumber(direct.params.fill_spacing_mm)} mm` }, { label: "Compensation", value: `${formatNumber(direct.params.pull_compensation_mm)} mm` }, { label: "Sous-couche", value: direct.params.underlay ? "Activée" : "Désactivée" }].map(item => <div key={item.label}><dt>{item.label}</dt><dd className="mt-1 text-sm font-medium text-foreground">{item.value}</dd></div>)}
+          {[{ label: "Pas satin", value: `${formatNumber(direct.params.satin_spacing_mm)} mm` }, { label: "Pas tatami", value: `${formatNumber(direct.params.fill_spacing_mm)} mm` }, { label: "Compensation", value: `${formatNumber(direct.params.pull_compensation_mm)} mm` }, { label: "Sous-couche", value: direct.params.underlay ? "Activée" : "Désactivée" }, ...(direct.params.auto_adjust && direct.params.density_percent != null ? [{ label: "Densité de surface", value: `${formatNumber(direct.params.density_percent)} %` }] : [])].map(item => <div key={item.label}><dt>{item.label}</dt><dd className="mt-1 text-sm font-medium text-foreground">{item.value}</dd></div>)}
         </dl>
         {direct.adjustments.length > 0 && <ul className="flex flex-col gap-4 text-xs text-muted">{direct.adjustments.map(item => <li key={item.parameter}><span className="font-medium text-foreground">{parameterLabels[item.parameter] ?? item.parameter} : {settingValue(item.requested)} → {settingValue(item.effective)}</span><p className="mt-1">{item.reason}</p></li>)}</ul>}
         {direct.analysis.stitch_breakdown && <dl className="grid grid-cols-2 gap-4 text-xs text-muted">{([{ key: "top", label: "Couverture" }, { key: "underlay", label: "Sous-couche" }, { key: "travel", label: "Liaisons cousues" }, { key: "lock", label: "Ancrages" }, { key: "entry", label: "Prises de fil" }] as const).map(item => <div key={item.key}><dt>{item.label}</dt><dd className="mt-1 font-medium text-foreground tabular-nums">{formatNumber(direct.analysis.stitch_breakdown![item.key])}</dd></div>)}</dl>}
@@ -129,6 +130,7 @@ export function ResultPane({ file, sourcePreview, result, busy, importError, onS
   const [selection, setSelection] = useState<{ job: string; id: VariantId } | null>(null);
   const selectedId = result && selection?.job === result.job ? selection.id : result?.recommended_variant ?? null;
   const selected = result ? variantResult(result, selectedId) : undefined;
+  const options = selected ? variantOptions(selected) : [];
   const hoopChanged = selected && (hoop[0] !== selected.direct.params.hoop_width_mm || hoop[1] !== selected.direct.params.hoop_height_mm);
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4" aria-busy={busy}>
     <FileUpload file={file} onSelect={onSelect} onClear={onClear} disabled={busy} error={importError} showHint={!result}
@@ -140,9 +142,9 @@ export function ResultPane({ file, sourcePreview, result, busy, importError, onS
           <Tabs key={selected.job} defaultSelectedKey="stitches" className="min-h-0 w-full flex-1 gap-4" variant="secondary">
             <div className="flex shrink-0 flex-wrap items-center gap-4">
               <Tabs.ListContainer className="shrink-0"><Tabs.List aria-label="Aperçus de la broderie"><Tabs.Tab id="stitches">Simulation<Tabs.Indicator /></Tabs.Tab><Tabs.Tab id="source">Dessin<Tabs.Indicator /></Tabs.Tab></Tabs.List></Tabs.ListContainer>
-              {(selected.variants?.length ?? 0) > 1 && <Select aria-label="Variante de broderie" value={selectedId} variant="secondary" className="ml-auto w-60 max-w-full" onChange={id => { if (typeof id === "string") setSelection({ job: selected.job, id: id as VariantId }); }}>
+              {options.length > 1 && <Select aria-label="Variante de broderie" value={selectedId} variant="secondary" className="ml-auto w-60 max-w-full" onChange={id => { if (typeof id === "string") setSelection({ job: selected.job, id: id as VariantId }); }}>
                 <Select.Trigger className="min-h-8 py-1"><Select.Value /><Select.Indicator /></Select.Trigger>
-                <Select.Popover><ListBox aria-label="Variante de broderie">{selected.variants!.map(item => <ListBox.Item key={item.id} id={item.id} textValue={`${VARIANT_LABELS[item.id]}${item.id === selected.recommended_variant ? " · recommandé" : ""}`}><Label>{VARIANT_LABELS[item.id]}{item.id === selected.recommended_variant ? " · recommandé" : ""}</Label><ListBox.ItemIndicator /></ListBox.Item>)}</ListBox></Select.Popover>
+                <Select.Popover><ListBox aria-label="Variante de broderie">{options.map(item => <ListBox.Item key={item.id} id={item.id} textValue={item.label}><Label>{item.label}</Label><ListBox.ItemIndicator /></ListBox.Item>)}</ListBox></Select.Popover>
               </Select>}
             </div>
             <Tabs.Panel id="stitches" className="mt-0 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-0"><StitchPlayer url={selected.direct.files.plan_json} /></Tabs.Panel>

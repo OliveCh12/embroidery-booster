@@ -62,7 +62,15 @@ pas à elles seules la coupe réelle sur toutes les machines.
    est remplie en tatami ; augmenter la largeur satin pour éviter ce choix peut
    créer des flottés longs ou des piqûres au milieu du satin.
 
-Les ajustements de densité se font avec `--stitch-spacing` et `--fill-spacing`.
+Pour comparer la densité relative sans changer le support, générer le même
+coupon avec `--density-percent 80`, `100` et `120`, dans des dossiers distincts.
+La référence dépend du tissu et du poids de fil ; 120 % rapproche les rangs de
+surface sans multiplier les couches de fondation. Comparer opacité, rigidité et
+fronces après désencerclage. Davantage de points ne prouve pas un meilleur rendu.
+Un relief 3D avec mousse exige notamment des fermetures adaptées et une
+construction dédiée ; ce contrôle de densité n'est pas un mode puff.
+
+Les ajustements manuels se font avec `--stitch-spacing` et `--fill-spacing`.
 Un pas plus petit ajoute des rangées et davantage de pénétrations. Les valeurs
 extrêmes sont bornées par défaut ; pour une calibration explicite, utiliser
 `--no-auto-adjust` et vérifier les valeurs effectives/demandées dans le JSON. Ne pas faire

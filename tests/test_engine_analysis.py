@@ -22,6 +22,51 @@ def test_normal_material_presets_keep_their_density(fabric, weight):
     assert not any(d["parameter"] in ("satin_spacing_mm", "fill_spacing_mm") for d in adjustments)
 
 
+@pytest.mark.parametrize("fabric", ["custom", "stable", "stretch", "textured"])
+@pytest.mark.parametrize("weight", [30, 40, 60])
+@pytest.mark.parametrize("density", [80, 100, 120])
+def test_relative_density_uses_material_pitch_and_is_idempotent(fabric, weight, density):
+    requested = StitchParams.for_fabric(fabric, thread_weight=weight, density_percent=density)
+    original = asdict(requested)
+    effective, changes = adjust_for_sewing(requested)
+    repeated, repeated_changes = adjust_for_sewing(effective)
+    assert asdict(requested) == original
+    assert repeated == effective
+    assert repeated_changes == []
+    expected = round(requested.satin_spacing_mm * 100 / density, 3)
+    assert effective.satin_spacing_mm == effective.fill_spacing_mm == pytest.approx(expected)
+    assert effective.underlay == requested.underlay
+    assert effective.pull_compensation_mm == requested.pull_compensation_mm
+    assert {c["reason"] for c in changes} <= {"requested_density", "safe_satin_float_limit"}
+
+
+@pytest.mark.parametrize("density", [79, 121, True, 100.5, "100"])
+def test_relative_density_rejects_invalid_requests(density):
+    with pytest.raises(ValueError, match="density_percent"):
+        StitchParams(density_percent=density).validate()
+
+
+def test_manual_spacing_takes_precedence_when_auto_adjust_is_disabled():
+    requested = StitchParams(
+        auto_adjust=False, density_percent=120, satin_spacing_mm=0.7, fill_spacing_mm=0.9
+    )
+    effective, changes = adjust_for_sewing(requested)
+    assert effective == requested
+    assert not changes
+
+
+def test_explicit_relative_density_is_monotonic_even_after_manual_spacing():
+    pitches = [
+        adjust_for_sewing(
+            StitchParams(satin_spacing_mm=0.6, fill_spacing_mm=0.6, density_percent=density)
+        )[0].satin_spacing_mm
+        for density in (80, 100, 120)
+    ]
+    assert pitches == pytest.approx([0.5, 0.4, 0.333])
+    legacy, _ = adjust_for_sewing(StitchParams(satin_spacing_mm=0.6, fill_spacing_mm=0.6))
+    assert legacy.satin_spacing_mm == legacy.fill_spacing_mm == 0.6
+
+
 def test_auto_adjust_bounds_extremes_without_mutating_requested_parameters():
     requested = StitchParams(
         fabric="stretch",

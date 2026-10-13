@@ -35,12 +35,21 @@ def adjust_for_sewing(params: StitchParams) -> tuple[StitchParams, list[dict]]:
     reference = round({"stretch": 0.45, "textured": 0.35}.get(params.fabric, 0.4) * factor, 3)
     low, high = (0.7, 1.5) if params.fabric == "custom" else (0.8, 1.25)
     for name in ("satin_spacing_mm", "fill_spacing_mm"):
+        spacing = (
+            reference * 100 / params.density_percent
+            if params.density_percent is not None
+            else getattr(params, name)
+        )
+        # Density is relative to the material preset, not the previous result:
+        # preparing shared artwork must never apply the percentage twice.
         # More geometry does not justify more density: extra thread can pucker
         # fabric. Only clearly sparse/dense requests leave the material range.
-        value = round(
-            float(np.clip(getattr(params, name), max(0.2, low * reference), high * reference)), 3
+        value = round(float(np.clip(spacing, max(0.2, low * reference), high * reference)), 3)
+        change(
+            name,
+            value,
+            "requested_density" if params.density_percent is not None else "material_density_range",
         )
-        change(name, value, "material_density_range")
     if params.fabric in ("stretch", "textured"):
         change("underlay", True, "unstable_fabric_requires_underlay")
     compensation_limit = {"stretch": 0.35, "textured": 0.3}.get(params.fabric, 0.25)

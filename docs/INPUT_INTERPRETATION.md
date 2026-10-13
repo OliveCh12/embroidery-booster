@@ -100,13 +100,27 @@ et palettes exactes restent distincts. Photos et dégradés conservent la
 quantification bornée habituelle. Ce choix peut modifier des nuances fines :
 désactiver `raster_cleanup` conserve l'interprétation de palette antérieure.
 
+Un logo presque noir avec alpha explicite peut conserver un gris de matting sur
+son bord. Le nettoyage récupère cette frange seulement si au moins 97 % du dessin
+est sombre, son noyau varie peu, aucun accent chromatique n'existe, et tous les
+gris concernés sont partiellement transparents à moins de trois pixels du bord
+alpha. Les palettes exactes, gris opaques, gris intérieurs et photos ombrées
+restent inchangés. `dark_ink_edge_pixels` compte les pixels normalisés ; le masque
+ne change pas. Cette règle évite de créer des fils gris pour un simple contour
+noir antialiasé, sans imposer le monochrome aux peintures vectorielles.
+
 Après quantification, seuls les îlots **≤ 0,10 mm²**, de dimension **≤ 0,5 mm**, qui
 touchent une région stable de couleur proche (**ΔE Lab ≤ 18**) peuvent être
 réaffectés. Sur une palette réduite, un fragment peut aussi être corrigé si ses
 RGB d'origine démontrent un mélange de peintures stables voisines, plutôt qu'un
 noyau de sa propre peinture. `edge_blend_pixels` compte ces corrections. Les voisins sont évalués dans l'image initiale, sans cascade de
-fusions. Aucun alpha n'est supprimé, aucune contreforme transparente n'est
-remplie, aucun accent isolé n'est effacé. L'aire est calculée à l'échelle finale,
+fusions. Aucune contreforme transparente n'est remplie, aucun accent opaque ou
+isolé n'est effacé. Un nettoyage supplémentaire peut retirer un fragment alpha
+partiel de quatre pixels maximum, ≤ 0,02 mm² et ≤ 0,25 mm, uniquement s'il touche
+en huit-connectivité une grande région de la même peinture et ne contient aucun
+pixel alpha ≥ 224. Les SVG explicites n'utilisent pas cette règle.
+`alpha_fragments_removed` et `alpha_fragment_pixels` la signalent séparément.
+L'aire est calculée à l'échelle finale,
 y compris l'ajustement au cadre : une demande surdimensionnée ne change pas la
 décision de nettoyage pour un même résultat physique. Ces seuils limitent les modifications sous l'aire d'une maille
 de tatami typique de 0,4 × 0,4 mm ; ils ne sont pas une mesure de perceptibilité.

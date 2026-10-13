@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 from PIL import Image
-from scipy.ndimage import binary_dilation, find_objects, label
+from scipy.ndimage import binary_dilation, distance_transform_edt, find_objects, label
 from scipy.optimize import nnls
 from scipy.spatial import cKDTree
 from skimage.color import rgb2lab
@@ -133,11 +133,20 @@ def bitmap_colors(
         "flat_paints_recovered": False,
         "palette_consolidated_pixels": 0,
         "retained_accent_colors": 0,
+        "dark_ink_edge_pixels": 0,
     }
     if diagnostics is not None:
         diagnostics.update(info)
     if not cleanup or len(values) <= max_colors:
         return separate_colors(rgba, max_colors)
+    rgba, edge_pixels = _normalize_dark_ink_edges(rgba, visible, pixels, values, counts)
+    if edge_pixels:
+        pixels = rgba[..., :3][visible]
+        values, counts = np.unique(pixels, axis=0, return_counts=True)
+        if diagnostics is not None:
+            diagnostics["dark_ink_edge_pixels"] = edge_pixels
+        if len(values) <= max_colors:
+            return separate_colors(rgba, max_colors)
     labs = rgb2lab(values[None, ...] / 255)[0]
     order = np.argsort(-counts, kind="stable")
     seeds = []
@@ -224,6 +233,36 @@ def bitmap_colors(
             ),
         )
     return labels, colors, True
+
+
+def _normalize_dark_ink_edges(rgba, visible, pixels, values, counts):
+    """Recover a nearly black bitmap's alpha fringe without flattening gray paint.
+
+    A black mark exported against a gray matte can carry gray RGB values in its
+    partially transparent outline. Those one-pixel fragments are not additional
+    thread paints. Exact palettes, opaque gray outlines, colored accents, and
+    interior shading provide contrary evidence and are preserved.
+    """
+    intensity = pixels.max(axis=1)
+    if (
+        np.mean(intensity <= 35) < 0.97
+        or np.any(np.ptp(pixels, axis=1) > 8)
+        or np.diff(np.percentile(intensity, (5, 95)))[0] > 12
+    ):
+        return rgba, 0
+    fringe = visible & (rgba[..., :3].max(axis=2) > 35)
+    if not fringe.any() or np.any(rgba[..., 3][fringe] == 255):
+        return rgba, 0
+    # The alpha boundary, rather than a color-only threshold, distinguishes
+    # compositing contamination from a genuine gray detail inside the artwork.
+    edge_distance = distance_transform_edt(np.pad(visible, 1))[1:-1, 1:-1]
+    if np.any(edge_distance[fringe] > 3):
+        return rgba, 0
+    core = values.max(axis=1) <= 35
+    paint = values[np.flatnonzero(core)[counts[core].argmax()]]
+    result = rgba.copy()
+    result[fringe, :3] = paint
+    return result, int(fringe.sum())
 
 
 def clean_color_regions(

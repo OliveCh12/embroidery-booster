@@ -4,12 +4,12 @@ from xml.etree import ElementTree as ET
 import numpy as np
 import pytest
 from PIL import Image, ImageDraw
-from scipy.ndimage import label
+from scipy.ndimage import binary_erosion, label
 
 from embroidery_rungs import GenerationParams, StitchParams
 from embroidery_rungs.background import bitmap_foreground
 from embroidery_rungs.colors import bitmap_colors, clean_color_regions
-from embroidery_rungs.inputs import prepare_artwork, raster_to_svg
+from embroidery_rungs.inputs import _remove_alpha_fragments, prepare_artwork, raster_to_svg
 
 
 def _fills(path):
@@ -265,3 +265,102 @@ def test_photo_like_continuous_colours_keep_the_bounded_palette():
     assert not diagnostics["flat_paints_recovered"]
     assert 1 < len(colors) <= 6
     assert label(labels > 0)[1] == 1
+
+
+def _matte_black_mark():
+    rgba = np.zeros((240, 280, 4), dtype=np.uint8)
+    rows, columns = np.indices(rgba.shape[:2])
+    rgba[..., 0] = 18 + columns % 3
+    rgba[..., 1] = 19 + rows % 3
+    rgba[..., 2] = 19 + columns % 3
+    rgba[10:-10, 10:-10, 3] = 255
+    visible = rgba[..., 3] > 0
+    fringe = visible & ~binary_erosion(visible)
+    rgba[fringe, :3] = 75
+    rgba[fringe, 3] = 220
+    return rgba, fringe
+
+
+@pytest.mark.parametrize("orient", [np.rot90, np.flipud, np.fliplr])
+def test_soft_gray_matte_fringe_is_one_black_thread_with_identical_alpha(orient):
+    rgba, fringe = _matte_black_mark()
+    rgba = orient(rgba)
+    diagnostics = {}
+    labels, colors, _ = bitmap_colors(rgba, 6, diagnostics=diagnostics)
+    assert len(colors) == 1
+    assert max(int(colors[0][i : i + 2], 16) for i in (1, 3, 5)) <= 22
+    assert np.array_equal(labels > 0, rgba[..., 3] >= 128)
+    assert diagnostics["dark_ink_edge_pixels"] == fringe.sum()
+    # Palette assignment must not mutate the uploaded source.
+    assert np.all(rgba[orient(fringe), :3] == 75)
+
+
+@pytest.mark.parametrize(
+    "counterevidence", ["opaque_outline", "interior_gray", "accent", "shading"]
+)
+def test_black_ink_normalization_preserves_evidence_of_deliberate_paints(counterevidence):
+    rgba, fringe = _matte_black_mark()
+    if counterevidence == "opaque_outline":
+        rgba[fringe, 3] = 255
+    elif counterevidence == "interior_gray":
+        rgba[110:120, 130:140] = [80, 80, 80, 220]
+    elif counterevidence == "accent":
+        rgba[110:120, 130:140] = [0, 128, 192, 255]
+    else:
+        rows = np.indices(rgba.shape[:2])[0]
+        shade = (5 + rows % 31).astype(np.uint8)
+        rgba[~fringe, :3] = np.repeat(shade[..., None], 3, axis=2)[~fringe]
+    diagnostics = {}
+    labels, colors, _ = bitmap_colors(rgba, 6, diagnostics=diagnostics)
+    assert len(colors) > 1
+    assert diagnostics["dark_ink_edge_pixels"] == 0
+    assert np.array_equal(labels > 0, rgba[..., 3] >= 128)
+    if counterevidence == "accent":
+        assert colors[labels[115, 135] - 1] == "#0080c0"
+
+
+@pytest.mark.parametrize("cleanup", [False, True])
+def test_literal_gray_outline_is_not_reinterpreted_as_a_compression_fringe(cleanup):
+    rgba, fringe = _matte_black_mark()
+    rgba[~fringe, :3] = 20
+    diagnostics = {}
+    _, colors, _ = bitmap_colors(rgba, 6, cleanup=cleanup, diagnostics=diagnostics)
+    assert len(colors) == 2
+    assert diagnostics["dark_ink_edge_pixels"] == 0
+
+
+@pytest.mark.parametrize("kind", ["soft_fringe", "opaque_detail", "different_paint", "isolated"])
+def test_only_soft_alpha_dust_at_the_same_mark_is_discarded(kind):
+    labels = np.zeros((100, 120), dtype=np.uint8)
+    labels[20:80, 20:100] = 1
+    row, column = (19, 100) if kind != "isolated" else (15, 104)
+    labels[row, column] = 2 if kind == "different_paint" else 1
+    rgba = np.zeros((*labels.shape, 4), dtype=np.uint8)
+    rgba[labels > 0, 3] = 255
+    rgba[row, column, 3] = 255 if kind == "opaque_detail" else 177
+    diagnostics = {"removed_pixels": 0, "reason": "no_safe_speckles"}
+    result = _remove_alpha_fragments(labels, rgba, 12, diagnostics)
+    expected = 0 if kind == "soft_fringe" else labels[row, column]
+    assert result[row, column] == expected
+    assert np.array_equal(result[20:80, 20:100], labels[20:80, 20:100])
+    assert diagnostics["alpha_fragments_removed"] == int(kind == "soft_fringe")
+    assert diagnostics["alpha_fragment_pixels"] == int(kind == "soft_fringe")
+
+
+def test_alpha_edge_fragment_cleanup_is_reported_in_bitmap_preparation(tmp_path):
+    rgba = np.zeros((320, 320, 4), dtype=np.uint8)
+    rgba[40:280, 40:280, 3] = 255
+    rgba[39, 280, 3] = 177
+    source = tmp_path / "soft-tip.png"
+    Image.fromarray(rgba).save(source)
+    prepared, warnings, diagnostics = prepare_artwork(
+        source,
+        tmp_path,
+        GenerationParams(design_width_mm=20),
+        StitchParams(),
+        preserve_colors=True,
+    )
+    assert diagnostics["cleanup"]["alpha_fragments_removed"] == 1
+    assert diagnostics["cleanup"]["regions_after"] == 1
+    assert any("partially transparent fragments" in warning for warning in warnings)
+    assert ET.parse(prepared).getroot().find("{*}path").get("d").count("M ") == 1
