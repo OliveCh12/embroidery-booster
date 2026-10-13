@@ -8,15 +8,16 @@ from xml.etree import ElementTree as ET
 
 import numpy as np
 import resvg_py
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import Image, UnidentifiedImageError
 from scipy.ndimage import binary_dilation, distance_transform_edt, find_objects, label
 from skimage.filters import threshold_otsu
-from skimage.measure import approximate_polygon, find_contours
 
 from .background import bitmap_foreground
 from .colors import bitmap_colors, clean_color_regions
 from .input_quality import raster_quality
 from .interpretation import RasterArtwork
+from .interpretation.normalize import normalize_image
+from .interpretation.tracing import serialize_bitmap
 from .svg_manager import MAX_INPUT_BYTES, UNITS_PER_MM, load_svg_paths
 
 RASTER_EXT = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
@@ -48,7 +49,7 @@ def raster_to_svg(
         with Image.open(input_path) as original:
             if original.width * original.height > MAX_RASTER_PIXELS:
                 raise ValueError("Raster image exceeds 16 megapixels.")
-            image = ImageOps.exif_transpose(original).convert("RGBA")
+            image, diagnostics["normalization"] = normalize_image(original)
             if preserve_colors and threshold is None and not invert:
                 return _color_bitmap_svg(
                     image,
@@ -128,17 +129,7 @@ def raster_to_svg(
     )
     # Scale simplification to physical size, with a half-pixel upper bound.
     tolerance = min(0.5, 0.05 * width / physical_width)
-    path = _trace_path(artwork.labels > 0, tolerance)
-    if not path:
-        raise ValueError("No contours found in the image.")
-    root = ET.Element(
-        "svg",
-        xmlns="http://www.w3.org/2000/svg",
-        width=f"{physical_width:g}mm",
-        height=f"{physical_width * height / width:g}mm",
-        viewBox=f"0 0 {width} {height}",
-    )
-    ET.SubElement(root, "path", fill="black", attrib={"fill-rule": "evenodd", "d": path})
+    root, diagnostics["tracing"] = serialize_bitmap(artwork, tolerance, crisp_edges=True)
     ET.ElementTree(root).write(svg_path, encoding="utf-8", xml_declaration=True)
     return str(svg_path)
 
@@ -245,36 +236,10 @@ def _color_bitmap_svg(
         labels, tuple(colors), (physical_width, physical_width * height / width), crop_box
     )
     diagnostics["geometry"] = artwork.diagnostics()
-    labels = artwork.labels
-    root = ET.Element(
-        "svg",
-        xmlns="http://www.w3.org/2000/svg",
-        width=f"{physical_width:g}mm",
-        height=f"{physical_width * height / width:g}mm",
-        viewBox=f"0 0 {width} {height}",
-    )
     tolerance = min(0.5, 0.03 * width / physical_width)
     # Thread masks are categorical paint: a second antialiasing pass would
     # recreate blended slivers and can split a narrow satin outline.
-    root.set("shape-rendering", "crispEdges")
-    # Independent antialiased paint contours leave cracks at shared boundaries.
-    # Paint the complete alpha silhouette first, then overlay the other colours.
-    # The most frequent boundary paint avoids a pale rim around dark outlines.
-    visible = labels > 0
-    boundary = visible & binary_dilation(~visible)
-    base = int(np.bincount(labels[boundary], minlength=len(colors) + 1)[1:].argmax()) + 1
-    ET.SubElement(
-        root,
-        "path",
-        fill=colors[base - 1],
-        attrib={"fill-rule": "evenodd", "d": _trace_path(visible, tolerance)},
-    )
-    for index, color in enumerate(colors, 1):
-        if index == base:
-            continue
-        path = _trace_path(labels == index, tolerance)
-        if path:
-            ET.SubElement(root, "path", fill=color, attrib={"fill-rule": "evenodd", "d": path})
+    root, diagnostics["tracing"] = serialize_bitmap(artwork, tolerance, crisp_edges=True)
     ET.ElementTree(root).write(svg_path, encoding="utf-8", xml_declaration=True)
     return str(svg_path)
 
@@ -386,15 +351,6 @@ def _monochrome_counters(labels, colors, background_info, cleanup):
         ),
     )
     return result
-
-
-def _trace_path(mask: np.ndarray, tolerance: float) -> str:
-    parts = []
-    for contour in find_contours(mask, 0.5):
-        contour = approximate_polygon(contour, tolerance=tolerance)
-        if len(contour) >= 4:
-            parts.append("M " + " L ".join(f"{x:.3f},{y:.3f}" for y, x in contour) + " Z")
-    return " ".join(parts)
 
 
 def _fitted_width(width_mm, width, height, hoop_size_mm, diagnostics):
@@ -511,6 +467,16 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
     elif params.background_mode == "remove":
         warnings.append(
             "SVG rasterized and retraced for explicit border-connected background removal; physical scale is preserved."
+        )
+    normalization = input_analysis.get("normalization", {})
+    if normalization.get("icc_status") in ("ignored_invalid", "unavailable"):
+        warnings.append(
+            "Embedded colour profile could not be applied; decoded colours were retained. Check the interpreted thread palette."
+        )
+    tracing = input_analysis.get("tracing", {})
+    if tracing.get("fallback"):
+        warnings.append(
+            f"Contour simplification altered {tracing['initial']['changed_pixels']} native pixels; exact contours restored the interpreted paint and counters. Very fine details still need a sewing-size check."
         )
     if input_analysis["background"]["applied"]:
         model = input_analysis["background"].get("model")

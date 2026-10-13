@@ -222,7 +222,9 @@ def test_unrecoverable_checkerboard_fails_before_contour_tracing(tmp_path, monke
     def unexpected_contours(*args, **kwargs):
         raise AssertionError("Contour tracing should not start above the region budget")
 
-    monkeypatch.setattr("embroidery_rungs.inputs.find_contours", unexpected_contours)
+    monkeypatch.setattr(
+        "embroidery_rungs.interpretation.tracing.find_contours", unexpected_contours
+    )
     with pytest.raises(ValueError, match="visible regions after interpretation"):
         raster_to_svg(
             path, tmp_path / "checkerboard.svg", preserve_colors=True, background_mode="keep"

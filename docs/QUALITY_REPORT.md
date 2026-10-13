@@ -11,6 +11,36 @@ de l'entrée sont enrichis. Les paramètres de comparaison sont enregistrés ;
 ces exécutions isolent la compatibilité et ne mesurent pas un gain de vitesse.
 Les références couvrent Pepsi, Phénix, Falcon, drapeau, anneau, PNG à trou et
 détail détaché, puis SVG à couleurs superposées.
+Le drapeau conserve 58 petits détails omis et une couverture structurelle de
+99,99 % déjà présents dans la référence. Une compatibilité exacte ne valide
+donc pas la qualité de ces détails.
+
+## Consolidation : fidélité du tracé et profils couleur
+
+Le deuxième lot ajoute un audit catégoriel du SVG sur la grille immuable des
+labels, avec retour aux contours non simplifiés si la simplification les altère.
+Les tests isolés montrent la perte d'un îlot ou d'une contreforme d'un pixel à
+une tolérance de 0,5 px, puis leur récupération. Ils couvrent aussi les couleurs
+adjacentes, les diagonales, les masques denses, les métriques physiques et le
+refus avant tracing/rendu d'un masque dépassant les budgets. Le tracé conserve
+les coordonnées historiques ; les sommets colinéaires sont retirés.
+
+La [comparaison sur les sept mêmes cas](benchmarks/tracing-fidelity-2026-10-13.json)
+retrouve les labels rendus, topologies, commandes, fils, décisions, statistiques,
+aperçus de points et octets PES/DST inchangés. Seuls les SVG raster sérialisés
+diffèrent ; les SVG vectoriels conservés restent identiques. Aux tolérances
+physiques de ces entrées, aucun fallback n'est nécessaire. Le corpus ne prouve
+donc pas un gain de couture sur ces logos : il confirme leur stabilité sous les
+nouveaux contrôles. Les cas synthétiques à tolérance élevée prouvent le correctif.
+Les temps sont des essais unitaires contextualisés, sans conclusion de vitesse.
+
+Les tests de normalisation couvrent RGBA, EXIF, profil sRGB embarqué, LAB TIFF,
+PNG indexé avec table alpha, clé de transparence RGB, canal L/A et fallback de
+profil invalide ou LittleCMS indisponible. Les couleurs sans profil gardent leur
+décodage antérieur. Le diagnostic est disponible dans l'API, le JSON machine et
+**Détails**, sans ajouter de panneau. L'analyse reste celle d'une interprétation
+pixel/physique ; elle ne mesure pas le rendu sur tissu et ne garantit pas les
+entrées photo HDR/16 bits.
 
 ## Parasites de couleur : image, aperçu et points machine
 

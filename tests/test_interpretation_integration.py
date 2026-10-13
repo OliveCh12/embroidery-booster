@@ -45,3 +45,47 @@ def test_geometry_report_tracks_final_sizing_without_changing_source_crop(tmp_pa
     first = geometry.copy()
     complete_input_analysis(svg, diagnostics)
     assert geometry == first
+
+
+@pytest.mark.parametrize("preserve_colors", [False, True])
+def test_raster_trace_preserves_tiny_alpha_counter_before_machine_sampling(
+    tmp_path, preserve_colors
+):
+    rgba = np.zeros((22, 22, 4), dtype=np.uint8)
+    rgba[2:20, 2:20, 3] = 255
+    rgba[11, 11, 3] = 0
+    source, target = tmp_path / "input.png", tmp_path / "artwork.svg"
+    Image.fromarray(rgba).save(source)
+    diagnostics = {}
+    raster_to_svg(
+        source,
+        target,
+        width_mm=1.5,
+        preserve_colors=preserve_colors,
+        cleanup=False,
+        diagnostics=diagnostics,
+    )
+    tracing = diagnostics["tracing"]
+    assert diagnostics["quality"]["working_pixels"] == [18, 18]
+    if not preserve_colors:
+        assert tracing["fallback"]
+        assert tracing["initial"]["paints"]["alpha"]["rendered"]["holes"] == 0
+    assert tracing["final"]["changed_pixels"] == 0
+    assert tracing["final"]["paints"]["alpha"]["rendered"]["holes"] == 1
+    assert ET.parse(target).getroot().attrib["shape-rendering"] == "crispEdges"
+
+
+def test_embedded_profile_is_normalized_in_the_shared_raster_entry_point(tmp_path):
+    from PIL import ImageCms
+
+    image = Image.new("RGB", (24, 24), "red")
+    image.info["icc_profile"] = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    source, target = tmp_path / "input.png", tmp_path / "artwork.svg"
+    image.save(source)
+    diagnostics = {}
+    raster_to_svg(
+        source, target, preserve_colors=True, background_mode="keep", diagnostics=diagnostics
+    )
+    assert diagnostics["normalization"]["icc_status"] == "converted"
+    assert diagnostics["tracing"]["final"]["passed"]
+    assert ET.parse(target).find("{http://www.w3.org/2000/svg}path").attrib["fill"] == "#ff0000"

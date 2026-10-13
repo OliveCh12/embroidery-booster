@@ -183,6 +183,48 @@ Le rectangle source est exprimé dans l'image après orientation EXIF ; ses born
 maximales sont exclusives. Les centres de pixels restent aux indices entiers
 dans le repère de contours existant. La taille historique n'est pas modifiée.
 
+### Normalisation et contrôle du tracé
+
+`interpretation/normalize.py` applique l'orientation EXIF, puis convertit un profil
+ICC embarqué vers sRGB avec Pillow/LittleCMS avant l'analyse du fond et des
+couleurs. Les canaux alpha, tables de transparence des PNG indexés et clés de
+transparence sont conservés. Sans profil, le décodage historique est conservé.
+Un profil invalide ou un Pillow sans LittleCMS déclenche un fallback signalé,
+sans interdire une image encore décodable. Une entrée dans un mode non décodable
+sans profil valide produit une erreur claire. Le rapport expose
+`input_analysis.normalization` ; aucune dépendance Python supplémentaire n'est
+requise.
+
+`interpretation/tracing.py` sérialise les mêmes labels pour les deux chemins
+bitmap. Le tracé simplifié est rendu une fois sur leur grille native, pour
+contrôler l'alpha et chaque peinture. Un seul pixel modifié suffit à déclencher
+une seconde tentative : contours marching squares non simplifiés, avec retrait
+des seuls sommets colinéaires. Si ce tracé échoue aussi au contrôle, la conversion
+est refusée au lieu de publier une interprétation silencieusement dégradée.
+Les compteurs utilisent une connectivité 4 pour les régions peintes et 8 pour
+les contreformes. Les peintures catégorielles monochromes adoptent aussi
+`crispEdges`, comme le chemin multicolore, pour éviter un nouvel antialiasing.
+
+`input_analysis.tracing` conserve les audits `initial` et `final`, le fallback,
+la tolérance effective, le nombre de rendus, les pixels modifiés, les distances
+de contour (p95/max), la topologie par couleur, le nombre de nœuds et les octets
+SVG. Le SVG émis garde son viewBox historique ; seule la copie d'audit est
+échantillonnée aux centres entiers (`viewBox=-0.5 -0.5 width height`). Les métriques
+en mm se rapportent à `tracing.initial/final.canvas_size_mm` et `pixel_size_mm`
+au moment du tracé ; `geometry` décrit séparément la taille finale du document.
+Les deux snapshots peuvent partager la même référence mémoire avant export JSON.
+
+Ce contrôle garantit les labels **interprétés après palette/nettoyage**, pas
+l'identité à tous les pixels du fichier d'origine. Il ne prouve ni une aire
+vectorielle identique à celle des cellules raster, ni la brodabilité d'un détail
+à la résolution machine : les audits de points restent nécessaires. Un SVG de
+plus de 10 MiB ou une grille d'audit de plus de 16,1 MP / 16 384 pixels par côté
+est refusé avant le rendu. Le coût est d'un à deux rendus pour le dessin complet,
+sans rendu indépendant par région.
+Une limite de 8 192 contours par masque (régions peintes et contreformes) est
+vérifiée avant marching squares ; une seule région percée de milliers de trous
+ne peut plus contourner le budget par son faible nombre de composantes.
+
 Un logo presque noir avec alpha explicite peut conserver un gris de matting sur
 son bord. Le nettoyage récupère cette frange seulement si au moins 97 % du dessin
 est sombre, son noyau varie peu, aucun accent chromatique n'existe, et tous les

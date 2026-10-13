@@ -4,7 +4,7 @@ import { Accordion, Button, Chip, Drawer, Label, ListBox, Select, Spinner, Tabs,
 import { Download, FileImage, PanelRight } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { formatNumber } from "@/lib/format";
-import { describeBackground, describeBitmapCleanup } from "./background-diagnostics";
+import { describeBackground, describeBitmapCleanup, describeNormalization, describeTraceAudit } from "./background-diagnostics";
 import { FileUpload } from "./file-upload";
 import { InputQualitySummary } from "./input-quality-feedback";
 import { BACKGROUND_MODE_LABELS, STITCH_TYPE_LABELS } from "./settings";
@@ -24,18 +24,23 @@ function settingValue(value: number | boolean) { return typeof value === "boolea
 function InputDiagnostics({ result }: { result: GenerationResult }) {
   const background = result.input_analysis?.background, cleanup = result.input_analysis?.cleanup;
   const description = background ? describeBackground(background) : null;
+  const geometry = result.input_analysis?.geometry, tracing = result.input_analysis?.tracing, normalization = result.input_analysis?.normalization;
+  const traceMessage = describeTraceAudit(tracing), normalizationMessage = describeNormalization(normalization);
   return <div className="flex flex-col gap-4 text-xs text-muted">
     {result.input_analysis?.quality && <InputQualitySummary quality={result.input_analysis.quality} />}
     <dl className="grid grid-cols-2 gap-4">
       <div><dt>Type de points</dt><dd className="mt-1 font-medium text-foreground">{STITCH_TYPE_LABELS[result.direct.params.stitch_type ?? "auto"]}</dd></div>
       {background && <><div><dt>Fond demandé</dt><dd className="mt-1 font-medium text-foreground">{background.mode ? BACKGROUND_MODE_LABELS[background.mode] : "—"}</dd></div><div><dt>Fond interprété</dt><dd className="mt-1 font-medium text-foreground">{background.applied === true ? "Retiré" : background.applied === false ? "Conservé" : "—"}</dd></div></>}
       {cleanup && <div><dt>Réduction des parasites</dt><dd className="mt-1 font-medium text-foreground">{cleanup.reason === "vector_artwork_preserved" ? "SVG préservé" : cleanup.reason === "single_colour_silhouette" ? "Silhouette monochrome" : cleanup.enabled === true ? "Activée" : cleanup.enabled === false ? "Désactivée" : "—"}</dd></div>}
+      {geometry && <div><dt>Motif visible</dt><dd className="mt-1 font-medium text-foreground tabular-nums">{geometry.visible_size_mm.map(formatNumber).join(" × ")} mm</dd></div>}
     </dl>
     {description && <p>{description.message}</p>}
     {!!description?.metrics.length && <dl className="grid grid-cols-2 gap-4">{description.metrics.map(item => <div key={item.label}><dt>{item.label}</dt><dd className="mt-1 font-medium text-foreground tabular-nums">{item.value}</dd></div>)}</dl>}
     {(cleanup?.palette_consolidated_pixels ?? 0) > 0 && <p>Nuances liées à la compression consolidées : {cleanup?.palette_source_colors != null && cleanup.palette_colors != null ? `${formatNumber(cleanup.palette_source_colors)} nuances d’image → ${formatNumber(cleanup.palette_colors)} couleurs de fil. ` : ""}{cleanup?.regions_before != null && cleanup.regions_after_palette != null ? `${formatNumber(cleanup.regions_before)} → ${formatNumber(cleanup.regions_after_palette)} îlots de couleur. ` : ""}{cleanup?.palette_changed_area_mm2 != null ? `${formatNumber(cleanup.palette_changed_area_mm2)} mm² de nuances ajustées. ` : ""}{(cleanup?.palette_edge_pixels ?? 0) > 0 ? `${formatNumber(cleanup!.palette_edge_pixels!)} pixels de bord réattribués aux couleurs voisines. ` : ""}{(cleanup?.retained_accent_colors ?? 0) > 0 ? `${formatNumber(cleanup!.retained_accent_colors!)} couleur${cleanup!.retained_accent_colors! > 1 ? "s" : ""} de détail préservée${cleanup!.retained_accent_colors! > 1 ? "s" : ""}. ` : ""}Les zones transparentes sont conservées.</p>}
     {(cleanup?.changed_pixels ?? 0) > 0 && <p>Nettoyage : {(cleanup?.regions_after_palette ?? cleanup?.regions_before) != null && cleanup?.regions_after != null ? `${formatNumber((cleanup.regions_after_palette ?? cleanup.regions_before)!)} → ${formatNumber(cleanup.regions_after)} îlots de couleur · ` : ""}{cleanup?.changed_area_mm2 != null ? `${formatNumber(cleanup.changed_area_mm2)} mm² modifiés.` : ""}{(cleanup?.removed_pixels ?? 0) > 0 ? " Des parasites isolés trop fins pour être cousus ont été retirés." : " Les transparences du dessin sont conservées."}</p>}
     {describeBitmapCleanup(cleanup).map(message => <p key={message}>{message}</p>)}
+    {traceMessage && <p className={tracing?.final.passed && tracing.final.changed_pixels === 0 && tracing.final.topology_preserved ? undefined : "text-warning"}>{traceMessage}</p>}
+    {normalizationMessage && <p className={normalization && ["ignored_invalid", "unavailable"].includes(normalization.icc_status) ? "text-warning" : undefined}>{normalizationMessage}</p>}
   </div>;
 }
 

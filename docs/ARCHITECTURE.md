@@ -11,6 +11,9 @@ src/embroidery_rungs/
   inputs.py                Tracé bitmap, formats acceptés et taille physique
   interpretation/
     types.py               Masques immuables, palette et repère physique du bitmap
+    normalize.py           Orientation EXIF et profils ICC vers sRGB, alpha conservé
+    tracing.py             Sérialisation commune et fallback vers contours exacts
+    audit.py               Fidélité catégorielle, topologie et distances de contours
   svg_manager.py           Validation SVG et transformations physiques
   background.py            Fond connecté, gradients doux et affinage des contours
   colors.py                Palette déterministe et régions visibles
@@ -49,10 +52,13 @@ output/                   Jobs et artefacts générés, ignorés par Git
 
 ## Flux de génération
 
-1. Valider les réglages et le fichier ; interpréter le fond connecté au bord,
+1. Valider les réglages et le fichier ; orienter le bitmap et appliquer son
+   profil ICC vers sRGB avant de séparer les peintures. Interpréter le fond connecté au bord,
    affiner ses mélanges avec le contour avant tout redimensionnement,
    consolider la palette bitmap et réduire les petits parasites adjacents avant
-   le tracé. Exposer chaque modification dans `input_analysis`.
+   le tracé. Auditer les contours sur la grille du contrat immuable ; revenir
+   aux contours non simplifiés si des pixels ou des contreformes changent.
+   Exposer chaque modification dans `input_analysis`.
 2. Appliquer le redimensionnement explicite et charger le SVG sécurisé.
 3. Borner les réglages physiques, puis rendre les couleurs visibles à 305 DPI,
    sous le budget mémoire du renderer.

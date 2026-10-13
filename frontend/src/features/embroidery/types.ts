@@ -60,8 +60,23 @@ export interface DesignAnalysis {
   quality_status: "needs_review" | "geometric_checks_passed";
   stitch_breakdown?: { entry: number; top: number; underlay: number; travel: number; lock: number };
 }
+export interface TraceAudit {
+  changed_pixels: number; topology_preserved: boolean; passed: boolean;
+  nodes: number; serialized_bytes: number;
+}
 export interface InputAnalysis {
   quality?: InputQuality;
+  geometry?: {
+    canvas_size_mm: [number, number]; visible_bounds_mm: [number, number, number, number];
+    visible_size_mm: [number, number]; pixel_size_mm: [number, number];
+    source_crop_box_px: [number, number, number, number] | null;
+  };
+  tracing?: { fallback: boolean; render_attempts: number; initial: TraceAudit; final: TraceAudit };
+  normalization?: {
+    source_mode: string; orientation_applied: boolean;
+    icc_status: "absent" | "converted" | "ignored_invalid" | "unavailable";
+    color_space: "assumed_sRGB" | "sRGB";
+  };
   background?: {
     mode: BackgroundMode | null; applied: boolean | null; reason: string | null;
     background_color: string | null; border_confidence: number | null;

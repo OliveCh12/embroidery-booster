@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeBackground, describeBitmapCleanup } from "./background-diagnostics";
+import { describeBackground, describeBitmapCleanup, describeNormalization, describeTraceAudit } from "./background-diagnostics";
 import type { InputAnalysis } from "./types";
 
 const legacy: NonNullable<InputAnalysis["background"]> = {
@@ -93,5 +93,59 @@ describe("bitmap ink recovery feedback", () => {
     expect(messages[0]).toContain("1 fragment d’antialiasing trop fin retiré");
     expect(messages[0]).toContain("(1 pixel)");
     expect(messages[0]).toContain("détails opaques ou isolés sont préservés");
+  });
+});
+
+describe("contour verification feedback", () => {
+  const passed = { changed_pixels: 0, topology_preserved: true, passed: true, nodes: 42, serialized_bytes: 1024 };
+  const tracing = { fallback: false, render_attempts: 1, initial: passed, final: passed };
+
+  it("does not invent verification for older results without an audit", () => {
+    expect(describeTraceAudit(undefined)).toBeNull();
+  });
+
+  it("describes categorical source-grid fidelity separately from calculated stitches", () => {
+    expect(describeTraceAudit(tracing)).toContain("grille de pixels");
+    expect(describeTraceAudit(tracing)).toContain("avant le calcul des points");
+    expect(describeTraceAudit(tracing)).not.toContain("brodable");
+  });
+
+  it("explains a repaired simplification using the final audit, even when initial topology failed", () => {
+    const result = describeTraceAudit({ ...tracing, fallback: true, render_attempts: 2,
+      initial: { ...passed, passed: false, topology_preserved: false, changed_pixels: 7 } });
+    expect(result).toContain("Simplification du tracé réduite");
+    expect(result).toContain("trous et îlots");
+    expect(result).not.toContain("à vérifier");
+  });
+
+  it("does not approve changed pixels or topology just because a success flag is present", () => {
+    expect(describeTraceAudit({ ...tracing, final: { ...passed, changed_pixels: 2 } })).toContain("2 pixels diffèrent");
+    expect(describeTraceAudit({ ...tracing, final: { ...passed, topology_preserved: false } })).toContain("structure des trous ou îlots a changé");
+    expect(describeTraceAudit({ ...tracing, final: { ...passed, passed: false } })).toContain("à vérifier");
+  });
+});
+
+describe("source colour normalization feedback", () => {
+  const normalization = { source_mode: "RGB", orientation_applied: false, icc_status: "absent", color_space: "assumed_sRGB" } as const;
+
+  it("keeps normal RGB and older results quiet", () => {
+    expect(describeNormalization(undefined)).toBeNull();
+    expect(describeNormalization(normalization)).toBeNull();
+  });
+
+  it("reports source orientation and a real ICC conversion once", () => {
+    const result = describeNormalization({ ...normalization, orientation_applied: true, icc_status: "converted", color_space: "sRGB" });
+    expect(result).toBe("Orientation de l’image corrigée. Profil couleur intégré converti en sRGB.");
+    expect(result).not.toContain("supposées");
+  });
+
+  it.each(["ignored_invalid", "unavailable"] as const)("does not claim an ICC conversion when status is %s", icc_status => {
+    const result = describeNormalization({ ...normalization, icc_status });
+    expect(result).toContain("couleurs supposées sRGB");
+    expect(result).not.toContain("converti en sRGB");
+  });
+
+  it("makes the assumption explicit for an unprofiled CMYK source", () => {
+    expect(describeNormalization({ ...normalization, source_mode: "CMYK" })).toContain("sans profil couleur");
   });
 });

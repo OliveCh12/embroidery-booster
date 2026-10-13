@@ -1,0 +1,478 @@
+{
+  "baseline_commit": "dc8081d5768c9ff8d25c0db765ac5230cf1118d5",
+  "contract_commit": "d2fa440",
+  "stage": "audited categorical tracing and ICC normalization",
+  "stitch_params": {
+    "satin_spacing_mm": 0.4,
+    "running_length_mm": 2.5,
+    "fill_spacing_mm": 0.4,
+    "fill_length_mm": 4.0,
+    "fill_angle_deg": 45.0,
+    "max_stitch_mm": 8.0,
+    "min_stitch_mm": 0.25,
+    "pull_compensation_mm": 0.15,
+    "underlay": true,
+    "trim_distance_mm": 3.0,
+    "wide_mode": "fill",
+    "max_satin_width_mm": 7.0,
+    "hoop_width_mm": 100.0,
+    "hoop_height_mm": 100.0,
+    "thread_color": "#176d9c",
+    "max_stitches": 500000,
+    "auto_adjust": true,
+    "auto_fill_angle": true,
+    "fabric": "stable",
+    "thread_weight": 40,
+    "stabilizer": "cutaway",
+    "max_colors": 6,
+    "preserve_colors": true,
+    "machine": "brother-skitch-pp1",
+    "stitch_type": "auto",
+    "auto_strategy": "balanced",
+    "density_percent": 100
+  },
+  "timings_note": "Single contextual trials, not a statistically controlled performance benchmark.",
+  "audit_note": "Native integer-centre categorical agreement after cleanup and palette interpretation; machine-resolution comparison is independent.",
+  "cases": [
+    {
+      "case": "pepsi",
+      "source_sha256": "17e2389f415170ef8340e7f044139fc86f39d339e45ab5de75d5101c74356979",
+      "generation_params": {
+        "design_width_mm": 80,
+        "fit_to_hoop": true,
+        "raster_threshold": null,
+        "raster_invert": false,
+        "background_mode": "auto",
+        "raster_cleanup": true
+      },
+      "checks": {
+        "trace_bytes": false,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "stitches": 12458,
+      "threads": [
+        "#ffffff",
+        "#0e0f95",
+        "#ff1301",
+        "#010101"
+      ],
+      "structural_coverage": 1.0,
+      "unsafe_connections": 0,
+      "omitted_regions": 0,
+      "normalization": {
+        "source_mode": "RGB",
+        "orientation_applied": false,
+        "icc_status": "absent",
+        "color_space": "assumed_sRGB"
+      },
+      "geometry": {
+        "canvas_size_mm": [
+          80.0,
+          80.0
+        ],
+        "visible_bounds_mm": [
+          0.091324200913242,
+          0.091324200913242,
+          79.72602739726027,
+          79.72602739726027
+        ],
+        "visible_size_mm": [
+          79.63470319634702,
+          79.63470319634702
+        ],
+        "pixel_size_mm": [
+          0.182648401826484,
+          0.182648401826484
+        ],
+        "source_crop_box_px": [
+          422,
+          230,
+          858,
+          666
+        ]
+      },
+      "tracing": {
+        "fallback": false,
+        "render_attempts": 1,
+        "requested_tolerance_px": 0.16424999999999998,
+        "effective_tolerance_px": 0.16424999999999998,
+        "initial_changed_pixels": 0,
+        "final_changed_pixels": 0,
+        "topology_preserved": true,
+        "nodes": 2842,
+        "serialized_bytes": 50160
+      }
+    },
+    {
+      "case": "phoenix",
+      "source_sha256": "d890630cb7afe0c5b0a8c2ae426024526c5ac0e72cf7863ae0639a3862a98d28",
+      "generation_params": {
+        "design_width_mm": 80,
+        "fit_to_hoop": true,
+        "raster_threshold": null,
+        "raster_invert": false,
+        "background_mode": "auto",
+        "raster_cleanup": true
+      },
+      "checks": {
+        "trace_bytes": false,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "stitches": 2709,
+      "threads": [
+        "#090909"
+      ],
+      "structural_coverage": 1.0,
+      "unsafe_connections": 0,
+      "omitted_regions": 0,
+      "normalization": {
+        "source_mode": "RGBA",
+        "orientation_applied": false,
+        "icc_status": "absent",
+        "color_space": "assumed_sRGB"
+      },
+      "geometry": {
+        "canvas_size_mm": [
+          80.0,
+          68.44074844074844
+        ],
+        "visible_bounds_mm": [
+          0.04158004158004158,
+          0.041580041580041575,
+          79.87525987525989,
+          68.31600831600831
+        ],
+        "visible_size_mm": [
+          79.83367983367984,
+          68.27442827442826
+        ],
+        "pixel_size_mm": [
+          0.08316008316008316,
+          0.08316008316008315
+        ],
+        "source_crop_box_px": [
+          137,
+          164,
+          1155,
+          1035
+        ]
+      },
+      "tracing": {
+        "fallback": false,
+        "render_attempts": 1,
+        "requested_tolerance_px": 0.36075,
+        "effective_tolerance_px": 0.36075,
+        "initial_changed_pixels": 0,
+        "final_changed_pixels": 0,
+        "topology_preserved": true,
+        "nodes": 2551,
+        "serialized_bytes": 45937
+      }
+    },
+    {
+      "case": "falcon",
+      "source_sha256": "978d667147e52bc5b304aff3ad7316a2cda0c43129e49ee2a24403e3fb5bc635",
+      "generation_params": {
+        "design_width_mm": 80,
+        "fit_to_hoop": true,
+        "raster_threshold": null,
+        "raster_invert": false,
+        "background_mode": "auto",
+        "raster_cleanup": true
+      },
+      "checks": {
+        "trace_bytes": false,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "stitches": 4124,
+      "threads": [
+        "#131414"
+      ],
+      "structural_coverage": 1.0,
+      "unsafe_connections": 0,
+      "omitted_regions": 0,
+      "normalization": {
+        "source_mode": "RGBA",
+        "orientation_applied": false,
+        "icc_status": "absent",
+        "color_space": "assumed_sRGB"
+      },
+      "geometry": {
+        "canvas_size_mm": [
+          80.0,
+          74.12244897959184
+        ],
+        "visible_bounds_mm": [
+          0.08163265306122448,
+          0.0816326530612245,
+          79.75510204081633,
+          73.87755102040818
+        ],
+        "visible_size_mm": [
+          79.6734693877551,
+          73.79591836734696
+        ],
+        "pixel_size_mm": [
+          0.16326530612244897,
+          0.163265306122449
+        ],
+        "source_crop_box_px": [
+          274,
+          300,
+          762,
+          752
+        ]
+      },
+      "tracing": {
+        "fallback": false,
+        "render_attempts": 1,
+        "requested_tolerance_px": 0.18375,
+        "effective_tolerance_px": 0.18375,
+        "initial_changed_pixels": 0,
+        "final_changed_pixels": 0,
+        "topology_preserved": true,
+        "nodes": 1349,
+        "serialized_bytes": 23776
+      }
+    },
+    {
+      "case": "union-jack",
+      "source_sha256": "addfba49b4a34f7e32a75ac817666d10b47314fa38642c2dcdc40a9f8f087c5f",
+      "generation_params": {
+        "design_width_mm": 80,
+        "fit_to_hoop": true,
+        "raster_threshold": null,
+        "raster_invert": false,
+        "background_mode": "auto",
+        "raster_cleanup": true
+      },
+      "checks": {
+        "trace_bytes": false,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "stitches": 9880,
+      "threads": [
+        "#c8102e",
+        "#ffffff",
+        "#012169"
+      ],
+      "structural_coverage": 0.9999,
+      "unsafe_connections": 0,
+      "omitted_regions": 58,
+      "normalization": {
+        "source_mode": "RGB",
+        "orientation_applied": false,
+        "icc_status": "absent",
+        "color_space": "assumed_sRGB"
+      },
+      "geometry": {
+        "canvas_size_mm": [
+          80.0,
+          48.066528066528065
+        ],
+        "visible_bounds_mm": [
+          0.04158004158004158,
+          0.041580041580041575,
+          79.87525987525989,
+          47.941787941787936
+        ],
+        "visible_size_mm": [
+          79.83367983367984,
+          47.900207900207896
+        ],
+        "pixel_size_mm": [
+          0.08316008316008316,
+          0.08316008316008315
+        ],
+        "source_crop_box_px": [
+          0,
+          0,
+          3840,
+          2304
+        ]
+      },
+      "tracing": {
+        "fallback": false,
+        "render_attempts": 1,
+        "requested_tolerance_px": 0.36075,
+        "effective_tolerance_px": 0.36075,
+        "initial_changed_pixels": 0,
+        "final_changed_pixels": 0,
+        "topology_preserved": true,
+        "nodes": 2737,
+        "serialized_bytes": 48495
+      }
+    },
+    {
+      "case": "ring-detail",
+      "source_sha256": "3e088de5c3f0e72101cb4112aca3c73c703593fbcd12f2064978df93075b8517",
+      "generation_params": {
+        "design_width_mm": 20,
+        "fit_to_hoop": true,
+        "raster_threshold": null,
+        "raster_invert": false,
+        "background_mode": "auto",
+        "raster_cleanup": true
+      },
+      "checks": {
+        "trace_bytes": true,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "stitches": 343,
+      "threads": [
+        "#101010",
+        "#cf173c"
+      ],
+      "structural_coverage": 1.0,
+      "unsafe_connections": 0,
+      "omitted_regions": 0
+    },
+    {
+      "case": "alpha-counter",
+      "source_sha256": "5b2f78f90200625e08b9552bbab2177ad1bac983cc420f17b4ae38c0c1779ace",
+      "generation_params": {
+        "design_width_mm": 20,
+        "fit_to_hoop": true,
+        "raster_threshold": null,
+        "raster_invert": false,
+        "background_mode": "auto",
+        "raster_cleanup": true
+      },
+      "checks": {
+        "trace_bytes": false,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "stitches": 447,
+      "threads": [
+        "#101010"
+      ],
+      "structural_coverage": 1.0,
+      "unsafe_connections": 0,
+      "omitted_regions": 0,
+      "normalization": {
+        "source_mode": "RGBA",
+        "orientation_applied": false,
+        "icc_status": "absent",
+        "color_space": "assumed_sRGB"
+      },
+      "geometry": {
+        "canvas_size_mm": [
+          20.0,
+          13.264248704663212
+        ],
+        "visible_bounds_mm": [
+          0.05181347150259067,
+          0.05181347150259067,
+          19.844559585492227,
+          13.108808290155439
+        ],
+        "visible_size_mm": [
+          19.792746113989637,
+          13.056994818652848
+        ],
+        "pixel_size_mm": [
+          0.10362694300518134,
+          0.10362694300518134
+        ],
+        "source_crop_box_px": [
+          20,
+          25,
+          211,
+          151
+        ]
+      },
+      "tracing": {
+        "fallback": false,
+        "render_attempts": 1,
+        "requested_tolerance_px": 0.2895,
+        "effective_tolerance_px": 0.2895,
+        "initial_changed_pixels": 0,
+        "final_changed_pixels": 0,
+        "topology_preserved": true,
+        "nodes": 64,
+        "serialized_bytes": 1267
+      }
+    },
+    {
+      "case": "overlap-counters",
+      "source_sha256": "a74ad1eee2c5f4f6c88289ef07f47fc4ac95e672fb49e5b6fd3b4bd2f8b19c04",
+      "generation_params": {
+        "design_width_mm": 24,
+        "fit_to_hoop": true,
+        "raster_threshold": null,
+        "raster_invert": false,
+        "background_mode": "auto",
+        "raster_cleanup": true
+      },
+      "checks": {
+        "trace_bytes": true,
+        "trace_labels": true,
+        "trace_topology": true,
+        "commands": true,
+        "threads": true,
+        "decisions": true,
+        "stats": true,
+        "pes": true,
+        "dst": true,
+        "preview_svg": true
+      },
+      "stitches": 1181,
+      "threads": [
+        "#184d90",
+        "#cf173c",
+        "#ffffff"
+      ],
+      "structural_coverage": 1.0,
+      "unsafe_connections": 0,
+      "omitted_regions": 0
+    }
+  ]
+}

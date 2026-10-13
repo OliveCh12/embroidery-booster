@@ -33,3 +33,25 @@ export function describeBitmapCleanup(cleanup: InputAnalysis["cleanup"]): string
   if (fragments > 0) messages.push(`${formatNumber(fragments)} fragment${fragments > 1 ? "s" : ""} d’antialiasing trop fin${fragments > 1 ? "s" : ""} retiré${fragments > 1 ? "s" : ""} au bord du même trait (${formatNumber(pixels)} pixel${pixels > 1 ? "s" : ""}). Les détails opaques ou isolés sont préservés.`);
   return messages;
 }
+
+export function describeTraceAudit(tracing: InputAnalysis["tracing"]): string | null {
+  if (!tracing) return null;
+  const final = tracing.final;
+  if (!final.passed || final.changed_pixels !== 0 || !final.topology_preserved) {
+    return `Tracé à vérifier${final.changed_pixels > 0 ? ` : ${formatNumber(final.changed_pixels)} pixels diffèrent de l’image interprétée` : ""}.${!final.topology_preserved ? " La structure des trous ou îlots a changé." : ""}`;
+  }
+  return tracing.fallback
+    ? "Simplification du tracé réduite pour conserver les couleurs, trous et îlots de l’image interprétée. Contrôle effectué avant le calcul des points."
+    : "Tracé conforme à l’image interprétée sur sa grille de pixels. Contrôle effectué avant le calcul des points.";
+}
+
+export function describeNormalization(normalization: InputAnalysis["normalization"]): string | null {
+  if (!normalization) return null;
+  const messages: string[] = [];
+  if (normalization.orientation_applied) messages.push("Orientation de l’image corrigée.");
+  if (normalization.icc_status === "converted") messages.push("Profil couleur intégré converti en sRGB.");
+  else if (normalization.icc_status === "ignored_invalid") messages.push("Profil couleur invalide ignoré ; couleurs supposées sRGB.");
+  else if (normalization.icc_status === "unavailable") messages.push("Conversion du profil couleur indisponible ; couleurs supposées sRGB.");
+  else if (normalization.source_mode === "CMYK") messages.push("Image CMYK convertie sans profil couleur ; couleurs supposées sRGB.");
+  return messages.length ? messages.join(" ") : null;
+}

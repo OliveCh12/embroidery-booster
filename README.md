@@ -76,7 +76,9 @@ must be converted to vector paths; scripts, external resources and embedded
 images are rejected. PDF, EPS, PS and AI must be exported to SVG before import.
 
 PNG, JPEG, WebP, BMP, GIF and TIFF are traced locally. GIF/TIFF use the first
-frame. Alpha is preserved. **Auto background** removes only a sufficiently
+frame. EXIF orientation and embedded ICC profiles are normalized before colour
+analysis; alpha and indexed PNG transparency are preserved. Invalid profiles
+fall back to decoded colours with a diagnostic. **Auto background** removes only a sufficiently
 uniform or smoothly varying background connected to the perimeter: a white badge enclosed by a
 logo remains white embroidery. Choose **Keep** to retain a deliberate canvas or
 **Remove** to explicitly attempt exterior removal. Background blending and codec
@@ -92,6 +94,12 @@ transparent holes and isolated or contrasting details are preserved. This is
 enabled by default and can be disabled. Diagnostics report changed area and
 region counts. Review the interpreted SVG to confirm important details and
 backgrounds. See [input interpretation](docs/INPUT_INTERPRETATION.md).
+
+Bitmap tracing checks every interpreted paint and counter on its native pixel
+grid. Simplification that alters this reference falls back to exact contours;
+the diagnostics in **Détails** report the correction. This protects interpreted
+geometry, while the separate machine audits still identify details too small
+to sew at the requested size. See [tracing checks](docs/INPUT_INTERPRETATION.md#normalisation-et-contrôle-du-tracé).
 
 Compressed flat artwork uses local colour-mixture evidence to clean tiny edge
 fragments. Weak edge shades are assigned to locally supported paints rather
