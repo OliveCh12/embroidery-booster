@@ -112,6 +112,14 @@ réglages, borne les uploads/jobs, produit un répertoire UUID et sert les fichi
 Les previews SVG sont proposées au téléchargement ; les aperçus de fichiers
 importés sont rendus en PNG.
 
+Le shell se limite au header et au main, sans footer. La route `/settings`
+mémorise quatre préférences locales versionnées : machine, tissu, titrage et
+stabilisateur. Le parseur valide les identifiants et ignore les champs obsolètes.
+Le stockage est lu après hydratation via `useSyncExternalStore` ; à l'ouverture
+de l'atelier, les recommandations machine et matière de l'API sont appliquées
+une seule fois. Une modification utilisateur garde la priorité sur cette
+initialisation. Aucun dessin, résultat ou réglage avancé n'est persisté.
+
 Le modèle du lecteur dérive chaque passage des commandes `COLOR_CHANGE`, avec
 plage de curseur, compte exact des points et temps cumulés de cycles d'aiguille.
 La liste des fils et les modes de lecture partagent ces limites ; aucun

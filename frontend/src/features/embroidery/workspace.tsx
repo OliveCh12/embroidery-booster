@@ -4,6 +4,8 @@ import { Alert, Button } from "@heroui/react";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ApiError, apiRequest } from "@/lib/api";
+import { applyPreferences } from "@/features/preferences/preferences";
+import { usePreferences } from "@/features/preferences/use-preferences";
 import { ResultPane } from "./results";
 import { DEFAULT_SETTINGS, generationForm, validateFile } from "./settings";
 import { SettingsForm } from "./settings-form";
@@ -16,6 +18,8 @@ export function EmbroideryWorkspace() {
   const [preview, setPreview] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const { preferences, ready } = usePreferences();
+  const [initialized, setInitialized] = useState(false);
   const generation = useMutation({
     mutationFn: async ({ file, settings }: { file: File; settings: typeof DEFAULT_SETTINGS }) => {
       const result = await apiRequest<GenerationResult>("/api/convert", { method: "POST", body: generationForm(file, settings) });
@@ -26,6 +30,11 @@ export function EmbroideryWorkspace() {
   });
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+
+  if (!initialized && ready && capabilities.data) {
+    setInitialized(true);
+    setSettings(applyPreferences(DEFAULT_SETTINGS, preferences, capabilities.data));
+  }
 
   function selectFile(selected: File | null) {
     if (generation.isPending) return;
@@ -47,7 +56,7 @@ export function EmbroideryWorkspace() {
       <p role="status" aria-live="polite" className="sr-only">{generation.isPending ? "Génération en cours" : generation.isSuccess ? "Fichiers prêts" : file ? `Dessin chargé : ${file.name}` : ""}</p>
     </section>
     <aside className="flex min-h-0 min-w-0 flex-col gap-4 md:col-start-1 md:row-start-1" aria-label="Préparation de la broderie">
-      <SettingsForm settings={settings} onChange={setSettings} capabilities={capabilities.data}
+      <SettingsForm settings={settings} onChange={next => { setInitialized(true); setSettings(next); }} capabilities={capabilities.data}
         busy={generation.isPending} canGenerate={!!file && !!capabilities.data && !capabilities.isError}
         onSubmit={() => { if (file) generation.mutate({ file, settings }); }} />
     </aside>

@@ -37,6 +37,14 @@ Le moteur direct produit PES et DST sans application externe.
 
 ## Atelier
 
+Le header donne accès à l’atelier, aux contrôles qualité, à **Réglages** et au
+lien GitHub **Contribuer**. `/settings` enregistre dans ce navigateur la machine,
+le profil de tissu, le fil et le stabilisateur par défaut. À l’ouverture de
+l’atelier, les profils du moteur sont appliqués une seule fois ; les changements
+effectués ensuite restent propres au dessin. Les images et les fichiers machine
+ne font pas partie des préférences. L’apparence reprend le même thème que le
+menu du header. **Réinitialiser** restaure les préférences de matériel d’origine.
+
 L’import reste dans le panneau d’aperçu : glisser-déposer, sélection de fichier
 ou collage avec Ctrl+V / Cmd+V après avoir cliqué dans la zone. SVG, PNG, JPEG,
 WebP, TIFF, GIF et BMP sont acceptés jusqu’à 10 Mio. Un import invalide conserve
@@ -92,19 +100,20 @@ suivante et signale la bobine à installer sans masquer le dessin. Retour au
 départ, affichage complet et timeline restent disponibles sur une barre compacte.
 Les options regroupent vitesse de simulation, affichage des couches et passage
 à la commande suivante.
-La liste à gauche donne le nom descriptif, le nombre de points et le début estimé
+Le bouton flottant **Fil/Fils** ouvre une liste avec le nom descriptif, le nombre de points et le début estimé
 de chaque passage ; le HEX reste consultable au survol. Les noms ne sont pas des
 références fabricant.
 Cliquer sur une ligne rejoint son début ; le passage actif reste visible dans
-la liste. Sur les petites largeurs, cette liste passe sous le cadre.
+la liste. Elle reste repliée pour laisser toute la surface au cadre.
 
 Le titrage commun (30, 40 ou 60 wt) est affiché une fois pour tous les fils ;
 le moteur ne prévoit pas de changement d'épaisseur en cours de broderie. Les
 horaires de début et la durée totale comptent uniquement les cycles d'aiguille.
 
 Le cadre, la grille, les graduations et les phases utilisent les tokens du thème
-HeroUI appliqué. Un fin contour de contraste rend les fils peu visibles lisibles
-sur les surfaces claires ou sombres, sans changer leur couleur ni les commandes.
+HeroUI appliqué. Les couleurs réelles sont le défaut ; **Contraste** ajuste
+uniquement les couleurs peu lisibles à l’écran. La liste affiche toujours les
+vraies couleurs de fils et les exports restent inchangés.
 Le menu d’affichage distingue couverture dans la couleur du fil, sous-couche
 neutre, liaisons, sauts pointillés et ancrages. La sous-couche est masquable ; liaisons, sauts et ancrages
 se masquent ensemble. Les détails de
@@ -121,7 +130,8 @@ segments pendant la lecture. Les déplacements sur la timeline sont recalculés
 par blocs de 8 000 commandes pour conserver une interface réactive sur les grands
 plans. Aucune liste de milliers de points React n’est créée.
 
-À partir de 768 px, l’atelier occupe l’espace entre header et footer. Les paramètres
+À partir de 768 px, l’atelier occupe toute la hauteur disponible sous le header,
+sans footer. Les paramètres
 défilent séparément ; le bouton de génération et les exports PES/DST restent
 accessibles. Sur mobile, l’import et la simulation précèdent les réglages repliés.
 Les grands blocs utilisent un espacement de 16 px.
@@ -134,6 +144,7 @@ Les grands blocs utilisent un espacement de 16 px.
 - `src/features/embroidery/stitch-player` : modèle du plan et séquence de fils,
   liste de passages, timeline, rendu Canvas et palette des thèmes.
 - `src/features/quality` : contrôle du corpus direct généré côté Python.
+- `src/features/preferences` : profils par défaut locaux et page Réglages.
 - `src/lib` : HTTP, erreurs et formatage.
 
 La route `/quality` lit `output/quality/comparison.json` (schema 3) et les images

@@ -43,7 +43,11 @@ diagnostics and PES/DST downloads together. Identical machine plans are shown
 once; their equivalent strategies are listed in Détails. Turn comparison off
 to generate just the usual balanced plan.
 Thread weight is shared across all passes. Times exclude spool changes and travel. The interface has light, dark and system
-modes. See [frontend development](frontend/README.md) for separate processes and
+modes. The header provides **Contribuer** (GitHub) and **Réglages**: save your
+default machine, fabric profile, thread and stabilizer locally for the next
+atelier. These defaults reuse the engine's current presets; artwork and machine
+files are not stored in browser preferences. The workspace fills the available
+height below the header, without a footer. See [frontend development](frontend/README.md) for separate processes and
 production builds.
 
 `pnpm dev` starts Next.js on port 3000 and the Python API on port 8000.
