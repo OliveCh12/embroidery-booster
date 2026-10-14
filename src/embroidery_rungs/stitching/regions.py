@@ -221,6 +221,7 @@ def physical_elements(elements, transform):
     return [
         {
             "type": e["type"],
+            **({"closed": e["closed"]} if "closed" in e else {}),
             **{
                 key: np.asarray(e[key]) @ matrix + offset
                 for key in ("points", "rail_a", "rail_b")

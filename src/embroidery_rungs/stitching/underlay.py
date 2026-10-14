@@ -49,7 +49,7 @@ def fill_underlay(polygon, angle, params, *, edge_walk=None):
     return paths
 
 
-def satin_underlay(a, b, params, *, edge_walk=None, zigzag=None):
+def satin_underlay(a, b, params, *, edge_walk=None, zigzag=None, closed=False):
     centers = (a + b) / 2
     paths = [resample_running(centers, min(2.0, params.max_stitch_mm), tolerance=0.05)]
     vectors = b - a
@@ -65,5 +65,5 @@ def satin_underlay(a, b, params, *, edge_walk=None, zigzag=None):
     if zigzag is None:
         zigzag = widths.max() >= 3
     if zigzag:
-        paths.append(satin_points(a[::-1], b[::-1], params, underlay=True))
+        paths.append(satin_points(a[::-1], b[::-1], params, underlay=True, closed=closed))
     return paths

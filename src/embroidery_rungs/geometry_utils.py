@@ -60,7 +60,9 @@ def get_skeleton_paths(skeleton, min_len_px=2.0, distance=None):
             visited[curr, forward] = True
             prev, curr = curr, int(neighbors[curr, forward])
         a, b = int(vertex[start]), int(vertex[curr])
-        if a == b and start != curr:
+        # Ignore a shortcut inside one collapsed junction, but retain a real
+        # loop that leaves the cluster and returns to another of its pixels.
+        if a == b and start != curr and np.all(vertex[nodes] == a):
             return
         points = rc[nodes].astype(float)
         points[0], points[-1] = positions.get(a, points[0]), positions.get(b, points[-1])

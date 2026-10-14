@@ -8,6 +8,22 @@ from shapely.affinity import rotate
 from shapely.geometry import Polygon, box
 
 
+def column_polygon(a, b, *, closed=False):
+    """Represent a closed paired rail as an annulus, without a retraced seam."""
+    a, b = np.asarray(a), np.asarray(b)
+    if not closed:
+        return Polygon(np.vstack([a, b[::-1]]))
+    if (
+        len(a) < 4
+        or len(b) < 4
+        or np.linalg.norm(a[0] - a[-1]) > 1e-8
+        or np.linalg.norm(b[0] - b[-1]) > 1e-8
+    ):
+        raise ValueError("Closed satin rails must both complete their loops.")
+    outer, inner = (a, b) if Polygon(a).area > Polygon(b).area else (b, a)
+    return Polygon(outer, [inner])
+
+
 def directional_columns(source: Polygon, angle: float, compensation: float) -> list[dict]:
     """Partition a silhouette into monotone strips without bridging its holes.
 

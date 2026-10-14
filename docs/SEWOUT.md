@@ -23,6 +23,15 @@ support à découper adapté. Pour l'éponge, choisir `textured` et prévoir un 
 hydrosoluble de surface compatible avec le tissu. Noter séparément support et
 film : le champ stabilisateur du projet décrit seulement le support principal.
 
+Pour comparer les raccords satin de la 0.6.4 à la 0.6.3, utiliser aussi
+`examples/quality/continuous-columns.svg`, deux ellipses identiques de 0,8 mm
+d'épaisseur. Générer à 80 mm, même profil stable/40 wt, stabilisateur à découper
+et pas satin de 0,4 mm, avec comparaison des stratégies désactivée. Coudre les
+deux versions sur des chutes identiques. Examiner surtout la fermeture des
+anneaux, leur continuité de reflet et les amas aux anciens raccords ; mesurer
+la largeur réelle et les trous intérieurs après désencerclage. Les tests
+géométriques ne remplacent pas cette comparaison sur tissu.
+
 ## Import et préparation
 
 Le [Skitch PP1](https://www.brother-usa.com/p/sewing-embroidery/PP1) a une surface

@@ -14,6 +14,7 @@ from shapely.ops import unary_union
 
 from .params import StitchParams
 from .paths import _ordered_fill_paths, _safe_pieces, _subdivide, resample_running, satin_points
+from .satin_geometry import column_polygon
 from .underlay import fill_underlay, satin_underlay
 
 
@@ -75,6 +76,7 @@ class StitchBlock:
     region: int
     color_index: int = 0
     command_range: tuple[int, int] | None = None
+    closed: bool = False
 
 
 @dataclass
@@ -118,7 +120,7 @@ def _make_blocks(elements, params):
                 wide = True
             else:
                 a, b = np.asarray(element["rail_a"]), np.asarray(element["rail_b"])
-                polygon = Polygon(np.vstack([a, b[::-1]]))
+                polygon = column_polygon(a, b, closed=element.get("closed", False))
                 angle = params.fill_angle_deg
                 wide = np.linalg.norm(b - a, axis=1).max() > params.max_satin_width_mm
             if not polygon.is_valid or polygon.area <= 0:
@@ -179,17 +181,31 @@ def _make_blocks(elements, params):
                             params,
                             edge_walk=element.get("underlay_edge"),
                             zigzag=element.get("underlay_zigzag"),
+                            closed=element.get("closed", False),
                         )
                     )
-                paths.append(("satin", satin_points(a, b, params)))
+                paths.append(
+                    ("satin", satin_points(a, b, params, closed=element.get("closed", False)))
+                )
         frame = element.get("frame")
         areas.append(frame.geometry_to_world(area) if frame is not None else area)
         for kind, points in paths:
             points = _subdivide(points, params.max_stitch_mm)
             pieces, bad = _safe_pieces(points, area)
+            if (
+                element.get("closed")
+                and kind == "satin"
+                and (bad or len(pieces) != 1 or np.linalg.norm(points[0] - points[-1]) > 1e-8)
+            ):
+                raise CandidateGeometryError("Closed satin must remain a complete safe loop.")
             rejected += bad
             blocks.extend(
-                StitchBlock(kind, frame.to_world(p) if frame is not None else p, region)
+                StitchBlock(
+                    kind,
+                    frame.to_world(p) if frame is not None else p,
+                    region,
+                    closed=element.get("closed", False),
+                )
                 for p in pieces
             )
             point_count += sum(len(p) for p in pieces)
@@ -243,8 +259,16 @@ def build_stitch_plan(
     for block in blocks:
         points = _machine_points(block.points, origin, params.min_stitch_mm)
         pieces, bad = _safe_pieces(points, quantized_areas[block.region])
+        if (
+            block.closed
+            and block.kind == "satin"
+            and (bad or len(pieces) != 1 or np.linalg.norm(points[0] - points[-1]) > 1e-8)
+        ):
+            raise CandidateGeometryError("Closed satin lost its safe closure on the machine grid.")
         rejected += bad
-        machine_blocks.extend(StitchBlock(block.kind, p, block.region) for p in pieces)
+        machine_blocks.extend(
+            StitchBlock(block.kind, p, block.region, closed=block.closed) for p in pieces
+        )
     sewn_regions = {b.region for b in machine_blocks if b.kind != "underlay"}
     omitted = original_regions - sewn_regions
     blocks = [b for b in machine_blocks if b.region in sewn_regions]
@@ -363,12 +387,25 @@ def build_stitch_plan(
         for point in points:
             append(pe.STITCH, point)
         if len(commands) > begin:
+            actual_points = (
+                np.asarray([c[:2] for c in commands[max(0, begin - 1) :]], dtype=float) / 10
+            )
+            if (
+                block.closed
+                and block.kind == "satin"
+                and (
+                    len(actual_points) < 3
+                    or np.linalg.norm(actual_points[0] - actual_points[-1]) > 1e-8
+                )
+            ):
+                raise CandidateGeometryError("Closed satin lost its closure in emitted commands.")
             rendered.append(
                 StitchBlock(
                     block.kind,
-                    np.asarray([c[:2] for c in commands[max(0, begin - 1) :]], dtype=float) / 10,
+                    actual_points,
                     block.region,
                     command_range=(max(0, begin - 1), len(commands)),
+                    closed=block.closed,
                 )
             )
         current, current_block = quantized_position / 10 + origin, block

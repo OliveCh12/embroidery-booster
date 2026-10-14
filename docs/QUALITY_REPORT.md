@@ -1,4 +1,107 @@
-# Validation du moteur direct — 13 octobre 2026
+# Validation du moteur direct — 14 octobre 2026
+
+## Version 0.6.4 : rails satin continus et sauts quantifiés
+
+Les anciennes colonnes coupées tous les 80° de rotation restent la référence.
+Un candidat continu récupère les mêmes sections de l'axe médian, sans second
+calcul du squelette. Les cycles complets deviennent de vraies paires de contours
+avec contreforme, échantillonnage périodique et couture de fermeture contrôlée
+après arrondi. Une boucle qui revient par un autre pixel du même groupe de
+jonction n'est plus perdue dans l'extraction du graphe.
+
+Le candidat est essayé uniquement sur les régions déjà qualifiées satin. Il doit
+réduire les fragments sans augmenter les commandes, conserver la fondation et
+passer les contrôles machine, couverture structurelle et crowding cyclique.
+La comparaison littérale au satin précédent autorise au maximum 0,5 point de
+couverture perdu et le plus grand de 0,25 mm² ou 2 % de surface en débordement
+supplémentaire. Une cohorte équivalente adopte tout le changement ou aucun.
+Un échec géométrique ou de budget de cet essai conserve le plan historique.
+
+Le [rapport comparatif](benchmarks/continuous-satin-fidelity-2026-10-14.json) compare
+`main` **dc8081d**, la 0.6.3 **dfdd476** et les sources de la 0.6.4 par empreinte.
+Le corpus comprend les 32 entrées du lot précédent, 16 variantes de boucles
+fermées à des positions, angles et pas de 0,4/0,5 mm différents, et quatre
+paires de formes équivalentes. Les audits indépendants relisent les PES/DST,
+mesurent les points supérieurs quantifiés et contrôlent séparément la fermeture
+cyclique et le cœur des contreformes.
+
+Sur ces **52 entrées**, la 0.6.4 change **22 plans** face à la 0.6.3 :
+**21 réductions de fragments satin** et un correctif de saut seul. Les types de
+points par région et palettes restent identiques. Quatorze des seize variantes
+fermées adoptent les rails continus ; les deux autres conservent les fragments.
+Les anneaux natifs dont le candidat dégrade trop la couverture gardent aussi
+leurs commandes historiques exactes. Aucun défaut machine, crowding cyclique
+ou remplissage du cœur des contreformes contrôlé n'est ajouté. Les micro-régions
+déjà omises dans le corpus précédent restent omises.
+
+| Résultat à densité inchangée | main | 0.6.3 | 0.6.4 |
+|---|---:|---:|---:|
+| Courbe en S SVG, points | 1 148 | 1 148 | 1 102 |
+| Courbe en S PNG, points | 1 156 | 1 156 | 1 109 |
+| Deux ellipses équivalentes, points | 915 | 915 | 841 |
+| Deux ellipses, colonnes satin | 10 | 10 | 2 |
+| Pepsi, points du dessin | 12 458 | 12 473 | 12 433 |
+| Pepsi, couverture littérale noire | 86,21 % | 90,49 % | 90,57 % |
+
+Les courbes en S passent de cinq colonnes à une. Leur couverture littérale
+évolue de 93,77 à 93,71 % en SVG et de 94,00 à 93,95 % en PNG ; leur débordement
+baisse légèrement. Les deux ellipses passent de 95,77 à 95,91 %. Toutes les
+baisses mesurées restent dans la tolérance comparative, mais ce lot ne prétend
+pas augmenter la couverture littérale de chaque dessin. Les couches Pepsi
+blanche, bleue et rouge restent inchangées. Ces chiffres modélisent un fil de
+0,3 mm et ne prouvent ni opacité réelle ni qualité de reflet après couture.
+
+Le correctif de saut concerne l'approche depuis l'origine et les déplacements
+entre couleurs. Une interpolation de 12 mm pouvait devenir **12,0204 mm** après
+arrondi à 0,1 mm. L'audit des coordonnées entières déclenche seulement alors
+une subdivision avec réserve d'arrondi. Sur les 52 cas, ce correctif seul conserve
+tous les points cousus ; les deux contrôles concernés passent de 6 à 7 sauts,
+avec un maximum de 8,0156 mm. Les PES/DST restent fidèles aux points du plan.
+
+Les modes Satin et Fill sont aussi comparés sur cinq contrôles dans les trois
+références, soit **30 générations supplémentaires**. Le satin forcé retrouve
+les promotions qualifiées ellipse/courbe en S/deux ellipses ; l'anneau et le
+rectangle avec détail rond conservent leurs sorties. Les cinq plans tatami sont
+strictement identiques à la 0.6.3. Tous les contrôles machine passent.
+
+La génération complète est mesurée ensuite, séquentiellement sans suite de
+tests ni build en parallèle : un processus neuf par cas/référence, une chauffe
+et cinq mesures. Les six fichiers PES/DST répétés sont identiques. La machine
+reste partagée ; ces observations ne démontrent pas un gain causal.
+
+| Génération médiane | main | 0.6.3 | 0.6.4 |
+|---|---:|---:|---:|
+| Anneau | 0,272 s | 0,505 s | 0,280 s |
+| Petit anneau | 0,069 s | 0,065 s | 0,071 s |
+| Courbe en S | 0,373 s | 0,314 s | 0,349 s |
+| Ellipse | 0,193 s | 0,202 s | 0,198 s |
+| Stade arrondi | 0,226 s | 0,224 s | 0,222 s |
+| Multicolore | 0,681 s | 0,602 s | 0,573 s |
+| Phénix | 1,040 s | 1,046 s | 0,912 s |
+| Nike avec lettrage | 1,413 s | 1,478 s | 1,468 s |
+
+La médiane baisse sur **6/8 cas face à la 0.6.3** et **4/8 face à main**.
+Face au précédent, la courbe en S coûte environ 35 ms de plus (+11,2 %) et le
+petit anneau environ 6 ms (+8,8 %). Un candidat rejeté peut donc avoir un coût,
+même si ses points restent inchangés. Le RSS de Phénix passe de 237,34 à
+250,77 Mio. Tous les échantillons, p95 empiriques et pics mémoire restent dans
+le rapport ; aucune baisse universelle de latence ou de mémoire n'est annoncée.
+
+Validation : **902 tests Python**, puis les **14 nouveaux
+tests de continuité**, **147 tests frontend**, Ruff, TypeScript, ESLint, build
+Next isolé et wheel dont les 35 sources correspondent exactement au moteur
+validé. La génération depuis la wheel et le parcours web import → génération →
+téléchargement PES/DST produisent les mêmes 841 points sur les deux ellipses.
+Le diagnostic continu est vérifié en thèmes clair et sombre. Le coupon
+`examples/quality/continuous-columns.svg` et [son protocole](SEWOUT.md) permettent
+la comparaison physique ; aucun essai cousu PP1 n'est encore validé.
+
+Huit contrôles supplémentaires combinent deux formes avec stable/30 wt,
+stretch/40 wt, textured/30 wt et stable/60 wt. Six adoptent les rails continus,
+deux conservent exactement le plan historique. Fondation, limites et
+contreformes protégées restent valides ; les 32 exports anciens/nouveaux
+conservent leurs points. Cette annexe du rapport reste une validation numérique,
+sans prétendre calibrer ces matériaux sur tissu.
 
 ## Version 0.6.3 : satin utile, fidélité comparée au tatami
 

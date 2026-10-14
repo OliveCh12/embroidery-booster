@@ -10,12 +10,11 @@ sont relus pour vérifier les points réellement exportés.
 
 | Ordre | Travail | Bénéfice attendu | Condition de validation |
 |---|---|---|---|
-| 1 | Auto guidé par la géométrie : traits, contreformes, courbes et petits détails ronds | Satin utile conservé, moins de tatami choisi par défaut sur des colonnes cousables | Couverture réelle, régularité et symétrie mesurées à plusieurs tailles et positions ; maintien des refus de sécurité |
-| 2 | Lisser les rails satin et réduire les jonctions de fragments | Reflets plus continus sur anneaux, courbes et lettrages | Comparer les coutures et excursions hors contour, pas seulement le pourcentage de satin ; aucun manque ni amas supplémentaire |
-| 3 | Affiner les accents JPEG et la séparation des peintures | Moins de détails perdus et de fils parasites | Oracles couleur/alpha sur images nettes, compressées et floutées ; préserver les vrais petits accents contrastés |
-| 4 | Calibrer les profils textile par des coupons PP1 | Densité, compensation et sous-couche justifiées par la couture | Coupons identiques coton/jersey/éponge, mesures avant/après et photos ; distinguer paramètres proposés et paramètres validés |
-| 5 | Tracing haute qualité et fond photographique optionnels | Contours plus lisses et extraction d'objet sur images difficiles | Adaptateurs VTracer/rembg optionnels, audit contre la silhouette/couleurs source, fallback géométrique, temps et mémoire mesurés |
-| 6 | Progression structurée de la génération | Comprendre la durée et localiser un échec | Événements backend par étape, état de tâche borné, polling frontend ; conserver le parcours actuel |
+| 1 | Affiner les accents JPEG et la séparation des peintures | Moins de détails perdus et de fils parasites | Oracles couleur/alpha sur images nettes, compressées et floutées ; préserver les vrais petits accents contrastés |
+| 2 | Calibrer les profils textile par des coupons PP1 | Densité, compensation et sous-couche justifiées par la couture | Coupons identiques coton/jersey/éponge, mesures avant/après et photos ; distinguer paramètres proposés et paramètres validés |
+| 3 | Tracing haute qualité et fond photographique optionnels | Contours plus lisses et extraction d'objet sur images difficiles | Adaptateurs VTracer/rembg optionnels, audit contre la silhouette/couleurs source, fallback géométrique, temps et mémoire mesurés |
+| 4 | Progression structurée de la génération | Comprendre la durée et localiser un échec | Événements backend par étape, état de tâche borné, polling frontend ; conserver le parcours actuel |
+| 5 | Étendre les rails continus aux jonctions difficiles | Réduire les raccords de lettrages ramifiés | Conserver les vrais changements de géométrie, ne pas relier des sections rejetées ; comparer au plan actuel et aux coupons |
 
 L'ordre n'implique pas qu'un futur adaptateur résout toutes les images. VTracer
 ne remplace pas la séparation des couleurs ; une suppression de fond apprise
@@ -28,6 +27,14 @@ Le premier lot est livré en **0.6.3** : profils géométriques explicites, essa
 satin élargi sur traits/contreformes étroits, comparaison de fidélité au tatami
 et protection des petits détails arrondis déjà qualifiés. Il ne crée pas encore
 des rails continus optimaux sur tous les anneaux ou toutes les jonctions.
+
+La **0.6.4** ajoute un candidat satin continu issu du même passage d'axe médian,
+avec contreforme et fermeture périodique pour les vrais cycles. Il remplace
+uniquement des régions déjà satin, après comparaison de leurs points exportés
+et adoption commune des homologues. Les anciens fragments restent disponibles
+lorsque leur couverture est meilleure au-delà de la tolérance du projet. Les
+sauts sont désormais bornés après arrondi machine, depuis l'origine comprise.
+Les jonctions ramifiées et la calibration textile restent des travaux distincts.
 
 - Import SVG et bitmap, normalisation EXIF/ICC, fond uniforme ou dégradé connecté
   au périmètre, nettoyage couleur local et contrôle du tracing.

@@ -11,6 +11,7 @@ from shapely.geometry import Polygon
 from skimage.segmentation import watershed
 
 from ..geometry_utils import get_skeleton_paths, segments_intersect
+from .satin_geometry import column_polygon
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +168,7 @@ def generate_columns(
     *,
     min_satin_width_px=0.0,
     pixels_per_mm=6.0,
+    continuous_candidates=None,
 ):
     """Return satin rails and running paths without producing SVG guide geometry.
 
@@ -253,6 +255,37 @@ def generate_columns(
     elements = []
     for a, b, centers, valid in _crossing_filter(rails):
         widths = np.linalg.norm(b - a, axis=1)
+        if continuous_candidates is not None and np.array_equal(valid, np.arange(len(a))):
+            if np.all(widths >= 1.0) and np.all(
+                np.linalg.norm(np.diff(centers, axis=0), axis=1)
+                <= np.maximum(6 * pixels_per_mm, widths[:-1])
+            ):
+                closed = np.linalg.norm(centers[0] - centers[-1]) < 0.5
+                if closed:
+                    try:
+                        polygon = column_polygon(a, b, closed=True)
+                    except ValueError:
+                        polygon = None
+                    if polygon is not None and polygon.is_valid and polygon.area > 0:
+                        continuous_candidates.append(
+                            {
+                                "type": "satin",
+                                "rail_a": a.copy(),
+                                "rail_b": b.copy(),
+                                "closed": True,
+                            }
+                        )
+                else:
+                    for ra, rb, _ in _valid_rail_pieces(a, b, centers):
+                        if ra is not None:
+                            continuous_candidates.append(
+                                {
+                                    "type": "satin",
+                                    "rail_a": ra.copy(),
+                                    "rail_b": rb.copy(),
+                                    "closed": False,
+                                }
+                            )
         satin = widths >= min_satin_width_px
         # Changes of stitch type and rejected cross-sections are column boundaries.
         valid = valid[widths[valid] >= 1.0]

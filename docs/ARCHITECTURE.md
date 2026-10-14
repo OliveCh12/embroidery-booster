@@ -28,7 +28,7 @@ src/embroidery_rungs/
     analysis.py            Analyse des régions et ajustements bornés
     regions.py             Repères locaux et équivalences géométriques
     rails.py               Colonnes internes issues de l'axe médian
-    satin_geometry.py      Rubans directionnels, branches et contreformes
+    satin_geometry.py      Polygones de rails ouverts/fermés, rubans directionnels
     selection.py           Candidats satin/running/tatami et angle surfacique
     consistency.py         Politique commune aux homologues, audit machine final
     paths.py               Échantillonnage des points supérieurs
@@ -82,6 +82,22 @@ output/                   Jobs et artefacts générés, ignorés par Git
    quantifier une seule fois sur une grille commune et vérifier la couverture.
 7. Assembler les couleurs, encoder PES/DST et écrire previews/JSON en staging.
    Publier les fichiers seulement après réussite de la génération.
+
+Les rails continus sont une alternative locale aux colonnes satin déjà retenues,
+pas une nouvelle interprétation de l'image. `rails.py` conserve le résultat
+historique et collecte les sections continues du même passage de l'axe médian.
+Une paire fermée représente un anneau avec sa contreforme ; elle ne devient pas
+un polygone auto-intersecté par concaténation des deux contours. L'échantillonnage
+cyclique et son contrôle après quantification incluent la couture de fermeture.
+`consistency.py` compare ces points à l'ancien satin après la politique commune
+et l'audit final. Le remplacement concerne tous les membres équivalents ou aucun.
+Un rejet conserve leurs anciennes colonnes ; aucune région tatami n'est promue
+par cette optimisation. Les caches restent locaux à la génération.
+
+L'assemblage des couleurs et le recentrage reconstruisent leurs sauts sur la
+grille de 0,1 mm. La longueur est vérifiée **après** l'arrondi, depuis l'origine
+machine comprise ; un saut de 12 mm théoriques ne suffit pas à garantir cette
+limite une fois les coordonnées arrondies.
 
 Avec `compare_strategies=True`, la préparation d'image et de palette est commune
 aux propositions équilibrée, priorité satin, tout satin, tatami uniforme et

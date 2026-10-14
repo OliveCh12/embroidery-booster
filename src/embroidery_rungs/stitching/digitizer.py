@@ -91,6 +91,20 @@ def prepare_digitizing(svg: SVGDocument, params: StitchParams) -> PreparedArtwor
     )
 
 
+def _jump_chain(start: np.ndarray, end: np.ndarray) -> np.ndarray:
+    """Keep needle-up moves within 12 mm after rounding to machine units."""
+    delta = end - start
+    length = np.linalg.norm(delta)
+    count = max(1, math.ceil(length / 120))
+    points = np.rint(start + delta * np.arange(1, count + 1)[:, None] / count).astype(int)
+    steps = np.diff(np.vstack([start, points]), axis=0)
+    if np.any(np.sum(steps * steps, axis=1) > 120**2):
+        # Two rounded endpoints can increase a segment by sqrt(2) machine units.
+        count = max(count + 1, math.ceil(length / (120 - np.sqrt(2))))
+        points = np.rint(start + delta * np.arange(1, count + 1)[:, None] / count).astype(int)
+    return points
+
+
 def _combine(plans, colors, params, origin):
     commands, blocks, decisions, warnings = [], [], [], []
     stats = {}
@@ -101,10 +115,7 @@ def _combine(plans, colors, params, origin):
         previous = np.asarray(commands[-1][:2]) if commands else np.array([0, 0])
         if commands:
             commands.append([int(previous[0]), int(previous[1]), pe.COLOR_CHANGE])
-        count = max(1, math.ceil(np.linalg.norm(first - previous) / 120))
-        for point in np.rint(
-            previous + (first - previous) * np.arange(1, count + 1)[:, None] / count
-        ).astype(int):
+        for point in _jump_chain(previous, first):
             commands.append([int(point[0]), int(point[1]), pe.JUMP])
         command_offset = len(commands) - start
         commands.extend(plan.commands[start:-1])  # Keep the terminal trim, one END globally.
@@ -143,16 +154,12 @@ def _combine(plans, colors, params, origin):
     origin = np.asarray(origin) + shift / 10
     first_stitch = int(np.flatnonzero(array[:, 2] == pe.STITCH)[0])
     first = array[first_stitch, :2]
-    count = max(1, math.ceil(np.linalg.norm(first) / 120))
-    prefix = [
-        [int(x), int(y), pe.JUMP]
-        for x, y in np.rint(first * np.arange(1, count + 1)[:, None] / count).astype(int)
-    ]
+    prefix = [[int(x), int(y), pe.JUMP] for x, y in _jump_chain(np.array([0, 0]), first)]
     commands = prefix + array[first_stitch:].tolist()
     for block in blocks:
         block.points -= shift / 10
         if block.command_range is not None:
-            block.command_range = tuple(i + count - first_stitch for i in block.command_range)
+            block.command_range = tuple(i + len(prefix) - first_stitch for i in block.command_range)
     if len(commands) > params.max_stitches:
         raise ValueError(
             "Stitch budget exceeded across colour layers; reduce colours or enlarge spacing."

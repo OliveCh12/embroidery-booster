@@ -23,12 +23,23 @@ def satin_crowding(plan, minimum_mm):
     for block in plan.blocks:
         if block.kind != "satin":
             continue
-        points = block.points[2:-2]
+        closed = (
+            getattr(block, "closed", False)
+            and np.linalg.norm(block.points[0] - block.points[-1]) < 1e-8
+        )
+        points = block.points[:-1] if closed else block.points[2:-2]
         crowded = np.zeros(len(points), dtype=bool)
         for lag in (2, 4, 6, 8):
-            crowded[lag:] |= (
-                np.linalg.norm(points[lag:] - points[:-lag], axis=1) < minimum_mm - 0.050001
-            )
+            if closed:
+                if lag < len(points):
+                    crowded |= (
+                        np.linalg.norm(points - np.roll(points, lag, axis=0), axis=1)
+                        < minimum_mm - 0.050001
+                    )
+            else:
+                crowded[lag:] |= (
+                    np.linalg.norm(points[lag:] - points[:-lag], axis=1) < minimum_mm - 0.050001
+                )
         count += int(crowded.sum())
     return count
 

@@ -28,8 +28,15 @@ def resample_running(points, length: float, tolerance: float = 0.12) -> np.ndarr
     return np.asarray(result)
 
 
-def _rail_samples(a, b, half_pitch, max_samples=500_000):
+def _rail_samples(a, b, half_pitch, max_samples=500_000, *, closed=False):
     a, b = np.asarray(a, dtype=float), np.asarray(b, dtype=float)
+    if closed and (
+        len(a) < 4
+        or len(b) < 4
+        or np.linalg.norm(a[0] - a[-1]) > 1e-8
+        or np.linalg.norm(b[0] - b[-1]) > 1e-8
+    ):
+        raise ValueError("Closed satin rails must both complete their loops.")
     steps = np.maximum(
         np.linalg.norm(np.diff(a, axis=0), axis=1), np.linalg.norm(np.diff(b, axis=0), axis=1)
     )
@@ -38,17 +45,19 @@ def _rail_samples(a, b, half_pitch, max_samples=500_000):
     a, b = a[keep], b[keep]
     if len(a) < 2:
         return a, b
-    count = max(3, math.ceil(progress[-1] / half_pitch) + 1)
-    if count > max_samples:
+    count = max(4 if closed else 3, math.ceil(progress[-1] / half_pitch) + (not closed))
+    if closed:
+        count += count % 2
+    if count + int(closed) > max_samples:
         raise ValueError("Stitch budget exceeded; simplify the design or increase spacing.")
-    targets = np.linspace(0, progress[-1], count)
+    targets = np.linspace(0, progress[-1], count, endpoint=not closed)
     return tuple(
         np.column_stack([np.interp(targets, progress, rail[:, k]) for k in (0, 1)])
         for rail in (a, b)
     )
 
 
-def satin_points(a, b, params: StitchParams, *, underlay=False) -> np.ndarray:
+def satin_points(a, b, params: StitchParams, *, underlay=False, closed=False) -> np.ndarray:
     """Bound outer-edge spacing; distribute crowded inner-corner penetrations."""
     # Sparse support is closer on unstable/lofty textiles, without increasing
     # top density (extra top stitches would increase puckering).
@@ -57,7 +66,7 @@ def satin_points(a, b, params: StitchParams, *, underlay=False) -> np.ndarray:
         if underlay
         else params.satin_spacing_mm
     )
-    a, b = _rail_samples(a, b, pitch / 2, params.max_stitches)
+    a, b = _rail_samples(a, b, pitch / 2, params.max_stitches, closed=closed)
     if len(a) < 2:
         return np.empty((0, 2))
     vectors = b - a
@@ -105,7 +114,9 @@ def satin_points(a, b, params: StitchParams, *, underlay=False) -> np.ndarray:
         points.append(candidate)
         history[side].append(candidate)
     # Finish the terminal cross-section rather than leaving a half-covered cap.
-    terminal = b[-1] if (len(points) - 1) % 2 == 0 else a[-1]
+    if closed and len(points) % 2:
+        raise ValueError("Closed satin cannot close with consecutive penetrations on one rail.")
+    terminal = points[0] if closed else b[-1] if (len(points) - 1) % 2 == 0 else a[-1]
     if np.linalg.norm(points[-1] - terminal) >= params.min_stitch_mm:
         points.append(terminal)
     result = np.asarray(points)

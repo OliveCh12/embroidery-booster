@@ -15,6 +15,9 @@ export function describeDecision(decision: Decision): string | null {
     case "complete_regular_column":
       if (decision.method === "satin") reason = "Colonnes satin vérifiées sur les points machine.";
       break;
+    case "complete_continuous_columns":
+      if (decision.method === "satin") reason = "Satin continu vérifié, avec moins de raccords.";
+      break;
     case "complete_split_columns":
       if (decision.method === "satin") reason = "Satin divisé en colonnes vérifiées.";
       break;

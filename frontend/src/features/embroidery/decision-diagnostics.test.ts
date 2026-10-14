@@ -25,6 +25,8 @@ describe("region decision feedback", () => {
   it("describes a qualified directional satin separately from ordinary columns", () => {
     expect(describeDecision({ ...decision, reason: "complete_directional_columns" })).toContain("Satin directionnel vérifié sur les points machine");
     expect(describeDecision({ ...decision, reason: "complete_split_columns" })).toContain("divisé en colonnes vérifiées");
+    expect(describeDecision({ ...decision, reason: "complete_continuous_columns" })).toContain("Satin continu vérifié, avec moins de raccords");
+    expect(describeDecision({ ...decision, method: "fill", reason: "complete_continuous_columns" })).toBeNull();
   });
 
   it("reports the actual satin width limit rather than hardcoding a machine recommendation", () => {

@@ -11,11 +11,61 @@ from shapely.geometry import box
 from embroidery_rungs import GenerationParams, StitchParams, generate
 from embroidery_rungs.colors import separate_colors
 from embroidery_rungs.image_processor import rasterize_rgba
+from embroidery_rungs.stitching.digitizer import _jump_chain
 from embroidery_rungs.stitching.planner import StitchBlock, StitchPlan
 from embroidery_rungs.stitching.quality import measure_plan, measure_stitches
 from embroidery_rungs.svg_manager import UNITS_PER_MM, load_svg_paths
 
 SOURCE = Path(__file__).resolve().parents[1] / "examples/quality/multicolor.svg"
+
+
+@pytest.mark.parametrize("delta", [(-239, 14), (341, 337), (120, 0), (0, 0), (2000, -799)])
+@pytest.mark.parametrize("start", [(0, 0), (17, -33)])
+def test_jump_chain_bounds_rounded_segments_and_retains_endpoint(delta, start):
+    start = np.asarray(start)
+    end = start + delta
+    points = _jump_chain(start, end)
+    steps = np.diff(np.vstack([start, points]), axis=0)
+    assert points.dtype.kind == "i"
+    assert np.array_equal(points[-1], end)
+    assert np.all(np.sum(steps * steps, axis=1) <= 120**2)
+    if delta in [(120, 0), (0, 0)]:
+        assert np.array_equal(points, [end])
+
+
+@pytest.mark.parametrize("spacing", [0.4, 0.5])
+def test_centered_stadium_has_safe_origin_jump_and_machine_exports(tmp_path, svg_file, spacing):
+    source = svg_file(
+        '<g transform="translate(5.1 5.2)"><rect x="15" y="20" width="48" height="24" '
+        'rx="12" fill="none" stroke="#111111" stroke-width="4"/></g>',
+        width="80mm",
+        height="70mm",
+        viewbox="0 0 80 70",
+    )
+    result = generate(
+        source,
+        tmp_path / "out",
+        GenerationParams(design_width_mm=80, fit_to_hoop=True, background_mode="keep"),
+        stitch_params=StitchParams.for_fabric(
+            "stable",
+            thread_weight=40,
+            stabilizer="cutaway",
+            machine="brother-skitch-pp1",
+            max_colors=6,
+            density_percent=None,
+            satin_spacing_mm=spacing,
+        ),
+    )
+    commands = np.asarray(data_for(result)["commands"])
+    lengths = np.linalg.norm(np.diff(np.vstack([[0, 0], commands[:, :2]]), axis=0), axis=1) / 10
+    assert lengths[commands[:, 2] == pe.JUMP].max() <= 12.0001
+    sewn = commands[commands[:, 2] == pe.STITCH, :2]
+    for filename in (result.direct.pes_path, result.direct.dst_path):
+        machine = np.asarray(pe.read(filename).stitches)
+        codes = machine[:, 2].astype(int) & pe.COMMAND_MASK
+        assert np.array_equal(machine[codes == pe.STITCH, :2], sewn)
+        lengths = np.linalg.norm(np.diff(np.vstack([[0, 0], machine[:, :2]]), axis=0), axis=1) / 10
+        assert lengths[codes == pe.JUMP].max(initial=0) <= 12.0001
 
 
 def data_for(result):
@@ -53,8 +103,8 @@ def test_visible_color_layers_export_exact_palette_and_commands(tmp_path):
     for i in np.flatnonzero(commands[:, 2] == pe.COLOR_CHANGE):
         assert commands[i - 1, 2] == pe.TRIM
         assert commands[i + 1, 2] == pe.JUMP
-    lengths = np.linalg.norm(np.diff(commands[:, :2], axis=0), axis=1) / 10
-    assert lengths[commands[1:, 2] == pe.JUMP].max() <= 12.1
+    lengths = np.linalg.norm(np.diff(np.vstack([[0, 0], commands[:, :2]]), axis=0), axis=1) / 10
+    assert lengths[commands[:, 2] == pe.JUMP].max() <= 12.0001
     document, _ = load_svg_paths(result.original_path)
     rgba, transform = rasterize_rgba(document, 305)
     labels, colors, _ = separate_colors(rgba)

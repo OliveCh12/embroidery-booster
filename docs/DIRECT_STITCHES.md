@@ -152,6 +152,23 @@ emit actual supporting stitches after rounding, foundation is disabled for the
 whole cohort and metadata reflects this. More penetrations are not assumed to
 improve tiny details.
 
+Since 0.6.4, already-qualified medial-axis satin can try continuous rails before
+the historical 80-degree accumulated-turn cuts. A full valid cycle uses a paired
+annulus, periodic sampling and one closing stitch, preserving its intentional
+hole. Rejected cross-sections are never bridged. The actual quantized candidate
+must use fewer columns, pass machine and cyclic-crowding checks, and stay within
+0.5 percentage point of the previous satin's literal coverage and the larger
+of 0.25 mm² or 2% of region area in extra spill. Material density, compensation
+and foundation policy remain shared. Every equivalent cohort accepts or rejects
+the alternative together; tatami regions and unsuccessful explicit Satin requests
+are unaffected. Fewer joins reduce repeated lock/travel work, but do not by
+themselves prove smoother sewn sheen. This requires physical samples.
+
+Needle-up jump subdivision checks integer coordinates against the 12 mm bound,
+including the origin approach and moves between colours. Rounding an interpolated
+move can make it longer than its floating-point estimate; only offending chains
+receive an additional subdivision. Sewn stitch points are not changed by this fix.
+
 ## Machine plan and output
 
 ### Automatic alternatives

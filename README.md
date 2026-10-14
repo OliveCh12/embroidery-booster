@@ -55,7 +55,7 @@ height below the header, without a footer. See [frontend development](frontend/R
 production builds.
 
 The header also displays the installed frontend version beside the application
-name, including on small screens. This release is **0.6.3**.
+name, including on small screens. This release is **0.6.4**.
 
 Auto describes each region's geometry and verifies suitable narrow strokes and
 outlines against the actual machine-grid stitches before choosing satin. Broad
@@ -63,6 +63,15 @@ surfaces retain tatami; a qualified small round satin detail is preserved beside
 a larger filled body. **Détails → Points par région** explains the geometry and
 choice. See the [engine roadmap](docs/ROADMAP.md) for the next quality improvements
 and the [measured comparisons](docs/QUALITY_REPORT.md) for benefits and limitations.
+
+Qualified satin curves and loops can now retain continuous paired rails instead
+of accumulating artificial joins. Each equivalent group compares the emitted
+points with its previous satin plan and keeps the previous result if coverage,
+spill, closure, crowding or command budget deteriorate beyond the project bounds.
+Density and material settings remain shared. Try
+[`continuous-columns.svg`](examples/quality/continuous-columns.svg) at 80 mm with
+the stable/40 wt preset; see the [sew-out protocol](docs/SEWOUT.md) for checking
+the closed seam on actual fabric.
 
 `pnpm dev` starts Next.js on port 3000 and the Python API on port 8000.
 `FRONTEND_PORT` and `API_PORT` override them. Core-only installation: `uv sync`.

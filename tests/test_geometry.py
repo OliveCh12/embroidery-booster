@@ -41,3 +41,20 @@ def test_raster_budget(svg_file):
     assert (mask.shape[0] - 6) * (mask.shape[1] - 6) <= MAX_PIXELS
     assert transform.a < 1
     assert transform.a == transform.d
+
+
+def test_loop_returning_to_an_adjacent_junction_pixel_is_preserved():
+    skeleton = np.zeros((22, 25), dtype=bool)
+    skeleton[7, 5:19] = skeleton[17, 5:19] = True
+    skeleton[7:18, 5] = skeleton[7:18, 18] = True
+    skeleton[4:7, 10] = True
+    skeleton[8:11, 11] = True
+    paths = get_skeleton_paths(skeleton)
+    loops = [p for p in paths if np.array_equal(p["points"][0], p["points"][-1])]
+    assert len(loops) == 1
+    points = loops[0]["points"]
+    assert np.linalg.norm(np.diff(points, axis=0), axis=1).sum() > 40
+    assert points[:, 0].max() == 17
+    assert points[:, 1].min() == 5
+    assert points[:, 1].max() == 18
+    assert loops[0]["start_node"] == loops[0]["end_node"]

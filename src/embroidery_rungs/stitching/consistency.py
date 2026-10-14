@@ -30,6 +30,7 @@ class RegionCandidate:
     polygons: list[Polygon]
     params: StitchParams
     metrics: dict = field(default_factory=dict)
+    continuous_elements: tuple[dict, ...] = ()
 
 
 def _color_policy(groups, params):
@@ -168,6 +169,11 @@ def _audit_members(members, method, params, origin, transform, scale):
                 metrics, _ = measure_plan(candidate, target, scale, offset)
             metrics["crowded_satin_penetrations"] = crowding
             metrics["underlay_stitches"] = candidate.stats["underlay_stitches"]
+            metrics["satin_blocks"] = sum(block.kind == "satin" for block in candidate.blocks)
+            metrics["command_count"] = len(candidate.commands)
+            metrics["unsafe_connections"] = candidate.stats["unsafe_connections"]
+            metrics["omitted_regions"] = candidate.stats["omitted_regions"]
+            metrics["short_stitches"] = candidate.stats["short_stitches"]
             member.metrics = metrics
             passed &= not coverage_needs_review(metrics) and (
                 method != "satin" or (crowding == 0 and candidate.stats["unsafe_connections"] == 0)
@@ -181,6 +187,84 @@ def _audit_members(members, method, params, origin, transform, scale):
             }
             passed = False
     return passed
+
+
+def _promote_continuous(members, params, origin, transform, scale):
+    if (
+        len(
+            {
+                (
+                    len(m.continuous_elements),
+                    tuple(e.get("closed", False) for e in m.continuous_elements),
+                )
+                for m in members
+            }
+        )
+        != 1
+    ):
+        return False
+    limit = min(
+        params.max_satin_width_mm, params.max_stitch_mm - 0.2 - 2 * params.pull_compensation_mm
+    )
+    trials = []
+    for member in members:
+        alternative = member.continuous_elements
+        if (
+            not alternative
+            or len(alternative) >= member.metrics.get("satin_blocks", 0)
+            or len(alternative) > 64
+            or any(
+                np.linalg.norm(e["rail_b"] - e["rail_a"], axis=1).max() > limit for e in alternative
+            )
+        ):
+            return False
+        source = unary_union(member.polygons)
+        foundation = {
+            key: member.elements[0][key]
+            for key in ("underlay", "underlay_edge", "underlay_zigzag")
+            if key in member.elements[0]
+        }
+        elements = [
+            {
+                **e,
+                "rail_a": e["rail_a"].copy(),
+                "rail_b": e["rail_b"].copy(),
+                "stitch_type": "satin",
+                "allowed_area": source.buffer(params.pull_compensation_mm + 0.08),
+                "frame": member.region.frame,
+                **foundation,
+            }
+            for e in alternative
+        ]
+        trials.append(replace(member, elements=elements, metrics={}))
+    try:
+        if not _audit_members(trials, "satin", params, origin, transform, scale):
+            return False
+    except ValueError:
+        return False
+    for member, trial in zip(members, trials, strict=True):
+        old, new = member.metrics, trial.metrics
+        area = sum(p.area for p in member.polygons)
+        if (
+            new["satin_blocks"] >= old["satin_blocks"]
+            or new["command_count"] > old["command_count"]
+            or new["coverage"] < old["coverage"] - 0.005
+            or new["spill_mm2"] > old["spill_mm2"] + max(0.25, 0.02 * area)
+            or new["unsafe_connections"]
+            or new["omitted_regions"]
+            or new["short_stitches"]
+            or (old["underlay_stitches"] > 0) != (new["underlay_stitches"] > 0)
+        ):
+            return False
+    for member, trial in zip(members, trials, strict=True):
+        member.elements, member.metrics = trial.elements, trial.metrics
+        member.decision.update(
+            reason="complete_continuous_columns",
+            split_satin_columns=0,
+            directional_satin_columns=0,
+            canonical_satin_angle_deg=None,
+        )
+    return True
 
 
 def select_consistent_regions(
@@ -259,15 +343,20 @@ def select_consistent_regions(
         if needs_mat:
             if "mat" not in member_geometry:
                 skeleton, distance = compute_medial_axis(local_mask)
+                continuous = []
                 raw_elements = generate_columns(
                     skeleton,
                     distance,
                     local_mask,
                     min_satin_width_px=0.5 * scale,
                     pixels_per_mm=scale,
+                    continuous_candidates=continuous,
                 )
                 member_geometry["mat"] = tuple(physical_elements(raw_elements, local_transform))
-                for element in member_geometry["mat"]:
+                member_geometry["continuous"] = tuple(
+                    physical_elements(continuous, local_transform)
+                )
+                for element in (*member_geometry["mat"], *member_geometry["continuous"]):
                     for value in element.values():
                         if isinstance(value, np.ndarray):
                             value.setflags(write=False)
@@ -316,6 +405,7 @@ def select_consistent_regions(
                     decisions[0],
                     member_geometry["polygons"],
                     local_params,
+                    continuous_elements=member_geometry.get("continuous", ()),
                 )
             )
 
@@ -382,6 +472,9 @@ def select_consistent_regions(
                 for element in member.elements:
                     element["underlay"] = False
             _audit_members(members, method, params, origin, transform, scale)
+
+        if method == "satin":
+            _promote_continuous(members, params, origin, transform, scale)
 
         for member in members:
             region, decision, elements = member.region, member.decision, member.elements
