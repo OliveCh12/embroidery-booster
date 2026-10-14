@@ -55,7 +55,7 @@ height below the header, without a footer. See [frontend development](frontend/R
 production builds.
 
 The header also displays the installed frontend version beside the application
-name, including on small screens. This release is **0.6.4**.
+name, including on small screens. This release is **0.6.5**.
 
 Auto describes each region's geometry and verifies suitable narrow strokes and
 outlines against the actual machine-grid stitches before choosing satin. Broad
@@ -63,6 +63,28 @@ surfaces retain tatami; a qualified small round satin detail is preserved beside
 a larger filled body. **Détails → Points par région** explains the geometry and
 choice. See the [engine roadmap](docs/ROADMAP.md) for the next quality improvements
 and the [measured comparisons](docs/QUALITY_REPORT.md) for benefits and limitations.
+
+Auto also tries the next qualified satin direction when the first one loses
+fidelity. Narrow strokes and outlines can be reconsidered against the **actual
+final tatami plan**, including its angle, foundation and machine rounding. An
+equivalent group adopts this reconsideration together, with no additional commands,
+crowding or unsafe connections. This improves lettering without assuming that
+every letter or border is a sewable satin column. Try
+[`lettering-and-outline.svg`](examples/quality/lettering-and-outline.svg) with
+Auto, then uniform Tatami, at the same size and material settings.
+
+These Auto trials also count actual top-layer needle penetrations at each
+machine coordinate, across column joins. A candidate cannot introduce a peak
+above both two penetrations and the final fill reference. Automatic variant
+recommendations apply the same comparison per thread. This is a conservative
+comparison rule, not a certified machine limit; it preserves legitimate double
+joins without promoting a triple junction just because it covers more pixels.
+
+Compressed flat artwork has an additional source check: bounded colour families
+anchored in observed opaque RGB cores. It retries the sampling grid only if
+colour matching and source-detail checks pass completely. Literal SVG/PNG paints
+remain exact; gradients, uncertain accents and unqualified retries retain the
+existing interpretation. Détails identifies estimated families separately.
 
 Qualified satin curves and loops can now retain continuous paired rails instead
 of accumulating artificial joins. Each equivalent group compares the emitted

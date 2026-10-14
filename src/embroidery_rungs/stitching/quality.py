@@ -17,6 +17,32 @@ def coverage_needs_review(metrics):
     )
 
 
+def max_top_penetration_multiplicity(plan, *, color_index=None):
+    """Return the maximum observed STITCH visits at a satin/fill coordinate.
+
+    Count emitted integer tenths in the top-layer command ranges, excluding
+    context, locks, travel, underlay and running. This observation is not a
+    machine safety threshold. A color index restricts counting to that layer.
+    """
+    commands = np.asarray(plan.commands)
+    if not commands.size:
+        return 0
+    included = np.zeros(len(commands), dtype=bool)
+    for block in plan.blocks:
+        if (
+            block.kind in ("satin", "fill")
+            and block.command_range is not None
+            and (color_index is None or block.color_index == color_index)
+        ):
+            start, end = block.command_range
+            included[start + 1 : end] = True
+    included &= (commands[:, 2].astype(int) & pe.COMMAND_MASK) == pe.STITCH
+    if not included.any():
+        return 0
+    _, counts = np.unique(commands[included, :2], axis=0, return_counts=True)
+    return int(counts.max())
+
+
 def satin_crowding(plan, minimum_mm):
     """Count nearby repeated top penetrations in the local satin fan, excluding locks."""
     count = 0

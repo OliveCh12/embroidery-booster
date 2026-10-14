@@ -70,10 +70,11 @@ export interface TraceAudit {
 }
 export interface ResamplingAnalysis {
   source_pixels: [number, number]; working_pixels: [number, number];
-  reference: "source_unchanged" | "source_alpha" | "source_alpha_and_literal_paints" | "source_alpha_and_flat_paint_cores";
+  reference: "source_unchanged" | "source_alpha" | "source_alpha_and_literal_paints" | "source_alpha_and_flat_paint_cores" | "source_alpha_and_paint_families";
   resampling: "none" | "lanczos" | "nearest"; adapted: boolean;
   detail_area_mm2: number; passed: boolean; topology_preserved: boolean; unresolved_issues: number;
   interpreted_palette?: string[]; missing_source_paints?: string[] | null;
+  paint_family_retry?: { adopted: boolean; baseline_retained: boolean; unresolved_issues: number; reason: string; source_palette: string[] };
 }
 export interface InputAnalysis {
   quality?: InputQuality;

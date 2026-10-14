@@ -16,7 +16,12 @@ from ..image_processor import compute_medial_axis
 from ..svg_manager import UNITS_PER_MM
 from .params import StitchParams
 from .planner import CandidateGeometryError, UnstitchableRegion, build_stitch_plan
-from .quality import coverage_needs_review, measure_plan, satin_crowding
+from .quality import (
+    coverage_needs_review,
+    max_top_penetration_multiplicity,
+    measure_plan,
+    satin_crowding,
+)
 from .rails import generate_columns
 from .regions import Region, canonical_regions, physical_elements, route_region_groups
 from .selection import _fill_angle, _geometry_key, fill_elements, mask_polygons, select_stitch_types
@@ -31,6 +36,7 @@ class RegionCandidate:
     params: StitchParams
     metrics: dict = field(default_factory=dict)
     continuous_elements: tuple[dict, ...] = ()
+    satin_options: tuple[dict, ...] = ()
 
 
 def _color_policy(groups, params):
@@ -70,7 +76,8 @@ def _color_policy(groups, params):
         if policies[group] == "satin" and all(
             sum(p.area for p in m.polygons) >= 4
             and not any(p.interiors for p in m.polygons)
-            and m.decision.get("shape_profile", {}).get("kind") != "round_detail"
+            and m.decision.get("shape_profile", {}).get("kind")
+            not in ("stroke", "outline", "round_detail")
             and sum(p.area for p in m.polygons) / max(m.decision["width_mm"] ** 2, 1e-6) < 3
             for m in members
         ):
@@ -171,6 +178,9 @@ def _audit_members(members, method, params, origin, transform, scale):
             metrics["underlay_stitches"] = candidate.stats["underlay_stitches"]
             metrics["satin_blocks"] = sum(block.kind == "satin" for block in candidate.blocks)
             metrics["command_count"] = len(candidate.commands)
+            metrics["max_top_penetration_multiplicity"] = max_top_penetration_multiplicity(
+                candidate
+            )
             metrics["unsafe_connections"] = candidate.stats["unsafe_connections"]
             metrics["omitted_regions"] = candidate.stats["omitted_regions"]
             metrics["short_stitches"] = candidate.stats["short_stitches"]
@@ -187,6 +197,20 @@ def _audit_members(members, method, params, origin, transform, scale):
             }
             passed = False
     return passed
+
+
+def _preserves_machine_fidelity(reference, candidate, area):
+    # Comparative raster bounds: 0.5 coverage points and 0.25 mm² / 2% of the source.
+    return (
+        candidate["coverage"] >= reference["coverage"] - 0.005
+        and candidate["spill_mm2"] <= reference["spill_mm2"] + max(0.25, 0.02 * area)
+        and candidate["command_count"] <= reference["command_count"]
+        and not candidate["unsafe_connections"]
+        and not candidate["omitted_regions"]
+        and not candidate["short_stitches"]
+        and not candidate["crowded_satin_penetrations"]
+        and (candidate["underlay_stitches"] > 0) == (reference["underlay_stitches"] > 0)
+    )
 
 
 def _promote_continuous(members, params, origin, transform, scale):
@@ -245,15 +269,8 @@ def _promote_continuous(members, params, origin, transform, scale):
     for member, trial in zip(members, trials, strict=True):
         old, new = member.metrics, trial.metrics
         area = sum(p.area for p in member.polygons)
-        if (
-            new["satin_blocks"] >= old["satin_blocks"]
-            or new["command_count"] > old["command_count"]
-            or new["coverage"] < old["coverage"] - 0.005
-            or new["spill_mm2"] > old["spill_mm2"] + max(0.25, 0.02 * area)
-            or new["unsafe_connections"]
-            or new["omitted_regions"]
-            or new["short_stitches"]
-            or (old["underlay_stitches"] > 0) != (new["underlay_stitches"] > 0)
+        if new["satin_blocks"] >= old["satin_blocks"] or not _preserves_machine_fidelity(
+            old, new, area
         ):
             return False
     for member, trial in zip(members, trials, strict=True):
@@ -265,6 +282,140 @@ def _promote_continuous(members, params, origin, transform, scale):
             canonical_satin_angle_deg=None,
         )
     return True
+
+
+def _satin_option_key(option):
+    elements = option["elements"]
+    return (
+        option["kind"],
+        len(elements),
+        option.get("canonical_satin_angle_deg"),
+        option.get("sweep_angle_deg"),
+        tuple(e.get("closed", False) for e in elements),
+    )
+
+
+def _promote_fill_satin(members, params, origin, transform, scale):
+    if (
+        params.stitch_type != "auto"
+        or params.auto_strategy != "balanced"
+        or not all(
+            m.satin_options
+            and m.decision.get("shape_profile", {}).get("narrow")
+            and m.decision["shape_profile"]["kind"] in ("stroke", "outline")
+            for m in members
+        )
+    ):
+        return None
+    options = [{_satin_option_key(option): option for option in m.satin_options} for m in members]
+    limit = min(
+        params.max_satin_width_mm, params.max_stitch_mm - 0.2 - 2 * params.pull_compensation_mm
+    )
+    repeat_rejection = None
+    for first in members[0].satin_options:
+        key = _satin_option_key(first)
+        if not all(key in choices for choices in options):
+            continue
+        choices = [choices[key] for choices in options]
+        if any(
+            not option["elements"]
+            or len(option["elements"]) > 64
+            or any(
+                np.linalg.norm(e["rail_b"] - e["rail_a"], axis=1).max() > limit
+                for e in option["elements"]
+            )
+            for option in choices
+        ):
+            continue
+        trials = [
+            replace(
+                member,
+                elements=[
+                    {
+                        name: value.copy() if isinstance(value, np.ndarray) else value
+                        for name, value in element.items()
+                    }
+                    for element in option["elements"]
+                ],
+                metrics={},
+            )
+            for member, option in zip(members, choices, strict=True)
+        ]
+        profile = _assign_policy(trials, "satin", params, None, 0.12)
+        try:
+            if not _audit_members(trials, "satin", params, origin, transform, scale):
+                continue
+        except ValueError:
+            continue
+        if any(
+            not _preserves_machine_fidelity(
+                member.metrics, trial.metrics, sum(p.area for p in member.polygons)
+            )
+            for member, trial in zip(members, trials, strict=True)
+        ):
+            continue
+        comparisons = [
+            {
+                "reference_max_multiplicity": member.metrics.get(
+                    "max_top_penetration_multiplicity"
+                ),
+                "candidate_max_multiplicity": trial.metrics.get("max_top_penetration_multiplicity"),
+            }
+            for member, trial in zip(members, trials, strict=True)
+        ]
+        if any(
+            comparison["reference_max_multiplicity"] is not None
+            and comparison["candidate_max_multiplicity"] is not None
+            and comparison["candidate_max_multiplicity"]
+            > max(2, comparison["reference_max_multiplicity"])
+            for comparison in comparisons
+        ):
+            # A two-column join is allowed; avoid new three-way stacks beyond
+            # the actual fill's peak. This is comparative, not a machine limit.
+            if repeat_rejection is None:
+                repeat_rejection = comparisons
+            continue
+        for member, trial, option in zip(members, trials, choices, strict=True):
+            reference = member.metrics.copy()
+            member.elements, member.metrics = trial.elements, trial.metrics
+            member.decision = {
+                **member.decision,
+                "method": "satin",
+                "reason": "complete_fidelity_columns",
+                **{
+                    field: option[field]
+                    for field in (
+                        "split_satin_columns",
+                        "directional_satin_columns",
+                        "canonical_satin_angle_deg",
+                    )
+                },
+                "candidates": {
+                    **member.decision["candidates"],
+                    "fill_policy_reference": reference,
+                    "fill_policy_comparison": {
+                        "coverage_delta": round(
+                            trial.metrics["coverage"] - reference["coverage"], 4
+                        ),
+                        "spill_delta_mm2": round(
+                            trial.metrics["spill_mm2"] - reference["spill_mm2"], 2
+                        ),
+                        "accepted": True,
+                    },
+                },
+            }
+        return profile
+    if repeat_rejection is not None:
+        for member, comparison in zip(members, repeat_rejection, strict=True):
+            member.decision = {
+                **member.decision,
+                "reason": "satin_intercolumn_repeats",
+                "candidates": {
+                    **member.decision["candidates"],
+                    "intercolumn_repeat_comparison": {**comparison, "accepted": False},
+                },
+            }
+    return None
 
 
 def select_consistent_regions(
@@ -382,9 +533,11 @@ def select_consistent_regions(
                 crowded_satin_penetrations=satin_crowding(candidate, params.min_stitch_mm),
                 unsafe_connections=candidate.stats["unsafe_connections"],
                 omitted_regions=candidate.stats["omitted_regions"],
+                max_top_penetration_multiplicity=max_top_penetration_multiplicity(candidate),
             )
             return metrics
 
+        satin_options = []
         selected, decisions = select_stitch_types(
             elements,
             local_mask,
@@ -393,6 +546,7 @@ def select_consistent_regions(
             origin_mm=local_origin,
             geometry_cache=member_geometry["selection"],
             satin_audit=audit_satin if params.stitch_type in ("auto", "satin") else None,
+            satin_options=satin_options,
         )
         if decisions:
             decisions[0]["mat_evaluated"] = needs_mat
@@ -406,6 +560,7 @@ def select_consistent_regions(
                     member_geometry["polygons"],
                     local_params,
                     continuous_elements=member_geometry.get("continuous", ()),
+                    satin_options=tuple(satin_options),
                 )
             )
 
@@ -475,8 +630,14 @@ def select_consistent_regions(
 
         if method == "satin":
             _promote_continuous(members, params, origin, transform, scale)
+        elif method == "fill":
+            promoted_profile = _promote_fill_satin(members, params, origin, transform, scale)
+            if promoted_profile is not None:
+                method, profile = "satin", promoted_profile
+                color_texture = False
 
         for member in members:
+            member.satin_options = ()
             region, decision, elements = member.region, member.decision, member.elements
             local_angle = elements[0]["fill_angle_deg"] if method == "fill" else None
             decisions.append(

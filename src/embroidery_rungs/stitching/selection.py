@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 import numpy as np
 from scipy.ndimage import distance_transform_edt, find_objects, label
 from shapely import intersection, linestrings
@@ -13,7 +15,12 @@ from svgelements import Matrix
 from ..routing import route_columns
 from ..svg_manager import UNITS_PER_MM
 from .planner import CandidateGeometryError, UnstitchableRegion, build_stitch_plan
-from .quality import coverage_needs_review, measure_plan, satin_crowding
+from .quality import (
+    coverage_needs_review,
+    max_top_penetration_multiplicity,
+    measure_plan,
+    satin_crowding,
+)
 from .rails import _valid_rail_pieces
 from .satin_geometry import directional_columns
 
@@ -281,12 +288,50 @@ def _audit_candidate(elements, params, origin, component, transform, scale, audi
         crowded_satin_penetrations=satin_crowding(candidate, params.min_stitch_mm),
         unsafe_connections=candidate.stats["unsafe_connections"],
         omitted_regions=candidate.stats["omitted_regions"],
+        max_top_penetration_multiplicity=max_top_penetration_multiplicity(candidate),
     )
     return metrics
 
 
+def _satin_option(elements, metrics, kind, sweep_angle_deg):
+    copied = []
+    for element in elements:
+        snapshot = dict(element)
+        for key, value in element.items():
+            if isinstance(value, np.ndarray):
+                snapshot[key] = value.copy()
+                snapshot[key].setflags(write=False)
+        copied.append(snapshot)
+    directional = kind == "directional"
+    split_count = sum("split_columns" in element for element in elements)
+    return {
+        "elements": tuple(copied),
+        "kind": kind,
+        "sweep_angle_deg": sweep_angle_deg,
+        "reason": "complete_directional_columns"
+        if directional
+        else "complete_split_columns"
+        if split_count
+        else "complete_regular_column",
+        "split_satin_columns": split_count,
+        "directional_satin_columns": len(elements) if directional else 0,
+        "canonical_satin_angle_deg": elements[0].get("directional_satin_angle_deg")
+        if directional
+        else None,
+        "metrics": deepcopy(metrics),
+    }
+
+
 def select_stitch_types(
-    elements, mask, transform, params, *, origin_mm=None, geometry_cache=None, satin_audit=None
+    elements,
+    mask,
+    transform,
+    params,
+    *,
+    origin_mm=None,
+    geometry_cache=None,
+    satin_audit=None,
+    satin_options=None,
 ):
     """Choose one top-layer strategy per connected region; never patch satin with fill."""
     minimum_width = max(
@@ -411,6 +456,7 @@ def select_stitch_types(
         fidelity_rejected = False
         fill_reference_elements = None
         fill_reference_metrics = None
+        intercolumn_rejection = None
 
         def preserves_fill_fidelity(
             metrics,
@@ -421,7 +467,7 @@ def select_stitch_types(
             local_transform=local_transform,
             candidates=candidates,
         ):
-            nonlocal fill_reference_elements, fill_reference_metrics
+            nonlocal fill_reference_elements, fill_reference_metrics, intercolumn_rejection
             if "fill_reference" not in candidates:
                 reference = fill_elements(polygons, _fill_angle(source, params), params)
                 try:
@@ -463,6 +509,23 @@ def select_stitch_types(
                 metrics["spill_mm2"]
                 <= fill_reference_metrics["spill_mm2"] + max(0.25, 0.02 * source.area)
             )
+            reference_peak = fill_reference_metrics.get("max_top_penetration_multiplicity")
+            candidate_peak = metrics.get("max_top_penetration_multiplicity")
+            if (
+                accepted
+                and reference_peak is not None
+                and candidate_peak is not None
+                and candidate_peak > max(2, reference_peak)
+            ):
+                # Preserve two-column joins, without introducing deeper top
+                # stacks than this region's actual fill reference.
+                if intercolumn_rejection is None:
+                    intercolumn_rejection = {
+                        "reference_max_multiplicity": reference_peak,
+                        "candidate_max_multiplicity": candidate_peak,
+                        "accepted": False,
+                    }
+                accepted = False
             candidates["fill_comparison"] = {
                 "coverage_delta": round(coverage_delta, 4),
                 "spill_delta_mm2": round(spill_delta, 2),
@@ -545,6 +608,8 @@ def select_stitch_types(
                 )
                 candidates["satin"] = metrics
                 if _safe_satin(metrics):
+                    if balanced_column and satin_options is not None:
+                        satin_options.append(_satin_option(ordered, metrics, "mat", None))
                     if covered >= 0.9 or not balanced_column or preserves_fill_fidelity(metrics):
                         option, method, reason = (
                             ordered,
@@ -608,9 +673,16 @@ def select_stitch_types(
                     )
                     attempts.append({"sweep_angle_deg": sweep_angle, **metrics})
                     if _safe_satin(metrics):
-                        if balanced_column and not preserves_fill_fidelity(metrics):
-                            reason, fidelity_rejected = "satin_fidelity_regression", True
-                            break
+                        if balanced_column and satin_options is not None:
+                            satin_options.append(
+                                _satin_option(ordered, metrics, "directional", sweep_angle)
+                            )
+                        if balanced_column:
+                            fidelity_passed = preserves_fill_fidelity(metrics)
+                            attempts[-1]["fill_fidelity_passed"] = fidelity_passed
+                            if not fidelity_passed:
+                                reason, fidelity_rejected = "satin_fidelity_regression", True
+                                continue
                         option, method, reason = ordered, "satin", "complete_directional_columns"
                         split_count = sum("split_columns" in e for e in ordered)
                         directional_count = len(ordered)
@@ -622,6 +694,9 @@ def select_stitch_types(
             if option is None:
                 candidates["directional_satin"] = {"attempts": attempts}
         if option is None:
+            if intercolumn_rejection is not None:
+                reason = "satin_intercolumn_repeats"
+                candidates["intercolumn_repeat_comparison"] = intercolumn_rejection
             if params.stitch_type == "satin":
                 failure = (
                     f"the detail is thinner than the minimum sewable satin width {minimum_width:.2f} mm"

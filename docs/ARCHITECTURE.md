@@ -12,7 +12,7 @@ src/embroidery_rungs/
   interpretation/
     types.py               Masques immuables, palette et repère physique du bitmap
     normalize.py           Orientation EXIF et profils ICC vers sRGB, alpha conservé
-    paint_reference.py     Noyaux source opaques, palette estimée bornée et comptage
+    paint_reference.py     Noyaux opaques, familles estimées bornées et correspondance
     sampling.py            Réduction bornée, contrôle des détails source et adaptation
     tracing.py             Sérialisation commune et fallback vers contours exacts
     audit.py               Fidélité catégorielle, topologie et distances de contours
@@ -92,7 +92,40 @@ cyclique et son contrôle après quantification incluent la couture de fermeture
 `consistency.py` compare ces points à l'ancien satin après la politique commune
 et l'audit final. Le remplacement concerne tous les membres équivalents ou aucun.
 Un rejet conserve leurs anciennes colonnes ; aucune région tatami n'est promue
-par cette optimisation. Les caches restent locaux à la génération.
+par cette optimisation de continuité. Les caches restent locaux à la génération.
+
+La sélection conserve aussi, temporairement, les options satin étroites déjà
+qualifiées par les contrôles de points. Un premier balayage sûr qui échoue à la
+comparaison de fidélité ne termine plus la recherche des directions suivantes.
+Après la politique par couleur et l'audit du tatami final, `consistency.py` peut
+promouvoir une cohorte de traits/contreformes avec une option commune. La
+référence est le fill réellement généré, après angle commun, compensation,
+sous-couche et éventuelle correction de couverture. Les mêmes tolérances de
+couverture/débordement s'appliquent ; le nombre de commandes ne doit pas monter,
+la présence de fondation doit rester identique, et omissions, crowding ou points
+courts refusent l'essai. La géométrie et les autres régions restent intactes.
+Les options sont libérées après la décision et ne deviennent pas un cache global.
+
+`quality.py` compte aussi les piqûres supérieures réellement émises aux mêmes
+coordonnées machine, à travers les jonctions de colonnes. Les plages de commandes
+excluent position de contexte, déplacements, ancrages et sous-couches ; une
+commande commune à deux plages n'est comptée qu'une fois. Les nouveaux essais
+Auto étroits sont refusés si leur pic dépasse `max(2, pic_du_tatami_final)`.
+Ce garde comparatif protège contre une concentration ajoutée de trois piqûres
+ou plus, sans interdire les raccords doubles ni prétendre définir la limite
+physique de toute machine. `variants.py` applique également cette comparaison
+par couleur avant de recommander une alternative satin. Les variantes manuelles
+restent disponibles avec leurs propres diagnostics.
+
+Pour les bitmaps, la voie familles intervient seulement après une absence ou
+un échec de preuve par palette littérale/noyaux exacts. Elle utilise le même
+catalogue tuilé de noyaux opaques, regroupe autour d'ancres fixes observées et
+compare les peintures effectives par une correspondance Lab bornée et injective.
+Elle ne quantifie pas de nouveau l'entrée ni ne recolore son contenu. Une grille
+alternative est retenue seulement si tous les contrôles source/couleur/détails
+réussissent. L'échec conserve le résultat et l'audit historique ; un résumé
+`paint_family_retry` distinct signale l'estimation non confirmée sans certifier
+les couleurs sur la seule réussite de l'alpha.
 
 L'assemblage des couleurs et le recentrage reconstruisent leurs sauts sur la
 grille de 0,1 mm. La longueur est vérifiée **après** l'arrondi, depuis l'origine

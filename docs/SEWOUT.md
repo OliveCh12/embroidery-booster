@@ -32,6 +32,13 @@ anneaux, leur continuité de reflet et les amas aux anciens raccords ; mesurer
 la largeur réelle et les trous intérieurs après désencerclage. Les tests
 géométriques ne remplacent pas cette comparaison sur tissu.
 
+`examples/quality/lettering-and-outline.svg` ajoute deux tracés de lettres et
+un liseré étroit autour d'une surface plus large. Comparer Auto et Tatami à
+80 mm, mêmes paramètres et même tissu. Examiner le reflet continu des lettres,
+les angles des raccords, la fermeture de l'anneau et les transitions entre
+couleurs. Une bordure reconnue comme étroite doit encore passer les contrôles
+de rails et de piqûres avant d'être retenue en satin.
+
 ## Import et préparation
 
 Le [Skitch PP1](https://www.brother-usa.com/p/sewing-embroidery/PP1) a une surface

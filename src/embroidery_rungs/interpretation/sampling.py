@@ -11,7 +11,14 @@ from scipy.ndimage import binary_erosion, label
 from scipy.spatial import cKDTree
 
 from ..colors import bitmap_colors
-from .paint_reference import FlatPaintReference, discover_flat_paints, region_counts
+from .paint_reference import (
+    FlatPaintReference,
+    PaintFamilyReference,
+    discover_flat_paints,
+    discover_paint_families,
+    match_paint_families,
+    region_counts,
+)
 
 _FG4 = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=bool)
 _BG8 = np.ones((3, 3), dtype=bool)
@@ -167,7 +174,7 @@ def _audit(
     width_mm: float,
     palette: np.ndarray | None,
     *,
-    paint_reference: FlatPaintReference | None = None,
+    paint_reference: FlatPaintReference | PaintFamilyReference | None = None,
     max_colors: int = 12,
 ) -> dict:
     source_visible = source[..., 3] >= 128
@@ -177,6 +184,7 @@ def _audit(
     masks = {"alpha": _audit_mask(source_visible, working_visible, sx, wx)}
     at_risk = []
     unverified_paints = []
+    palette_match = {}
     if palette is not None:
         source_rgb = None if paint_reference is not None else _packed(source)
         working_rgb = _packed(working)
@@ -184,6 +192,10 @@ def _audit(
         actual_palette = None
         if paint_reference is not None:
             working_labels, actual_palette, _ = bitmap_colors(working, max_colors)
+            if isinstance(paint_reference, PaintFamilyReference):
+                palette_match = match_paint_families(
+                    [f"#{int(value):06x}" for value in palette], actual_palette
+                )
         else:
             working_labels = _paint_labels(working, palette) if working_has_blends else None
         for index, value in enumerate(palette):
@@ -195,9 +207,14 @@ def _audit(
             )
             literal_paint = working_visible & (working_rgb == value)
             if actual_palette is not None:
+                matched_color = (
+                    palette_match.get(color)
+                    if isinstance(paint_reference, PaintFamilyReference)
+                    else color
+                )
                 working_paint = (
-                    working_labels == actual_palette.index(color) + 1
-                    if color in actual_palette
+                    working_labels == actual_palette.index(matched_color) + 1
+                    if matched_color in actual_palette
                     else np.zeros(working_visible.shape, dtype=bool)
                 )
             else:
@@ -214,12 +231,21 @@ def _audit(
             # for a rare paint. Do not let interpolation make an intentional
             # small flat accent indistinguishable from an RGB edge blend.
             rare = literal_paint.sum() < 0.005 * working_visible.sum()
-            if working_has_blends and rare and masks[color]["components"]["relevant_source"]:
+            if (
+                not isinstance(paint_reference, PaintFamilyReference)
+                and working_has_blends
+                and rare
+                and masks[color]["components"]["relevant_source"]
+            ):
                 core = binary_erosion(literal_paint, structure=_FG4)
                 if core.sum() < 9:
                     at_risk.append(color)
         if actual_palette is not None:
-            source_palette = {f"#{int(value):06x}" for value in palette}
+            source_palette = (
+                set(palette_match.values())
+                if isinstance(paint_reference, PaintFamilyReference)
+                else {f"#{int(value):06x}" for value in palette}
+            )
             for index, color in enumerate(actual_palette, 1):
                 if color in source_palette:
                     continue
@@ -234,6 +260,11 @@ def _audit(
         "palette_at_risk": at_risk,
         "masks": masks,
         **({"unverified_working_paints": sorted(unverified_paints)} if paint_reference else {}),
+        **(
+            {"palette_match": palette_match}
+            if isinstance(paint_reference, PaintFamilyReference)
+            else {}
+        ),
     }
 
 
@@ -363,6 +394,67 @@ def sample_bitmap(
             selected, best = working, attempt
         if audit["issues"] == 0:
             break
+    # Preserve every successful literal/exact-core result. Noisy families are
+    # an optional second proof; an ambiguous retry never replaces the old grid.
+    if (
+        literal_palette_colors is None
+        and recover_flat_paints
+        and (paint_reference is None or best["issues"] > 0)
+    ):
+        families = discover_paint_families(source, physical_width_mm, max_colors=max_colors)
+        if families is not None:
+            family_methods = methods.copy()
+            if not any(method == Image.Resampling.NEAREST for _, _, method in family_methods):
+                family_methods.append((24, second_side, Image.Resampling.NEAREST))
+            attempts = []
+            for density, side, method in family_methods:
+                working = _sample(source, side, method)
+                audit = _audit(
+                    source,
+                    working,
+                    physical_width_mm,
+                    families.palette,
+                    paint_reference=families,
+                    max_colors=max_colors,
+                )
+                attempt = {
+                    "target_pixels_per_mm": density,
+                    "working_pixels": [working.shape[1], working.shape[0]],
+                    "resampling": method.name.lower(),
+                    **audit,
+                }
+                attempts.append(attempt)
+                if audit["issues"] == 0:
+                    selected, best, paint_reference = working, attempt, families
+                    report.pop("flat_paint_reference", None)
+                    report.update(
+                        reference="source_alpha_and_paint_families",
+                        source_palette=[f"#{int(value):06x}" for value in families.palette],
+                        paint_family_reference=families.diagnostics(),
+                        attempts=attempts,
+                    )
+                    break
+            else:
+                report["paint_family_retry"] = {
+                    "adopted": False,
+                    "baseline_retained": True,
+                    "reason": "unconfirmed_working_palette_or_geometry",
+                    "unresolved_issues": min(attempt["issues"] for attempt in attempts),
+                    "source_palette": [f"#{int(value):06x}" for value in families.palette],
+                    "attempts": [
+                        {
+                            key: attempt[key]
+                            for key in (
+                                "target_pixels_per_mm",
+                                "working_pixels",
+                                "resampling",
+                                "issues",
+                                "unverified_working_paints",
+                            )
+                        }
+                        for attempt in attempts
+                    ],
+                }
     if paint_reference is not None and best["issues"] > 0:
         # Estimated paint evidence must not turn a partially successful retry
         # into new unsupported thread regions. Keep the original sampling and

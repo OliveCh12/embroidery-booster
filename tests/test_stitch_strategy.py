@@ -11,6 +11,7 @@ from embroidery_rungs.stitching.consistency import RegionCandidate, _color_polic
 from embroidery_rungs.stitching.digitizer import digitize
 from embroidery_rungs.stitching.params import StitchParams
 from embroidery_rungs.stitching.regions import RegionFrame
+from embroidery_rungs.stitching.selection import _shape_profile
 from embroidery_rungs.svg_manager import load_svg_paths
 
 
@@ -166,6 +167,41 @@ def test_auto_fill_coherence_preserves_columns_counters_and_small_details():
     assert converted == {1}
     assert angle is not None
     assert _color_policy(groups, StitchParams(stitch_type="satin"))[2] == set()
+
+
+def test_color_fill_preserves_stroke_profile_when_rounded_width_lowers_ratio():
+    params = StitchParams()
+    region = SimpleNamespace(frame=RegionFrame(np.eye(2), np.zeros(2)))
+    width = 2.996
+    stroke = box(30, 0, 30 + 3.001 * width, width)
+    profile = _shape_profile(stroke, width, 7)
+    rounded_width = round(width, 2)
+    assert profile["kind"] == "stroke"
+    assert rounded_width == 3.0
+    assert stroke.area / rounded_width**2 < 3
+    groups = {
+        0: [
+            RegionCandidate(
+                region,
+                [{"type": "fill"}],
+                {"method": "fill", "width_mm": 20},
+                [box(0, 0, 20, 20)],
+                params,
+            )
+        ],
+        1: [
+            RegionCandidate(
+                region,
+                [{"type": "satin"}],
+                {"method": "satin", "width_mm": rounded_width, "shape_profile": profile},
+                [stroke],
+                params,
+            )
+        ],
+    }
+    policies, _, converted = _color_policy(groups, params)
+    assert policies == {0: "fill", 1: "satin"}
+    assert not converted
 
 
 def test_invalid_stitch_strategy_is_rejected():

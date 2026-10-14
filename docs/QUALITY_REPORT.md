@@ -1,5 +1,140 @@
 # Validation du moteur direct — 14 octobre 2026
 
+## Version 0.6.5 : reconnaissance satin et preuve de couleurs source
+
+La reconnaissance utilise le profil géométrique précis avant l'arrondi affiché.
+La recherche des directions ne s'arrête plus au premier satin sûr mais moins
+fidèle. Après la politique d'angle par couleur et l'audit final, les options
+étroites déjà calculées sont comparées au **tatami réellement émis**, avec sa
+sous-couche, sa compensation et son arrondi machine. Une cohorte équivalente
+adopte la même option ou conserve son plan. Les limites de largeur, flottée,
+couverture, débordement et budget restent obligatoires ; aucun nom de logo ou
+reconnaissance de mot ne commande cette sélection.
+
+Un contrôle supplémentaire compte les piqûres supérieures satin/fill aux mêmes
+coordonnées, y compris entre colonnes. Il exclut sous-couche, déplacement,
+ancrage et position de contexte. Un essai Auto étroit ne peut dépasser le pic du
+tatami ni deux piqûres lorsque la référence est inférieure. La recommandation
+des variantes compare aussi ce pic par fil. Le contrôle reste comparatif : il
+ne garantit pas l'absence de bourrage sur tout textile et accepte les raccords
+doubles. Le « g » synthétique conserve ainsi son tatami : un candidat couvrant
+mieux créait trois piqûres au même point, contre deux pour la référence.
+
+Le [rapport comparatif](benchmarks/recognition-and-paint-fidelity-2026-10-14.json)
+fige `main` **dc8081d**, la 0.6.4 **03a65d5**, et les 36 fichiers de la 0.6.5 par
+empreinte **fd1e995a…**. Le nouveau corpus comprend **26 entrées** : Jungly et
+AssetSyncs à 80/95 mm, six formes de lettres en SVG/PNG/JPEG, bordures et contrôles
+de courbes. Les rendus bitmap utilisent leur recadrage réel pour conserver la
+taille physique native. Les réglages communs sont PP1, coton stable, fil 40 wt,
+stabilisateur à découper, densité 100 %, maximum de six couleurs et Auto équilibré.
+Les images utilisateur restent locales ; seules leurs empreintes sont publiées.
+
+**23 des 26 plans** gardent exactement les commandes et PES/DST de la 0.6.4.
+Seuls Jungly 80/95 et AssetSyncs 95 changent. Les **52 entrées** du corpus de
+continuité précédent sont aussi régénérées : leurs 52 PES/DST restent identiques
+à la 0.6.4, avec ses 18 blocs fermés et ses omissions inchangées. Les 78 résultats
+passent les relectures machine, limites de cadre/longueur, équivalence et contrôles
+de points courts, crowding local et couture cyclique. Les sauts et changements de
+fil sont vérifiés séparément des points cousus.
+
+| Résultat, à paramètres identiques | main | 0.6.4 | 0.6.5 |
+|---|---:|---:|---:|
+| Jungly 80 mm, points | 23 747 | 23 597 | **22 992** |
+| Jungly 80 mm, trims | 554 | 530 | **524** |
+| Jungly 80 mm, couverture littérale | 82,79 % | 83,00 % | **84,65 %** |
+| Jungly 95 mm, points | 29 695 | 29 122 | **28 680** |
+| Jungly 95 mm, couverture littérale | 82,19 % | 84,14 % | **84,30 %** |
+| AssetSyncs 80 mm, points | 2 327 | 2 261 | **2 261** |
+| AssetSyncs 95 mm, points | 2 839 | 2 967 | **2 934** |
+| AssetSyncs 95 mm, trims | 71 | 60 | **54** |
+| AssetSyncs 95 mm, couverture littérale | 85,48 % | 93,99 % | **96,44 %** |
+
+Les **six lettres Jungly à 80 mm** deviennent satin, contre une en 0.6.4.
+À 95 mm, cinq lettres sont satin contre quatre précédemment ; le « u » garde
+le tatami à cause du débordement comparé. Jungly 80 demande 2,6 % de points de
+moins que la 0.6.4 et 3,2 % de moins que main. Son débordement littéral reste
+44,43 mm². AssetSyncs 95 gagne 2,45 points de couverture face au précédent,
+avec un débordement qui monte de 61,53 à 63,45 mm² ; le coût est mesuré et
+reste dans les bornes comparatives du projet.
+
+La couverture littérale est une simulation de fil de 0,3 mm, sur les points
+supérieurs quantifiés, sans sous-couche. La couverture structurelle ajoute
+séparément une tolérance de 0,25 mm. Son minimum de 99,99 % dans le nouveau
+corpus ne signifie pas que chaque couleur et chaque micro-détail sont parfaits.
+Jungly conserve **566/734 micro-régions omises** à 80/95 mm, et ses teintes source
+texturées ne sont pas corrigées. Une empreinte blanche préexistante de 0,006935 mm²
+reste dans le cœur d'une contreforme à 80 mm. Le contrôle JPEG du « g », dont
+l'oracle natif est noir seul, conserve également 462 cycles blancs parasites :
+ce défaut d'interprétation reste identique dans les trois références.
+
+Le liseré Jungly est identifié comme contreforme étroite mais reste tatami.
+**64 essais** de phase/sens avec une paire de contours exacte à 80/95 mm ne
+passent pas tous les contrôles : au mieux trois/cinq piqûres trop serrées ;
+certains essais à 95 mm débordent trop. Ce prototype reste hors du moteur.
+Sur les 26 entrées, les répétitions de coordonnées supérieures de même couleur
+passent de 298 à 311 face à la 0.6.4, aux raccords entre blocs de Jungly ; aucune
+répétition interne supplémentaire n'est ajoutée. Il ne s'agit donc pas d'un lot
+« zéro superposition », et la courbure/phase des raccords reste une priorité.
+
+La seconde amélioration concerne les JPEG plats : une preuve par familles de
+couleurs ancrées dans les noyaux RGB opaques observés peut réessayer la grille
+d'interprétation. Chaque composante source doit porter ses propres noyaux ;
+une correspondance Lab bornée et injective empêche un autre accent de prêter
+sa preuve à une frange de compression. Le résultat est adopté seulement si
+l'audit source/couleurs/détails réussit entièrement. Sinon l'interprétation
+historique reste intacte, avec un diagnostic distinct de preuve non confirmée.
+
+Sur **29 oracles produit**, les accents réels conservés passent de **12 à 14
+sur 19**. Les deux gains sont des accents obliques JPEG 75/95, avec IoU couleur
+97,57/97,66 %. **27 sorties RGBA restent strictement identiques**, et aucun
+contrôle négatif n'augmente sa surface de couleur parasite. Cinq accents
+difficiles restent non résolus. Les deux images améliorées produisent 325/333
+points, trois fils et deux changements ; leurs quatre PES/DST relus conservent
+les points et commandes, sans connexion dangereuse ni crowding détecté.
+
+La génération complète est chronométrée séquentiellement sur **neuf cas**, avec
+un processus neuf par couple entrée/référence, une chauffe puis trois mesures.
+Les imports et les audits indépendants restent hors du chronomètre ; les tests,
+builds et autres générations du projet sont arrêtés pendant ce protocole.
+Les **108 générations** donnent quatre PES/DST identiques par couple ; leurs
+empreintes correspondent aux runs qualité. Le Mac reste partagé : trois
+échantillons et leurs p95 descriptifs ne prouvent pas un gain causal.
+
+| Génération médiane | main | 0.6.4 | 0.6.5 |
+|---|---:|---:|---:|
+| Jungly 80 mm | 16,300 s | 17,847 s | 20,462 s |
+| Jungly 95 mm | 17,051 s | 19,859 s | 19,168 s |
+| AssetSyncs 80 mm | 0,943 s | 1,107 s | 1,236 s |
+| Anneau | 0,260 s | 0,445 s | 0,266 s |
+| Petit anneau | 0,067 s | 0,074 s | 0,069 s |
+| Courbe en S | 0,305 s | 0,411 s | 0,328 s |
+| Phénix | 0,914 s | 1,229 s | 0,965 s |
+| Nike avec lettrage | 1,419 s | 1,665 s | 1,833 s |
+| Ellipse | 0,186 s | 0,263 s | 0,207 s |
+
+Six médianes sur neuf baissent face à la 0.6.4, mais aucune face à main dans
+cette session. **La somme des neuf médianes monte de 3,81 % face au précédent
+et 18,93 % face à main** : ce lot n'est pas annoncé comme une accélération
+universelle. Jungly 80 coûte environ 2,61 s de plus face à la 0.6.4 (+14,6 %),
+avec un p95 de 24,12 s ; son amélioration de lettrage a donc un coût mesuré.
+Le p95 augmente aussi sur AssetSyncs, Phénix et Nike face au précédent.
+Le RSS maximal du protocole est 614,1 Mio, contre 678,8 pour la 0.6.4 et 596,0
+pour main ; Jungly 95 monte en mémoire face aux deux références. Le RSS inclut
+imports, chauffe, caches et allocations conservées, sans démontrer une baisse
+universelle de mémoire.
+
+Validation finale : **1 014 tests Python**, **151 tests frontend**, Ruff,
+TypeScript, ESLint et build Next isolé avec webpack. La wheel 0.6.5 contient
+exactement les 35 sources Python validées. Depuis la wheel, le nouveau coupon
+[`lettering-and-outline.svg`](../examples/quality/lettering-and-outline.svg)
+génère 2 573 points en Auto et 3 575 en tatami uniforme ; les quatre exports
+conservent leurs points/commandes. Le parcours web import Jungly → génération
+→ téléchargements PES/DST reproduit les 22 992 points. Version, explications
+de décision, playback, contraste et thèmes clair/sombre sont vérifiés.
+Le [protocole de coupon](SEWOUT.md) reste nécessaire : aucun résultat cousu PP1
+n'est encore validé, et ces observations numériques ne certifient pas le rendu
+physique.
+
 ## Version 0.6.4 : rails satin continus et sauts quantifiés
 
 Les anciennes colonnes coupées tous les 80° de rotation restent la référence.

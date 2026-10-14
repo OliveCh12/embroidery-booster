@@ -8,9 +8,12 @@ import pyembroidery as pe
 import pytest
 from shapely import intersects, linestrings
 from shapely.geometry import Point
+from svgelements import Matrix
 
 from embroidery_rungs import StitchParams, generate
+from embroidery_rungs.stitching import selection
 from embroidery_rungs.stitching.quality import coverage_needs_review
+from embroidery_rungs.svg_manager import UNITS_PER_MM
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "examples/quality"
 
@@ -101,6 +104,147 @@ def test_balanced_recovers_complete_directional_columns(tmp_path, sample):
     assert 0 < decision["directional_satin_columns"] <= 64
     assert direct.stats["fill_regions"] == 0
     assert_machine_quality(direct)
+
+
+@pytest.mark.parametrize("reject_all", [False, True])
+def test_directional_candidates_continue_after_fill_fidelity_rejection(monkeypatch, reject_all):
+    mask = np.zeros((80, 100), dtype=bool)
+    mask[10:60, 10:20] = True
+    mask[10:60, 60:70] = True
+    mask[10:20, 10:70] = True
+    scale = 10
+    transform = Matrix.scale(scale / UNITS_PER_MM)
+    params = StitchParams(auto_fill_angle=False, fill_angle_deg=0)
+    calls = []
+    options = []
+
+    def columns(source, angle, compensation):
+        return [
+            {
+                "type": "satin",
+                "rail_a": np.array([[1.1, 1.1], [1.1, 3], [1.1, 5.8]]),
+                "rail_b": np.array([[1.9, 1.1], [1.9, 3], [1.9, 5.8]]),
+                "directional_satin_angle_deg": angle,
+            }
+        ]
+
+    def audit(elements):
+        metrics = {
+            "coverage": 0.99,
+            "structural_coverage": 1.0,
+            "largest_gap_mm2": 0.0,
+            "uncovered_max_mm": 0.0,
+            "spill_mm2": 1.0,
+            "unsafe_connections": 0,
+            "omitted_regions": 0,
+            "crowded_satin_penetrations": 0,
+        }
+        if elements[0]["type"] == "fill":
+            calls.append("fill")
+        else:
+            angle = elements[0]["directional_satin_angle_deg"]
+            calls.append(angle)
+            if reject_all or angle != 45:
+                metrics["spill_mm2"] = 3.0
+        return metrics
+
+    monkeypatch.setattr(selection, "directional_columns", columns)
+    selected, decisions = selection.select_stitch_types(
+        [], mask, transform, params, satin_audit=audit, satin_options=options
+    )
+    decision = decisions[0]
+    assert decision["shape_profile"]["kind"] == "stroke"
+    attempts = decision["candidates"]["directional_satin"]["attempts"]
+    assert len(options) == len(attempts)
+    assert [option["sweep_angle_deg"] for option in options] == [
+        attempt["sweep_angle_deg"] for attempt in attempts
+    ]
+    assert all(option["kind"] == "directional" for option in options)
+    assert all(option["reason"] == "complete_directional_columns" for option in options)
+    assert all(option["directional_satin_columns"] == 1 for option in options)
+    assert all(option["split_satin_columns"] == 0 for option in options)
+    assert all(
+        option["canonical_satin_angle_deg"] == option["sweep_angle_deg"] for option in options
+    )
+    assert all(not coverage_needs_review(attempt) for attempt in attempts)
+    assert all(
+        attempt["unsafe_connections"] == attempt["crowded_satin_penetrations"] == 0
+        for attempt in attempts
+    )
+    if reject_all:
+        assert calls == [0, "fill", 45, 135, 90]
+        assert decision["method"] == "fill"
+        assert decision["reason"] == "satin_fidelity_regression"
+        assert [attempt["fill_fidelity_passed"] for attempt in attempts] == [False] * 4
+        assert all(element["type"] == "fill" for element in selected)
+    else:
+        assert calls == [0, "fill", 45]
+        assert decision["method"] == "satin"
+        assert decision["reason"] == "complete_directional_columns"
+        assert [attempt["fill_fidelity_passed"] for attempt in attempts] == [False, True]
+        assert decision["canonical_satin_angle_deg"] == 45
+        assert all(element["type"] == "satin" for element in selected)
+    assert decision["candidates"]["fill_comparison"]["accepted"] == (not reject_all)
+
+
+def test_satin_option_collector_copies_rails_and_metrics_without_mutating_selection():
+    mask = np.zeros((100, 60), dtype=bool)
+    mask[10:90, 10:30] = True
+    transform = Matrix.scale(10 / UNITS_PER_MM)
+    params = StitchParams()
+    elements = [
+        {
+            "type": "satin",
+            "rail_a": np.array([[1.05, 1.05], [1.05, 4.9], [1.05, 8.95]]),
+            "rail_b": np.array([[2.95, 1.05], [2.95, 4.9], [2.95, 8.95]]),
+        }
+    ]
+    original = {key: elements[0][key].copy() for key in ("rail_a", "rail_b")}
+    metrics = {
+        "coverage": 1.0,
+        "structural_coverage": 1.0,
+        "largest_gap_mm2": 0.0,
+        "uncovered_max_mm": 0.0,
+        "spill_mm2": 0.0,
+        "unsafe_connections": 0,
+        "omitted_regions": 0,
+        "crowded_satin_penetrations": 0,
+        "detail": {"marks": ["safe"]},
+    }
+    calls = []
+
+    def audit(selected):
+        calls.append(len(selected))
+        return metrics
+
+    baseline, baseline_decisions = selection.select_stitch_types(
+        elements, mask, transform, params, satin_audit=audit
+    )
+    options = []
+    selected, decisions = selection.select_stitch_types(
+        elements, mask, transform, params, satin_audit=audit, satin_options=options
+    )
+    assert calls == [1, 1]
+    assert decisions == baseline_decisions
+    assert len(options) == 1
+    option = options[0]
+    assert option["kind"] == "mat"
+    assert option["sweep_angle_deg"] is None
+    assert option["reason"] == decisions[0]["reason"]
+    assert option["split_satin_columns"] == option["directional_satin_columns"] == 0
+    assert option["canonical_satin_angle_deg"] is None
+    assert isinstance(option["elements"], tuple)
+    for key in ("rail_a", "rail_b"):
+        np.testing.assert_array_equal(elements[0][key], original[key])
+        np.testing.assert_array_equal(selected[0][key], baseline[0][key])
+        np.testing.assert_array_equal(option["elements"][0][key], selected[0][key])
+        assert elements[0][key].flags.writeable
+        assert selected[0][key].flags.writeable
+        assert not option["elements"][0][key].flags.writeable
+        assert not np.shares_memory(option["elements"][0][key], selected[0][key])
+    assert option["metrics"] == metrics
+    metrics["detail"]["marks"].append("changed")
+    assert option["metrics"]["detail"]["marks"] == ["safe"]
 
 
 @pytest.mark.parametrize("sample,kind", [("star", "wide_surface"), ("holes", "outline")])

@@ -242,4 +242,28 @@ describe("source resampling feedback", () => {
     expect(summary?.message).not.toContain("Des aplats de couleur de la source sont absents");
     expect(summary?.message).not.toContain("Réduction à vérifier");
   });
+
+  it("describes supported colour families as estimates, including unresolved paints", () => {
+    const report = { ...resampling, reference: "source_alpha_and_paint_families" } as const;
+    const summary = describeResampling(report);
+    expect(summary?.message).toContain("Silhouette et familles de couleurs estimées comparées à la source");
+    expect(summary?.needsReview).toBe(false);
+    const missing = describeResampling({ ...report, missing_source_paints: ["#872087"] });
+    expect(missing?.needsReview).toBe(true);
+    expect(missing?.message).toContain("Des aplats estimés à partir de la source sont absents");
+    expect(missing?.message).not.toContain("couleurs exactes");
+  });
+
+  it("does not certify colours when a family retry fails despite a successful alpha audit", () => {
+    const summary = describeResampling({
+      ...resampling, reference: "source_alpha", passed: true,
+      paint_family_retry: { adopted: false, baseline_retained: true, unresolved_issues: 2, reason: "ambiguous_paints", source_palette: ["#872087"] },
+    });
+    expect(summary?.needsReview).toBe(true);
+    expect(summary?.message).toContain("Silhouette comparée");
+    expect(summary?.message).toContain("familles de couleurs estimées n’ont pas pu être confirmées");
+    expect(summary?.message).toContain("interprétation précédente est conservée");
+    expect(summary?.message).not.toContain("2 détails");
+    expect(summary?.message).not.toContain("Réduction à vérifier");
+  });
 });

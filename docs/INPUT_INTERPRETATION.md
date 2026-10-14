@@ -69,7 +69,7 @@ L'ancien thumbnail Lanczos à 12 pixels/mm reste le premier candidat. S'il
 altère un détail significatif, le moteur essaie Lanczos à 24 pixels/mm, puis
 le plus proche voisin à 24 pixels/mm pour une petite palette littérale ou estimée
 à partir de noyaux fiables.
-Au maximum trois candidats sont évalués, sans agrandir la source et avec une
+Au maximum trois grilles distinctes sont proposées, sans agrandir la source et avec une
 dimension maximale de 2 048 pixels. Une source déjà assez petite reste inchangée.
 
 Les comparaisons utilisent les composantes peintes en connectivité 4 et les
@@ -109,6 +109,39 @@ Les JPEG à nuances variables, photos et dégradés sans support suffisant reste
 au contrôle alpha seul. Leurs couleurs ne sont pas déclarées vérifiées. Les
 seuils de noyaux ne sont pas relâchés pour leur inventer une palette. Le nettoyage
 désactivé conserve aussi ce comportement antérieur.
+
+Depuis **0.6.5**, une seconde preuve par **familles de couleurs** peut réunir les
+îlots RGB d'un même aplat compressé. Elle intervient seulement si aucune preuve
+littérale/noyaux exacte n'a réussi. Le catalogue partagé des noyaux est tuilé et
+borné ; chaque ancre est un RGB réellement observé avec au moins neuf pixels de
+noyau opaque. Les couleurs voisines sont regroupées dans un rayon Lab de 2 autour
+d'une ancre fixe, jamais par une chaîne transitive de nuances. Des familles
+séparées de moins de 8 en Lab sont refusées. Les pixels source sont attribués
+seulement à moins de 8 de l'ancre, avec une marge de 2 sur le second voisin.
+Chaque composante conservée exige une aire de 0,01 mm² et neuf pixels de noyau
+RGB exact opaque propres ; un accent distant ne lui prête pas son ancre.
+Au moins 50 % des pixels visibles doivent être soutenus globalement.
+
+La palette **réellement interprétée** doit avoir une correspondance injective
+avec ces familles, limitée à une distance Lab de 8 et à une marge de 2. Deux
+nuances de travail proches d'une seule famille restent ambiguës. Les masques
+connexes source/contreformes et les couleurs non corroborées sont de nouveau
+audités sur les grilles proposées ; seule une tentative entièrement réussie
+remplace le choix historique. Cette seconde preuve peut réévaluer les mêmes
+grilles et ajoute donc du calcul. Elle n'injecte aucun fil, n'efface aucun accent
+et ne recolore pas l'entrée. Un échec garde les résultats et l'audit ancien,
+avec un résumé distinct `paint_family_retry` des grilles essayées, du minimum
+d'écarts mesurés et de la palette estimée. Détails signale ce refus même lorsque
+l'audit alpha historique réussit : la silhouette seule ne certifie pas les fils.
+Les palettes littérales et les preuves par noyaux exacts déjà réussies restent
+inchangées.
+
+`reference=source_alpha_and_paint_families` et `paint_family_reference` exposent
+ces règles estimées. Chaque tentative enregistre `palette_match` entre RGB
+source et fil de travail. Après nettoyage, `interpreted_palette_match` permet
+de calculer `missing_source_paints` sans confondre une faible dérive JPEG avec
+un fil disparu. Ces contrôles vérifient présence et topologie des détails,
+pas une fidélité photographique intégrale ou la qualité d'une couture réelle.
 
 `input_analysis.resampling` enregistre les grilles source/travail, leur repère
 physique incluant le padding historique, le mode choisi, les tentatives et les
@@ -357,6 +390,20 @@ bitmap d'origine a été conservée.
   lettres courbes, contreformes et petits détails ne sont pas convertis pour
   satisfaire cette règle d'homogénéité. Les homologues géométriques partagent leur
   stratégie et les vérifications finales.
+  Un balayage satin sûr mais moins fidèle ne bloque plus les directions
+  suivantes. Les traits et contreformes étroits peuvent ensuite être comparés
+  au tatami final, après sa politique d'angle/sous-couche. L'adoption concerne
+  toute la cohorte, sans plus de commandes ni disparition de fondation ; les
+  limites physiques et contrôles de piqûres restent obligatoires. Le profil de
+  forme précis est utilisé avant l'arrondi des valeurs affichées, pour éviter
+  qu'une différence d'affichage fasse basculer un trait en surface compacte.
+  Une seconde vérification compte les piqûres supérieures aux coordonnées
+  machine, y compris entre colonnes. Un essai étroit qui crée un pic supérieur
+  à `max(2, pic_du_tatami_final)` est écarté ; Détails indique alors la
+  concentration entre colonnes. Deux piqûres au raccord peuvent rester utiles.
+  Il s'agit d'une règle comparative conservatrice, pas d'une certification du
+  tissu. La recommandation automatique des variantes compare également ce pic
+  par fil ; couverture et esthétique ne suffisent pas à justifier sa hausse.
 - **Satin** exige du satin partout. Les balayages trop larges peuvent être divisés
   en colonnes adjacentes, avec flottées bornées et coutures internes décalées.
   Les régions dont les rails échouent à couvrir proprement ou concentrent les

@@ -24,6 +24,9 @@ export function describeDecision(decision: Decision): string | null {
     case "complete_directional_columns":
       if (decision.method === "satin") reason = "Satin directionnel vérifié sur les points machine.";
       break;
+    case "complete_fidelity_columns":
+      if (decision.method === "satin") reason = "Satin retenu après comparaison avec le tatami final.";
+      break;
     case "exceeds_safe_satin_width": {
       const limit = decision.shape_profile?.safe_satin_width_mm ?? decision.safe_satin_width_mm;
       if (decision.method === "fill") reason = `Limite de largeur satin dépassée${limit != null && Number.isFinite(limit) && limit > 0 ? ` (${formatNumber(limit)} mm)` : ""}.`;
@@ -40,6 +43,9 @@ export function describeDecision(decision: Decision): string | null {
       break;
     case "satin_fidelity_regression":
       if (decision.method === "fill") reason = "Tatami conservé : le gain de fidélité du satin n’est pas confirmé.";
+      break;
+    case "satin_intercolumn_repeats":
+      if (decision.method === "fill") reason = "Tatami conservé : le satin concentre davantage les piqûres entre colonnes.";
       break;
     case "coherent_color_fill":
       if (decision.method === "fill") reason = "Tatami harmonisé avec les autres surfaces de cette couleur.";

@@ -37,6 +37,12 @@ describe("region decision feedback", () => {
     }
   });
 
+  it("explains comparison with the emitted fill without promising a sewn result", () => {
+    const context = describeDecision({ ...decision, reason: "complete_fidelity_columns" });
+    expect(context).toBe("Satin retenu après comparaison avec le tatami final.");
+    expect(describeDecision({ ...decision, method: "fill", reason: "complete_fidelity_columns" })).toBeNull();
+  });
+
   it("distinguishes rejected machine coverage from rejected rail geometry", () => {
     const incomplete = describeDecision({ ...decision, method: "fill", reason: "satin_top_layer_incomplete" });
     expect(incomplete).toContain("Satin non retenu");
@@ -60,6 +66,13 @@ describe("region decision feedback", () => {
     expect(describeDecision({ ...decision, method: "running", reason: "requested_running_contour" })).toContain("sans remplissage de surface");
     expect(describeDecision({ ...decision, method: "running", reason: "below_satin_width" })).toContain("trop fin pour le satin");
     expect(describeDecision({ ...decision, method: "fill", reason: "running_top_layer_incomplete" })).toContain("Point droit non retenu");
+  });
+
+  it("distinguishes concentrated needle repeats from a coverage refusal", () => {
+    const context = describeDecision({ ...decision, method: "fill", reason: "satin_intercolumn_repeats" });
+    expect(context).toContain("concentre davantage les piqûres entre colonnes");
+    expect(context).not.toContain("couverture insuffisante");
+    expect(describeDecision({ ...decision, reason: "satin_intercolumn_repeats" })).toBeNull();
   });
 
   it("distinguishes an omitted small detail from an invalid machine geometry", () => {

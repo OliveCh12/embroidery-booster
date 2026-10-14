@@ -1,16 +1,24 @@
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
+import pyembroidery as pe
 import pytest
 
 from embroidery_rungs import GenerationParams
 from embroidery_rungs.image_processor import rasterize_rgba
 from embroidery_rungs.inputs import prepare_artwork
-from embroidery_rungs.stitching import consistency, selection
+from embroidery_rungs.stitching import consistency, selection, variants
 from embroidery_rungs.stitching.digitizer import digitize
 from embroidery_rungs.stitching.params import StitchParams
-from embroidery_rungs.stitching.planner import CandidateGeometryError, build_stitch_plan
+from embroidery_rungs.stitching.planner import (
+    CandidateGeometryError,
+    StitchBlock,
+    StitchPlan,
+    build_stitch_plan,
+)
+from embroidery_rungs.stitching.quality import max_top_penetration_multiplicity
 from embroidery_rungs.svg_manager import load_svg_paths
 
 
@@ -214,3 +222,126 @@ def test_equivalent_fallback_satin_regions_keep_the_same_direction_and_foundatio
     assert len({d["satin_angle_deg"] for d in plan.decisions}) == 1
     assert len({d["underlay_strategy"] for d in plan.decisions}) == 1
     assert_machine_quality(plan)
+
+
+def _recommendation_candidate(identifier, **overrides):
+    quality = {
+        "unsafe_connections": 0,
+        "crowded_satin_penetrations": 0,
+        "short_stitches": 0,
+        "omitted_colors": 0,
+        "omitted_regions": 0,
+        "failed_coverage_layers": 0,
+        "largest_gap_mm2": 0,
+        "structural_missing_mm2": 0,
+        "uncovered_max_mm": 0.2,
+        "coverage": 1.0,
+        "structural_coverage": 1.0,
+        "spill_mm2": 2,
+        "status": "geometric_checks_passed",
+        "method_area_mm2": {"satin": 0, "fill": 100, "running": 0, "omitted": 0},
+        "trims": 2,
+        "jump_length_mm": 20,
+    }
+    quality.update(overrides)
+    return SimpleNamespace(id=identifier, quality=quality)
+
+
+@pytest.mark.parametrize("identifier", ["satin_preferred", "uniform_satin"])
+@pytest.mark.parametrize("improved_rank", [False, True])
+@pytest.mark.parametrize(
+    "old_peak,new_peak,accepted", [(2, 3, False), (1, 2, True), (3, 3, True), (3, 4, False)]
+)
+def test_satin_recommendation_preserves_top_visit_limit_even_with_better_safety_rank(
+    identifier, improved_rank, old_peak, new_peak, accepted
+):
+    balanced = _recommendation_candidate(
+        "balanced",
+        status="needs_review" if improved_rank else "geometric_checks_passed",
+        max_top_penetration_multiplicity=old_peak,
+    )
+    satin = _recommendation_candidate(
+        identifier,
+        method_area_mm2={"satin": 20, "fill": 80, "running": 0, "omitted": 0},
+        max_top_penetration_multiplicity=new_peak,
+    )
+    if improved_rank:
+        assert variants._safety_rank(satin.quality) < variants._safety_rank(balanced.quality)
+    else:
+        assert variants._safety_rank(satin.quality) == variants._safety_rank(balanced.quality)
+    assert variants.recommend_variant([balanced, satin]) == (identifier if accepted else "balanced")
+
+
+@pytest.mark.parametrize("identifier", ["satin_preferred", "uniform_satin"])
+@pytest.mark.parametrize("missing", ["both", "reference", "candidate"])
+def test_satin_recommendation_keeps_compatibility_with_missing_optional_visit_metrics(
+    identifier, missing
+):
+    balanced = _recommendation_candidate("balanced", max_top_penetration_multiplicity=2)
+    satin = _recommendation_candidate(
+        identifier,
+        method_area_mm2={"satin": 20, "fill": 80, "running": 0, "omitted": 0},
+        max_top_penetration_multiplicity=3,
+    )
+    if missing in ("both", "reference"):
+        balanced.quality.pop("max_top_penetration_multiplicity")
+    if missing in ("both", "candidate"):
+        satin.quality.pop("max_top_penetration_multiplicity")
+    assert variants.recommend_variant([balanced, satin]) == identifier
+
+
+@pytest.mark.parametrize("identifier", ["satin_preferred", "uniform_satin"])
+@pytest.mark.parametrize("improved_rank", [False, True])
+@pytest.mark.parametrize(
+    "candidate_peaks,accepted",
+    [
+        ({"#0000ff": 1, "#ff0000": 3}, False),
+        ({"#0000ff": 3, "#ff0000": 2}, True),
+    ],
+)
+def test_satin_recommendation_matches_thread_colors_instead_of_palette_positions(
+    identifier, improved_rank, candidate_peaks, accepted
+):
+    balanced = _recommendation_candidate(
+        "balanced",
+        status="needs_review" if improved_rank else "geometric_checks_passed",
+        max_top_penetration_multiplicity=3,
+        top_penetration_multiplicity_by_color={"#ff0000": 2, "#0000ff": 3},
+    )
+    satin = _recommendation_candidate(
+        identifier,
+        method_area_mm2={"satin": 20, "fill": 80, "running": 0, "omitted": 0},
+        max_top_penetration_multiplicity=3,
+        top_penetration_multiplicity_by_color=candidate_peaks,
+    )
+    assert variants.recommend_variant([balanced, satin]) == (identifier if accepted else "balanced")
+
+
+def test_variant_quality_uses_per_thread_top_visits_without_aggregating_shared_coordinates():
+    commands = [
+        [0, 0, pe.JUMP],
+        [10, 10, pe.STITCH],
+        [20, 20, pe.STITCH],
+        [10, 10, pe.STITCH],
+        [10, 10, pe.COLOR_CHANGE],
+        [10, 10, pe.JUMP],
+        [10, 10, pe.STITCH],
+        [30, 30, pe.STITCH],
+        [10, 10, pe.STITCH],
+        [30, 30, pe.STITCH],
+        [10, 10, pe.STITCH],
+        [10, 10, pe.END],
+    ]
+    blocks = [
+        StitchBlock(
+            "satin", np.asarray(commands[:4])[:, :2] / 10, 0, command_range=(0, 4), color_index=0
+        ),
+        StitchBlock(
+            "fill", np.asarray(commands[5:11])[:, :2] / 10, 1, command_range=(5, 11), color_index=1
+        ),
+    ]
+    plan = StitchPlan(commands, blocks, (0, 0), {}, threads=["#ff0000", "#0000ff"])
+    quality = variants._quality(plan, [])
+    assert max_top_penetration_multiplicity(plan) == 5
+    assert quality["max_top_penetration_multiplicity"] == 3
+    assert quality["top_penetration_multiplicity_by_color"] == {"#ff0000": 2, "#0000ff": 3}

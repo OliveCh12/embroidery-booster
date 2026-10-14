@@ -10,11 +10,11 @@ sont relus pour vérifier les points réellement exportés.
 
 | Ordre | Travail | Bénéfice attendu | Condition de validation |
 |---|---|---|---|
-| 1 | Affiner les accents JPEG et la séparation des peintures | Moins de détails perdus et de fils parasites | Oracles couleur/alpha sur images nettes, compressées et floutées ; préserver les vrais petits accents contrastés |
-| 2 | Calibrer les profils textile par des coupons PP1 | Densité, compensation et sous-couche justifiées par la couture | Coupons identiques coton/jersey/éponge, mesures avant/après et photos ; distinguer paramètres proposés et paramètres validés |
-| 3 | Tracing haute qualité et fond photographique optionnels | Contours plus lisses et extraction d'objet sur images difficiles | Adaptateurs VTracer/rembg optionnels, audit contre la silhouette/couleurs source, fallback géométrique, temps et mémoire mesurés |
-| 4 | Progression structurée de la génération | Comprendre la durée et localiser un échec | Événements backend par étape, état de tâche borné, polling frontend ; conserver le parcours actuel |
-| 5 | Étendre les rails continus aux jonctions difficiles | Réduire les raccords de lettrages ramifiés | Conserver les vrais changements de géométrie, ne pas relier des sections rejetées ; comparer au plan actuel et aux coupons |
+| 1 | Nettoyage spatial des peintures et contreformes JPEG | Moins de micro-régions, de blancs parasites et de teintes déplacées sur les logos texturés | Oracles indépendants couleur/alpha ; préserver les vrais accents et les contreformes, ne pas gagner en palette en fragmentant les chemins |
+| 2 | Rails de bordures et jonctions pilotés par courbure | Plus de liserés satin et moins de concentrations aux raccords de lettres | Contrôle de toutes les piqûres entre colonnes, contreformes protégées, couverture/débordement comparés au tatami réel ; aucune relaxation de sécurité |
+| 3 | Calibrer les profils textile par des coupons PP1 | Densité, compensation et sous-couche justifiées par la couture | Coupons identiques coton/jersey/éponge, mesures avant/après et photos ; distinguer paramètres proposés et paramètres validés |
+| 4 | Tracing haute qualité et fond photographique optionnels | Contours plus lisses et extraction d'objet sur images difficiles | Adaptateurs VTracer/rembg optionnels, audit contre la silhouette/couleurs source, fallback géométrique, temps et mémoire mesurés |
+| 5 | Progression structurée de la génération | Comprendre la durée et localiser un échec | Événements backend par étape, état de tâche borné, polling frontend ; conserver le parcours actuel |
 
 L'ordre n'implique pas qu'un futur adaptateur résout toutes les images. VTracer
 ne remplace pas la séparation des couleurs ; une suppression de fond apprise
@@ -35,6 +35,22 @@ et adoption commune des homologues. Les anciens fragments restent disponibles
 lorsque leur couverture est meilleure au-delà de la tolérance du projet. Les
 sauts sont désormais bornés après arrondi machine, depuis l'origine comprise.
 Les jonctions ramifiées et la calibration textile restent des travaux distincts.
+
+La **0.6.5** poursuit les directions satin lorsque la première perd en fidélité
+et recompare les options étroites au tatami réellement généré. Elle adopte une
+option commune pour toute une cohorte, à budget non croissant. Jungly à 80 mm
+passe ainsi ses six lettres en satin ; à 95 mm une lettre conserve le tatami.
+Un nouveau contrôle des piqûres entre colonnes bloque les promotions dont le
+pic dépasse à la fois deux piqûres et le pic de la référence tatami.
+Il protège aussi la recommandation automatique des variantes.
+
+Les familles de couleurs ancrées dans les noyaux opaques source récupèrent
+deux accents JPEG supplémentaires sur dix-neuf contrôles positifs ; cinq
+restent non résolus. Ce mécanisme ne remplace pas une interprétation spatiale
+des peintures texturées : les micro-régions et la teinte orange de Jungly ne
+sont pas corrigées par ce lot. Les essais de bordure satin échouent encore aux
+contrôles de piqûres en courbe. Ce sont les deux priorités suivantes, avant
+d'élargir automatiquement la promotion satin.
 
 - Import SVG et bitmap, normalisation EXIF/ICC, fond uniforme ou dégradé connecté
   au périmètre, nettoyage couleur local et contrôle du tracing.

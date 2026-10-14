@@ -17,6 +17,7 @@ from .colors import bitmap_colors, clean_color_regions
 from .input_quality import raster_quality
 from .interpretation import RasterArtwork
 from .interpretation.normalize import normalize_image
+from .interpretation.paint_reference import match_paint_families
 from .interpretation.sampling import sample_bitmap
 from .interpretation.tracing import serialize_bitmap
 from .svg_manager import MAX_INPUT_BYTES, UNITS_PER_MM, load_svg_paths
@@ -257,6 +258,13 @@ def _record_interpreted_palette(report: dict, labels: np.ndarray, colors: list[s
         else None
     )
     report["interpreted_palette"] = used
+    if report.get("reference") == "source_alpha_and_paint_families":
+        matching = match_paint_families(reference or [], used)
+        report["interpreted_palette_match"] = matching
+        report["missing_source_paints"] = (
+            sorted(set(significant) - set(matching)) if significant is not None else None
+        )
+        return
     report["missing_source_paints"] = (
         sorted(set(significant) - set(used)) if significant is not None else None
     )
@@ -497,10 +505,15 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
             f"Contour simplification altered {tracing['initial']['changed_pixels']} native pixels; exact contours restored the interpreted paint and counters. Very fine details still need a sewing-size check."
         )
     resampling = input_analysis.get("resampling", {})
+    if resampling.get("paint_family_retry", {}).get("baseline_retained"):
+        warnings.append(
+            "Estimated source paint families could not be confirmed in a reduced working grid. Historical sampling was retained; check small accents and the interpreted thread palette."
+        )
     if resampling.get("unresolved_issues", 0):
         warnings.append(
             "Source paint evidence could not fully confirm the reduced palette and details. Check the interpreted drawing or use the original vector SVG."
-            if resampling.get("reference") == "source_alpha_and_flat_paint_cores"
+            if resampling.get("reference")
+            in ("source_alpha_and_flat_paint_cores", "source_alpha_and_paint_families")
             else "Some source details could not be preserved within the bitmap sampling budget. Check the interpreted drawing or use the original vector SVG."
         )
     if resampling.get("missing_source_paints"):

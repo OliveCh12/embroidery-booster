@@ -12,7 +12,7 @@ import numpy as np
 from .digitizer import digitize, prepare_digitizing
 from .params import StitchParams
 from .planner import StitchPlan
-from .quality import coverage_needs_review
+from .quality import coverage_needs_review, max_top_penetration_multiplicity
 
 MAX_COMPARISON_REGIONS = 256
 
@@ -30,6 +30,10 @@ class PlannedVariant:
 
 def _quality(plan, layers):
     stats = plan.stats
+    multiplicity_by_color = {
+        color: max_top_penetration_multiplicity(plan, color_index=index)
+        for index, color in enumerate(plan.threads)
+    }
     areas = {
         method: round(sum(d.get("area_mm2", 0) for d in plan.decisions if d["method"] == method), 2)
         for method in ("satin", "fill", "running", "omitted")
@@ -59,6 +63,8 @@ def _quality(plan, layers):
         "failed_coverage_layers": sum(coverage_needs_review(layer) for layer in layers),
         "status": plan.analysis.get("quality_status", "needs_review"),
         "method_area_mm2": areas,
+        "max_top_penetration_multiplicity": max(multiplicity_by_color.values(), default=0),
+        "top_penetration_multiplicity_by_color": multiplicity_by_color,
         "ranking_basis": "quantized_geometry_only",
     }
 
@@ -88,8 +94,25 @@ def _safety_rank(quality):
     )
 
 
+def _preserves_top_multiplicity(proposed, current):
+    candidate_colors = proposed.get("top_penetration_multiplicity_by_color")
+    reference_colors = current.get("top_penetration_multiplicity_by_color")
+    if candidate_colors is not None and reference_colors is not None:
+        return all(
+            peak <= max(2, reference_colors.get(color, 0))
+            for color, peak in candidate_colors.items()
+        )
+    candidate_peak = proposed.get("max_top_penetration_multiplicity")
+    reference_peak = current.get("max_top_penetration_multiplicity")
+    return (
+        candidate_peak is None or reference_peak is None or candidate_peak <= max(2, reference_peak)
+    )
+
+
 def _safe_satin_improvement(candidate, incumbent):
     proposed, current = candidate.quality, incumbent.quality
+    if not _preserves_top_multiplicity(proposed, current):
+        return False
     if (
         proposed["status"] != "geometric_checks_passed"
         or current["status"] != "geometric_checks_passed"
@@ -128,6 +151,12 @@ def recommend_variant(variants: list[PlannedVariant]) -> str:
     best = variants[0]
     for candidate in variants[1:]:
         if candidate.id == "running_outline":
+            continue
+        # Even a better safety rank cannot introduce three-way top stacks
+        # beyond the incumbent's per-colour peak. Two-column joins remain valid.
+        if candidate.id in ("satin_preferred", "uniform_satin") and not _preserves_top_multiplicity(
+            candidate.quality, best.quality
+        ):
             continue
         proposed_rank, current_rank = _safety_rank(candidate.quality), _safety_rank(best.quality)
         if proposed_rank < current_rank:
