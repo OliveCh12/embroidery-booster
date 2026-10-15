@@ -52,6 +52,22 @@ sont pas corrigées par ce lot. Les essais de bordure satin échouent encore aux
 contrôles de piqûres en courbe. Ce sont les deux priorités suivantes, avant
 d'élargir automatiquement la promotion satin.
 
+La **0.6.6** sépare désormais la correction des représentants RGB du découpage
+en régions. Sur les bitmaps texturés admissibles, une couleur source opaque
+observée peut remplacer une moyenne median-cut inadéquate, sans réaffecter les
+pixels. Les gardes d'erreur moyenne/p95/quadratique et de séparation restent
+obligatoires. Jungly retrouve ainsi son orange sans augmenter ses fragments ni
+changer ses commandes machine. Le nettoyage spatial des textures reste à faire.
+
+Le corpus de validation passe à **42 cas publics procéduraux et sept cas réels**,
+avec vérités source, contrôles machine et chronométrages distincts. Le runner
+`--check` signale les erreurs inattendues, les dépassements de budget et les
+défauts machine. Il expose aussi les limites actuelles : contreformes opaques
+ambiguës, accents JPEG perdus et fonds texturés insuffisamment séparés. La
+prochaine étape reste leur interprétation spatiale, avec conservation des vrais
+blancs et accents ; ajouter des styles de remplissage ne résoudrait pas ces
+erreurs d'entrée.
+
 - Import SVG et bitmap, normalisation EXIF/ICC, fond uniforme ou dégradé connecté
   au périmètre, nettoyage couleur local et contrôle du tracing.
 - Protection des contreformes et accents source, diagnostics des détails non

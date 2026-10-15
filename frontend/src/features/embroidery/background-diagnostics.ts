@@ -23,7 +23,9 @@ export function describeBackground(background: NonNullable<InputAnalysis["backgr
   if ((background.edge_refined_pixels ?? 0) > 0) metrics.push({ label: "Pixels de contour affinés", value: formatNumber(background.edge_refined_pixels!) });
   if ((background.edge_recovered_pixels ?? 0) > 0) metrics.push({ label: "Pixels de contour décontaminés", value: formatNumber(background.edge_recovered_pixels!) });
   if ((background.counters_inferred ?? 0) > 0) metrics.push({ label: "Évidements monochromes", value: formatNumber(background.counters_inferred!) });
-  return { message: message + (background.applied === true && (background.removed_fraction ?? 0) > 0 ? ` ${formatNumber(background.removed_fraction! * 100)} % de l’image retirés.` : "") + ((background.counters_inferred ?? 0) > 0 ? " Les blancs entourés de traits épais ont été interprétés comme des évidements. Désactivez le nettoyage pour les conserver." : ""), metrics };
+  const ambiguous = (background.counter_ambiguity?.regions ?? 0) > 0;
+  if (ambiguous) metrics.push({ label: "Aplats intérieurs ambigus", value: formatNumber(background.counter_ambiguity!.regions) });
+  return { message: message + (background.applied === true && (background.removed_fraction ?? 0) > 0 ? ` ${formatNumber(background.removed_fraction! * 100)} % de l’image retirés.` : "") + ((background.counters_inferred ?? 0) > 0 ? " Les blancs entourés de traits épais ont été interprétés comme des évidements. Désactivez le nettoyage pour les conserver." : "") + (ambiguous ? " Une peinture intérieure de la couleur du fond est conservée : son intention est ambiguë. Si un évidement est souhaité, utilisez un PNG transparent ou un SVG avec une contreforme explicite." : ""), metrics };
 }
 
 export function describeBitmapCleanup(cleanup: InputAnalysis["cleanup"]): string[] {
@@ -31,6 +33,8 @@ export function describeBitmapCleanup(cleanup: InputAnalysis["cleanup"]): string
   const fringe = cleanup?.dark_ink_edge_pixels ?? 0, fragments = cleanup?.alpha_fragments_removed ?? 0, pixels = cleanup?.alpha_fragment_pixels ?? 0;
   if (fringe > 0) messages.push(`${formatNumber(fringe)} pixels gris de contour partiellement transparent rattachés au même fil noir. Les gris opaques et accents colorés sont préservés.`);
   if (fragments > 0) messages.push(`${formatNumber(fragments)} fragment${fragments > 1 ? "s" : ""} d’antialiasing trop fin${fragments > 1 ? "s" : ""} retiré${fragments > 1 ? "s" : ""} au bord du même trait (${formatNumber(pixels)} pixel${pixels > 1 ? "s" : ""}). Les détails opaques ou isolés sont préservés.`);
+  const refinement = cleanup?.palette_refinement;
+  if (refinement && refinement.count > 0) messages.push(`${formatNumber(refinement.count)} couleur${refinement.count > 1 ? "s" : ""} de fil ajustée${refinement.count > 1 ? "s" : ""} à partir des pixels source pour réduire l’écart de couleur.${refinement.masks_unchanged ? " Les contours et les découpes sont conservés." : ""}`);
   return messages;
 }
 

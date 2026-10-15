@@ -13,6 +13,7 @@ src/embroidery_rungs/
     types.py               Masques immuables, palette et repère physique du bitmap
     normalize.py           Orientation EXIF et profils ICC vers sRGB, alpha conservé
     paint_reference.py     Noyaux opaques, familles estimées bornées et correspondance
+    palette_refinement.py  Représentants RGB source sur les masques nettoyés fixes
     sampling.py            Réduction bornée, contrôle des détails source et adaptation
     tracing.py             Sérialisation commune et fallback vers contours exacts
     audit.py               Fidélité catégorielle, topologie et distances de contours
@@ -45,7 +46,7 @@ frontend/
   src/features/embroidery/ Import, réglages, résultats et lecture des points
   src/features/quality/    Galerie de validation
   src/lib/                 Client API et fonctions partagées
-examples/                  Cas SVG reproductibles et coupon de couture
+examples/                  Cas SVG/PNG reproductibles, générateurs et coupons
 scripts/                   Développement, validation et benchmarks directs
 tests/                    Géométrie, symétrie, points, formats, CLI et API
 docs/                     Règles du moteur et protocoles de validation
@@ -63,7 +64,10 @@ output/                   Jobs et artefacts générés, ignorés par Git
    sur chaque grille. Adapter uniquement si les contrôles passent, sinon conserver
    l'adaptation historique de silhouette avec un diagnostic d'incertitude.
    Consolider la palette bitmap et réduire les petits parasites adjacents avant
-   le tracé. Auditer les contours sur la grille du contrat immuable ; revenir
+   le tracé. Après les inférences de contreformes, essayer des représentants RGB
+   observés sur les masques fixes lorsque la quantification de repli est utilisée.
+   Les preuves de palette déjà confirmées ne sont pas remplacées.
+   Auditer les contours sur la grille du contrat immuable ; revenir
    aux contours non simplifiés si des pixels ou des contreformes changent.
    Exposer chaque modification dans `input_analysis`.
 2. Appliquer le redimensionnement explicite et charger le SVG sécurisé.
@@ -126,6 +130,22 @@ alternative est retenue seulement si tous les contrôles source/couleur/détails
 réussissent. L'échec conserve le résultat et l'audit historique ; un résumé
 `paint_family_retry` distinct signale l'estimation non confirmée sans certifier
 les couleurs sur la seule réussite de l'alpha.
+
+`palette_refinement.py` intervient uniquement après le nettoyage et les
+inférences de contreformes, sur les bitmaps réduits par palette de repli et sans
+preuve littérale/noyaux/familles déjà confirmée. Il propose le mode RGB de chaque
+masque à partir de neuf noyaux opaques à quatre voisins au minimum. Un changement
+doit améliorer l'écart Lab moyen de 20 %, ne pas augmenter p95 ni erreur
+quadratique et garder les peintures séparées. Les histogrammes sont exacts ; les
+conversions Lab sont tuilées. Il rend une palette et des diagnostics, jamais de
+nouveaux labels. Aucun pixel n'est déplacé pour rendre une statistique meilleure.
+
+`colors.py` réutilise les affectations Lab des RGB strictement identiques lorsqu'il
+y a au moins quatre pixels par RGB distinct en moyenne. Les autres images
+gardent les lots de pixels historiques. Conversion et remapping sont bornés à
+100 000 valeurs par lot, sans grille Lab ni index de remapping pleine image.
+Le label zéro reste réservé à la transparence ; une palette de 256 couleurs
+utilise des labels uint16 au lieu de perdre sa dernière couleur en uint8.
 
 L'assemblage des couleurs et le recentrage reconstruisent leurs sauts sur la
 grille de 0,1 mm. La longueur est vérifiée **après** l'arrondi, depuis l'origine
@@ -258,5 +278,14 @@ rapportés séparément. Une amélioration de diagnostic ou un XML réorganisé 
 pas assimilé à un gain de couture. Les mesures de performance excluent le rendu
 indépendant ajouté par le benchmark ; elles restent contextualisées par la
 machine, les versions, les paramètres et les empreintes source.
+
+`benchmark_interpretation.py --suite public --machine` utilise des entrées et
+oracles procéduraux de `benchmark_public_corpus.py`, dont le générateur original
+de `examples/quality/textured-five-paints.py`. Les snapshots sont importés dans
+des processus distincts. Les scores d'image sont calculés dans un repère source
+explicite, sans ajuster la bbox pour cacher une déformation. Les audits machine,
+couleurs, contreformes et temps ont des sorties séparées ; `--check` automatise
+les erreurs inattendues et contrôles machine sans présenter les ambiguïtés de
+source déjà connues comme résolues.
 Le [protocole de couture](SEWOUT.md) reste nécessaire pour qualifier un rendu
 physique : la simulation lit les commandes sans modéliser le tissu.

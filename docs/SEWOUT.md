@@ -97,3 +97,11 @@ vérifiées numériquement sur ce coupon : trois fils, deux changements, longueu
 maximale bornée, pas de points courts et coordonnées PES/DST exactement conservées.
 **Aucun coupon n'a encore été cousu dans cette validation.** Les résultats observés
 sur tissu devront être ajoutés ici avant de qualifier un preset de calibré.
+
+La fixture [`textured-five-paints.png`](../examples/quality/textured-five-paints.png)
+et son générateur servent aussi à comparer les représentants de couleur : la
+0.6.6 conserve le découpage et corrige certaines moyennes RGB à partir des pixels
+observés. Vérifier les bobines réelles sous le même éclairage ; un écart Lab plus
+faible sur écran ne constitue pas un étalonnage du fil ni du tissu. Cette fixture
+conserve volontairement sa texture et ses micro-régions : utiliser les coupons
+géométriques ci-dessus pour calibrer densité et compensation.

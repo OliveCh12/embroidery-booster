@@ -66,6 +66,17 @@ describe("background interpretation feedback", () => {
     expect(summary.message).not.toContain("aplats intérieurs sont préservés");
     expect(summary.metrics).toContainEqual({ label: "Évidements monochromes", value: "2" });
   });
+
+  it("describes a retained opaque counter without claiming it was removed or unwanted", () => {
+    const summary = describeBackground({ ...legacy, counter_ambiguity: {
+      reason: "opaque_interior_matches_removed_background", regions: 1, pixels: 54623,
+      area_mm2: 374.86, structures: { compact_interior: 1 },
+    } });
+    expect(summary.message).toContain("son intention est ambiguë");
+    expect(summary.message).toContain("PNG transparent");
+    expect(summary.message).not.toContain("interprétés comme des évidements");
+    expect(summary.metrics).toContainEqual({ label: "Aplats intérieurs ambigus", value: "1" });
+  });
 });
 
 describe("bitmap ink recovery feedback", () => {
@@ -93,6 +104,18 @@ describe("bitmap ink recovery feedback", () => {
     expect(messages[0]).toContain("1 fragment d’antialiasing trop fin retiré");
     expect(messages[0]).toContain("(1 pixel)");
     expect(messages[0]).toContain("détails opaques ou isolés sont préservés");
+  });
+
+  it("reports source colour refinement without promising new detail or stitch coverage", () => {
+    const messages = describeBitmapCleanup({ ...cleanup, palette_refinement: {
+      count: 1, masks_unchanged: true, changes: [{ from: "#c0692f", to: "#f37622" }],
+    } });
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain("1 couleur de fil ajustée");
+    expect(messages[0]).toContain("Les contours et les découpes sont conservés");
+    expect(describeBitmapCleanup({ ...cleanup, palette_refinement: {
+      count: 0, masks_unchanged: true, changes: [],
+    } })).toEqual([]);
   });
 });
 

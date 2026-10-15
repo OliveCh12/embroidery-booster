@@ -99,6 +99,10 @@ export interface InputAnalysis {
     edge_recovered_pixels?: number | null;
     counters_inferred?: number | null; counter_pixels_removed?: number | null;
     counter_inference?: string | null;
+    counter_ambiguity?: {
+      reason: string; regions: number; pixels: number; area_mm2: number | null;
+      structures: Record<string, number>;
+    } | null;
   };
   cleanup?: {
     enabled: boolean | null; changed_pixels: number | null; removed_pixels: number | null;
@@ -112,6 +116,9 @@ export interface InputAnalysis {
     dark_ink_edge_pixels?: number | null;
     palette_edge_pixels?: number | null;
     alpha_fragments_removed?: number | null; alpha_fragment_pixels?: number | null;
+    palette_refinement?: {
+      count: number; masks_unchanged: boolean; changes: { from: string; to: string }[];
+    } | null;
   };
 }
 export interface DirectResult {

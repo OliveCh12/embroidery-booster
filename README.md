@@ -55,7 +55,7 @@ height below the header, without a footer. See [frontend development](frontend/R
 production builds.
 
 The header also displays the installed frontend version beside the application
-name, including on small screens. This release is **0.6.5**.
+name, including on small screens. This release is **0.6.6**.
 
 Auto describes each region's geometry and verifies suitable narrow strokes and
 outlines against the actual machine-grid stitches before choosing satin. Broad
@@ -85,6 +85,15 @@ anchored in observed opaque RGB cores. It retries the sampling grid only if
 colour matching and source-detail checks pass completely. Literal SVG/PNG paints
 remain exact; gradients, uncertain accents and unqualified retries retain the
 existing interpretation. Détails identifies estimated families separately.
+
+Reduced textured bitmaps can refine thread colours from observed opaque RGB
+cores **after** cleanup, without moving their masks. A replacement must reduce
+mean Lab error by at least 20%, preserve p95 and squared error, and keep distinct
+paints separate. Détails reports accepted changes. This corrects some poor
+median-cut colour averages; it does not recover missing details or smooth noise.
+Ambiguous opaque interiors are identified separately: an enclosed white patch
+may be intentional paint. Use a transparent PNG or explicit SVG counter when a
+hole is intended.
 
 Qualified satin curves and loops can now retain continuous paired rails instead
 of accumulating artificial joins. Each equivalent group compares the emitted
@@ -401,19 +410,28 @@ pnpm test:frontend
 pnpm build
 uv run python scripts/compare_quality.py --design-width-mm 80
 uv run python scripts/benchmark_direct.py --design-width-mm 80
-uv run python scripts/benchmark_interpretation.py --baseline-ref main --previous-ref 97f6035 --output output/benchmark-interpretation-quality
-uv run python scripts/benchmark_interpretation.py --baseline-ref main --previous-ref 97f6035 --output output/benchmark-interpretation-performance --mode performance --repeats 7
+uv run python scripts/benchmark_interpretation.py --suite public --machine --check --baseline-ref main --previous-ref 4f4d6fb --output output/benchmark-quality
+uv run python scripts/benchmark_interpretation.py --suite public --machine --check --baseline-ref main --previous-ref 4f4d6fb --output output/benchmark-performance --mode performance --warmups 1 --repeats 3
 uv build
 ```
 
 The interpretation benchmark freezes both Git references and the current source
-without checking out another branch. It generates seven small raster samples,
-or accepts local rasters with `--input` and a hashed manifest with `--corpus`.
+without checking out another branch. `--suite public` generates reproducible
+logos, lettering, outlines, flags, textured artwork, gradients, JPEG variants and
+input-budget cases with known source intent. The historical seven-raster suite
+remains the default. Add local artwork with `--input`, or reuse a hashed manifest
+with `--corpus`; private files remain under ignored output directories.
 Use a fresh output directory for each run. Quality mode compares the rendered
-SVG, palette, physical size and diagnostics. Performance mode measures preparation
-after one warm-up, without extra rendering/topology work. It records the resolved
+SVG, palette, physical size, diagnostics and independent source masks. With
+`--machine`, it also generates stitches and reads PES/DST back. `--check` fails on
+unexpected errors, nondeterministic outputs or machine validation failures;
+source-fidelity scores remain descriptive and can reveal existing limitations.
+Performance mode measures preparation, or complete generation with `--machine`,
+after warm-up, without independent rendering/topology/readback in the timer.
+Run performance benchmarks alone, after tests and builds. They record resolved
 commits, source hashes, median/p95 and whole-process peak RSS. These timings do
-not measure complete stitch generation; use the direct benchmark for that scope.
+not certify a sewing time or a physical result. Use `--names` to time a smaller
+representative subset; expected input-error cases do not sew.
 Each release reports its benefit against `main` separately from the previous lot,
 including slower inputs and remaining fidelity limits.
 

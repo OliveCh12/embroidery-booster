@@ -18,6 +18,7 @@ from .input_quality import raster_quality
 from .interpretation import RasterArtwork
 from .interpretation.normalize import normalize_image
 from .interpretation.paint_reference import match_paint_families
+from .interpretation.palette_refinement import refine_bitmap_palette
 from .interpretation.sampling import sample_bitmap
 from .interpretation.tracing import serialize_bitmap
 from .svg_manager import MAX_INPUT_BYTES, UNITS_PER_MM, load_svg_paths
@@ -215,12 +216,25 @@ def _color_bitmap_svg(
         cleanup_info["palette_changed_area_mm2"] = (
             cleanup_info["palette_consolidated_pixels"] / pixels_per_mm**2
         )
-    labels = _monochrome_counters(labels, colors, background_info, cleanup and infer_counters)
+    labels = _monochrome_counters(
+        labels,
+        colors,
+        background_info,
+        cleanup and infer_counters,
+        pixels_per_mm=pixels_per_mm,
+    )
     cleanup_info["palette_colors"] = len(np.unique(labels[labels > 0]))
     cleanup_info["regions_after"] = sum(
         label(labels == index)[1] for index in range(1, len(colors) + 1)
     )
     _check_trace_budget(cleanup_info["regions_after"])
+    if (
+        cleanup
+        and reduced
+        and not cleanup_info["flat_paints_recovered"]
+        and diagnostics["resampling"]["reference"] in ("source_alpha", "source_unchanged")
+    ):
+        colors, cleanup_info["palette_refinement"] = refine_bitmap_palette(rgba, labels, colors)
     _record_interpreted_palette(diagnostics["resampling"], labels, colors)
     diagnostics.update(background=background_info, cleanup=cleanup_info)
     diagnostics["quality"] = raster_quality(
@@ -313,7 +327,9 @@ def _remove_alpha_fragments(labels, rgba, pixels_per_mm, diagnostics):
     return result
 
 
-def _monochrome_counters(labels, colors, background_info, cleanup):
+def _monochrome_counters(labels, colors, background_info, cleanup, *, pixels_per_mm=None):
+    """Infer supported counters, reporting retained opaque paint without guessing its intent."""
+    background_info.pop("counter_ambiguity", None)
     background_info.update(
         counters_inferred=0,
         counter_pixels_removed=0,
@@ -339,11 +355,13 @@ def _monochrome_counters(labels, colors, background_info, cleanup):
     hole_radius = distance_transform_edt(holes > 0)
     result = labels.copy()
     removed = inferred = compact = 0
+    preserved = []
     for index, box in enumerate(find_objects(holes), 1):
         mask = holes[box] == index
         height, width = mask.shape
         if max(height, width) / min(height, width) < 2 and mask.mean() > 0.65:
             compact += 1
+            preserved.append(("compact_interior", int(mask.sum())))
             continue
         radius = float(hole_radius[box][mask].max())
         padding = max(6, int(np.ceil(radius)))
@@ -356,11 +374,13 @@ def _monochrome_counters(labels, colors, background_info, cleanup):
             labels[patch] == paint_index
         )
         if not neighbours.any():
+            preserved.append(("unsupported_context", int(mask.sum())))
             continue
         # Broad monochrome strokes support a counter interpretation. A thin
         # outline around a large white centre supplies evidence for a badge.
         stroke = float(np.percentile(paint_radius[patch][neighbours], 75))
         if stroke <= max(2.0, 0.65 * radius):
+            preserved.append(("thin_outline", int(mask.sum())))
             continue
         result[box][mask] = 0
         removed += int(mask.sum())
@@ -376,6 +396,18 @@ def _monochrome_counters(labels, colors, background_info, cleanup):
             else "thin_outline_preserved"
         ),
     )
+    if preserved:
+        pixels = sum(amount for _, amount in preserved)
+        background_info["counter_ambiguity"] = {
+            "reason": "opaque_interior_matches_removed_background",
+            "regions": len(preserved),
+            "pixels": pixels,
+            "area_mm2": round(pixels / pixels_per_mm**2, 6) if pixels_per_mm is not None else None,
+            "structures": {
+                kind: sum(structure == kind for structure, _ in preserved)
+                for kind in sorted({structure for structure, _ in preserved})
+            },
+        }
     return result
 
 
@@ -519,6 +551,11 @@ def prepare_artwork(source, directory, params, stitch_params, *, preserve_colors
     if resampling.get("missing_source_paints"):
         warnings.append(
             "Some significant source paints are absent after palette interpretation and cleanup. Check the interpreted drawing; disable bitmap cleanup to retain intentional paint."
+        )
+    background = input_analysis["background"]
+    if background.get("mode") in ("auto", "remove") and background.get("counter_ambiguity"):
+        warnings.append(
+            "Opaque interior paint matching the removed background was retained. If these areas should be holes, use a transparent PNG or SVG with explicit counters."
         )
     if input_analysis["background"]["applied"]:
         model = input_analysis["background"].get("model")

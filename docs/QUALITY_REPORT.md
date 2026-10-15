@@ -1,4 +1,140 @@
-# Validation du moteur direct — 14 octobre 2026
+# Validation du moteur direct — 15 octobre 2026
+
+## Version 0.6.6 : corpus public étendu et couleurs sur découpes fixes
+
+Ce lot sépare deux problèmes auparavant confondus : une couleur mal représentée
+et un mauvais découpage. Jungly contient cinq peintures dominantes correctement
+observées, mais deux nuances rares font dépasser le budget de récupération des
+aplats. Le repli median-cut brunit ensuite l'orange. Réaffecter tous les pixels
+aux cinq peintures donne une meilleure teinte mais davantage de fragments : ces
+prototypes sont refusés. Le changement retenu corrige seulement un représentant
+RGB **après** nettoyage, sur ses labels fixes, lorsque l'écart Lab moyen baisse
+de 20 % sans hausse de p95 ni de l'erreur quadratique. Il exige aussi un noyau
+opaque observé et une palette distincte. Il ne supprime pas la texture source.
+
+Le [rapport reproductible](benchmarks/public-corpus-fidelity-2026-10-15.json)
+compare `main` **dc8081d**, la 0.6.5 **4f4d6fb** et les 37 fichiers de la 0.6.6
+figés par empreinte **301902ff…**. Les réglages communs sont PP1/coton stable/
+40 wt/stabilisateur à découper, six fils au maximum et Auto équilibré, avec
+dimensions et formats identiques par échantillon.
+
+Le corpus comprend **42 cas publics procéduraux** : six formes de lettres en
+SVG/PNG/JPEG, JPEG 35/75/95 pour les cas sensibles, anneau, traits, largeurs et
+homologues, drapeau, badges blancs sur fonds gris/dégradés/texturés/alpha,
+accents, gradient plein et limites de 4 096/4 097 régions. La nouvelle fixture
+[`textured-five-paints.png`](../examples/quality/textured-five-paints.png) a un
+[générateur](../examples/quality/textured-five-paints.py) et une référence de
+cinq bandes pures. Ces vérités synthétiques sont indépendantes de la sortie du
+moteur. Les mesures utilisent le repère source explicite, sans ajustement de
+bbox pour cacher une déformation.
+
+**Sept cas réels locaux** complètent le jeu : Jungly et AssetSyncs à 80/95 mm,
+Pepsi, Nike et Phénix à 80 mm. Leurs fichiers restent ignorés par Git ; leurs
+empreintes et résultats sont conservés. Aucun masque « parfait » n'est inventé
+pour ces entrées privées. Les 42 cas publics ne constituent pas un corpus de
+photos réelles : la qualité sur scènes photographiques difficiles n'est pas
+établie par ce lot.
+
+Les 42 cas publics donnent leurs issues attendues dans les trois références.
+**37 cas publics et les sept cas réels** produisent des fichiers machine ; les
+autres contrôlent interprétation, budgets et erreurs. Les 44 cas machine de la
+0.6.6 passent cadre, longueurs et relecture PES/DST. Main expose un dépassement
+de saut préexistant sur le JPEG texturé : **12,003749 mm** pour 12 mm, avec des
+deltas entiers de 0,1 mm `[-3, -120]` et `[-120, 3]`. La 0.6.5 et la 0.6.6 passent
+ce contrôle ; son seuil n'est pas relâché pour faire réussir la référence.
+
+| Fidélité chromatique | 0.6.5 | 0.6.6 |
+|---|---:|---:|
+| Jungly 80, fil orange | `#c0692f` | **`#f37622`** |
+| Jungly 80, écart Lab moyen du masque orange | 22,515 | **3,951** |
+| Jungly 95, fil orange | `#bd672f` | **`#f37622`** |
+| Jungly 95, écart Lab moyen du masque orange | 23,615 | **3,910** |
+| Fixture PNG cinq bandes, écart Lab global à la référence pure | 10,4575 | **5,1101** |
+| Fixture PNG cinq bandes, IoU orange avec tolérance de couleur | 0 % | **82,85 %** |
+
+Les erreurs Jungly concernent tous les pixels du masque sur la **grille de
+travail**, avant les points ; p95 et erreur quadratique baissent aussi. Les
+quatre autres fils et les contours restent identiques. Les commandes complètes,
+origines et coordonnées PES/DST à 80/95 mm restent exactement ceux de la 0.6.5 :
+**22 992/28 680 points**. La correction ne densifie ni ne répare la couverture.
+La comparaison au masque orange pur utilise une tolérance ΔE76 : l'ancien fil
+brun ne correspondait pas à cette peinture. Le gain d'IoU est chromatique ; il
+ne signifie pas qu'un trou physique de même surface a été comblé. Le JPEG75 de
+la fixture conserve sa palette lorsque les gardes refusent le raffinement.
+
+L'affectation Lab des RGB identiques est réutilisée sans approximation lorsque
+l'image contient au moins quatre pixels par valeur distincte en moyenne. Les
+conversions et remappings sont tuilés à 100 000 valeurs. Un contrôle isolé de
+deux millions de pixels/deux RGB mesure un pic d'allocation de **3,31 MB**, contre
+14,31 MB pour l'ancienne affectation pixel, avec les mêmes labels. C'est une
+mesure du helper, pas du RSS du moteur complet. Le label zéro reste réservé à
+l'alpha : une palette littérale de 256 couleurs utilise uint16 et ne perd plus
+sa dernière couleur par débordement uint8.
+
+Le benchmark publie séparément silhouette, peintures, contreformes, points et
+erreurs machine. `--check` échoue sur une erreur inattendue, un budget mal
+respecté, une sortie non déterministe ou un défaut machine. Une comparaison
+termine toutes ses références avant de retourner l'échec agrégé. Les scores
+de fidélité restent descriptifs : ils exposent aussi les pertes existantes.
+Le JSON inclut corpus/empreintes, paramètres, sources et versions des dépendances.
+
+La génération complète est chronométrée sur **dix cas**, séquentiellement par
+référence, avec un processus neuf par entrée, une chauffe puis trois mesures :
+**120 générations**. Imports, empreintes, oracles et relectures machine restent
+hors chronomètre. Aucun test, build ou autre génération du projet ne tourne
+pendant ce protocole ; les serveurs inactifs et une preview terminée restent
+ouverts. Les quatre générations de chaque couple entrée/référence produisent
+des SVG/PES/DST aux mêmes empreintes. Les p95, trois échantillons et RSS complets
+figurent dans le JSON.
+
+| Temps médian de génération, secondes | main | 0.6.5 | 0.6.6 |
+|---|---:|---:|---:|
+| « g » JPEG75 | 0,638 | 0,903 | **0,622** |
+| Anneau SVG | 0,266 | 0,300 | 0,273 |
+| Drapeau PNG | 2,331 | 2,883 | 2,377 |
+| Badge sur dégradé | 1,409 | 2,149 | 1,856 |
+| Cinq peintures texturées PNG | 11,337 | 12,997 | 11,661 |
+| Gradient plein | 1,312 | 1,570 | **1,131** |
+| Jungly 80 mm | 18,269 | 22,861 | 19,873 |
+| Jungly 95 mm | 21,336 | 18,451 | 18,521 |
+| AssetSyncs 95 mm | 1,446 | 1,392 | **1,378** |
+| Phénix 80 mm | 1,351 | 0,889 | **0,853** |
+| Somme des dix médianes | 59,695 | 64,396 | **58,544** |
+
+Le temps agrégé observé baisse de **1,93 % face à main** et **9,09 % face à la
+0.6.5**, sans gain uniforme : badge sur dégradé +31,7 % et Jungly 80 +8,8 % face
+à main. Le pic RSS de Jungly 80 monte à **694,6 MiB**, contre 602,6 MiB sur main
+et 593,3 MiB en 0.6.5. Le gain d'allocation du helper ne constitue donc pas une
+baisse globale de mémoire. L'ordre fixe des références et le Mac partagé ne
+permettent pas d'attribuer causalement ces écarts à une seule modification.
+
+Le gradient plein, interprété seul dans le corpus qualité, reçoit aussi un
+contrôle machine pendant cette mesure : main échoue sur un saut de **12,0108 mm** ;
+les deux versions suivantes passent. Tous les autres contrôles de ce protocole
+passent, sans modifier les seuils.
+
+Les deux modèles de couverture sont distincts : l'oracle machine indépendant
+dessine un fil nominal de **0,4 mm** dans le repère source ; les statistiques du
+moteur conservent leur modèle de **0,3 mm** et leur tolérance structurelle de
+0,25 mm. Aucun des deux ne simule le tissu ou ne prouve une couture sans défaut.
+
+Limites importantes : le « g » opaque garde son grand blanc ambigu. Les 462
+cycles blancs correspondent à une contreforme conservée, pas à 462 parasites
+indépendants. `counter_ambiguity` et Détails rendent désormais ce choix visible,
+sans effacer le blanc réel des badges. Les JPEG à petits accents du nouveau
+corpus perdent encore des peintures vertes/violettes, et un badge sur texture
+conserve un fond ambigu (IoU de silhouette d'environ 37,1 %). Les micro-régions
+omises de Jungly et son liseré tatami restent inchangés. Ces échecs sont conservés
+dans les oracles au lieu de devenir de nouvelles vérités de référence.
+
+Validation : suite complète de **1 073 tests Python**, puis **21 contrôles**
+outillage/pipeline actualisés (**1 076 cas distincts collectés**), **153 tests
+frontend**, Ruff, TypeScript, ESLint et build Next isolé avec webpack. La wheel
+contient exactement les 36 sources Python finales ; coupon et fixture texturée
+produisent quatre exports relus, points et palettes exacts. Le parcours web
+Jungly reproduit les 22 992 points, l'orange corrigé et le diagnostic français ;
+les deux téléchargements PES/DST ont les coordonnées et fils attendus.
+Les profils textile n'ont toujours pas de validation physique cousue PP1.
 
 ## Version 0.6.5 : reconnaissance satin et preuve de couleurs source
 

@@ -250,6 +250,12 @@ la couleur exacte du fond et traits monochromes épais autour du blanc. Les
 badges ambigus doivent rester opaques ; cette inférence géométrique est signalée
 par `counters_inferred`, `counter_pixels_removed` et `counter_inference`.
 Conserver le fond ou désactiver le nettoyage conserve les blancs originaux.
+Depuis la 0.6.6, `background.counter_ambiguity` décrit les peintures intérieures
+conservées qui correspondent au fond retiré : nombre, pixels, aire sur la grille
+de travail et motif géométrique. Détails explique cette incertitude. Un grand
+évidement opaque de lettre peut être identique à une peinture blanche de badge :
+le moteur n'en déduit pas une intention certaine. Un PNG avec alpha ou un SVG
+avec contreforme explicite retire cette ambiguïté sans effacer les vrais blancs.
 Le retrait explicite d'un SVG n'applique pas cette inférence. En monochrome sans seuil, toutes les peintures visibles forment
 la silhouette. Un seuil ou une inversion explicite utilise l'interprétation
 manuelle de luminance et est signalé comme tel.
@@ -296,6 +302,34 @@ ces voisins. Les pixels noirs ou gris neutres associés au noir restent protég�
 Cette règle n'efface pas de composante, ne change ni RGB ni alpha, ne touche pas
 les palettes littérales/SVG ni les photos, et reste désactivable avec le nettoyage.
 `palette_edge_pixels` compte les réaffectations dans les diagnostics.
+
+### Représentants de couleur sur masques fixes
+
+La 0.6.6 ajoute une correction bornée des moyennes median-cut sur les bitmaps
+texturés. Elle est appliquée **après** les nettoyages et les inférences de trous,
+avec nettoyage activé, palette réduite, récupération d'aplats non retenue et
+référence `source_alpha` ou `source_unchanged`. Les peintures littérales et les
+preuves par noyaux/familles déjà qualifiées gardent leur interprétation.
+
+Pour chaque label, le candidat est son mode RGB réellement observé, avec au moins
+neuf noyaux opaques égaux à leurs quatre voisins. Son déplacement doit atteindre
+ΔE 3, et il doit rester plus proche de son ancien fil que des autres. Sur tous
+les pixels visibles du masque, il doit réduire l'écart Lab moyen d'au moins
+20 %, sans augmenter p95 ni somme des carrés. L'ensemble de la palette doit
+rester injectif et séparé d'au moins ΔE 8. Sinon la couleur précédente reste.
+Ces seuils sont des règles de fidélité graphique, pas un étalonnage de fils réels.
+
+Les calculs utilisent les histogrammes RGB exacts de la grille de travail, sans
+stride ni moyenne de pixels voisins ; Lab est converti par lots de 100 000 valeurs.
+`cleanup.palette_refinement` enregistre candidats, refus, métriques et changements
+`from`/`to`. **Les labels, l'alpha et les contours ne changent pas.** Cette voie
+peut corriger une teinte brunie sans fragmenter le dessin, mais ne supprime pas
+la texture et ne rétablit pas un accent absent de la segmentation.
+
+L'affectation Lab des RGB identiques est réutilisée lorsque le nombre de valeurs
+distinctes est au plus le quart des pixels. Les images à forte entropie gardent
+la voie précédente. Le remapping est également tuilé ; aucune approximation de
+couleur n'est introduite par cette optimisation.
 
 ### Repère de l'interprétation
 

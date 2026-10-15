@@ -1,8 +1,12 @@
-"""Benchmark image interpretation against frozen source roots, without stitch generation.
+"""Benchmark interpretation, optional machine exports and known source intent.
 
 The corpus is JSON with name, path (relative to corpus), width_mm, background,
 cleanup and optional source_sha256. Quality mode saves independent colour-label
 measurements; performance mode keeps these measurements outside the timed path.
+Use --suite public for 42 generated SVG/PNG/JPEG cases. --input may append private
+samples to that suite; no semantic source oracle is invented for user images.
+--machine audits the library's balanced policy and PES/DST roundtrips. Run
+performance mode alone after freezing sources and stopping other tests/builds.
 """
 
 from __future__ import annotations
@@ -25,6 +29,60 @@ def digest(path):
 
 def save(path, value):
     path.write_text(json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False))
+
+
+def harness_signature():
+    directory = Path(__file__).resolve().parent
+    hashes = {
+        name: digest(directory / name)
+        for name in (
+            "benchmark_interpretation.py",
+            "benchmark_public_corpus.py",
+            "benchmark_fill_methods.py",
+            "benchmark_reliability.py",
+            "benchmark_variants.py",
+        )
+    }
+    fixture = directory.parent / "examples/quality/textured-five-paints.py"
+    if fixture.is_file():
+        hashes["examples/quality/textured-five-paints.py"] = digest(fixture)
+    return hashes
+
+
+def report_failures(report):
+    failures = []
+    if not report["expected_outcome"]["passed"]:
+        failures.append("unexpected_outcome")
+    if report["expected_outcome"].get("trace_budget_boundary_passed") is False:
+        failures.append("trace_budget_boundary")
+    if report.get("deterministic") is False:
+        failures.append("nondeterministic_output")
+    failures.extend(
+        key
+        for key, passed in report.get("machine", {}).get("safety_checks", {}).items()
+        if not passed
+    )
+    return failures
+
+
+def source_manifest(root, commit=None):
+    files = {
+        str(path.relative_to(root)): digest(path)
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and "__pycache__" not in path.parts
+    }
+    manifest = {
+        "commit": commit,
+        "source_tree_sha256": hashlib.sha256(
+            json.dumps(files, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
+        "files": files,
+        "pyproject_sha256": digest(root.parent / "pyproject.toml")
+        if (root.parent / "pyproject.toml").is_file()
+        else None,
+    }
+    save(root.parent / "manifest.json", manifest)
+    return manifest
 
 
 def validate_corpus(cases):
@@ -77,9 +135,10 @@ def svg_metrics(path):
     width, height = max(1, round(box[2])), max(1, round(box[3]))
     palette = sorted(
         {
-            node.attrib["fill"].lower()
+            node.attrib[attribute].lower()
             for node in root.iter()
-            if node.attrib.get("fill", "").startswith("#")
+            for attribute in ("fill", "stroke")
+            if node.attrib.get(attribute, "").startswith("#")
         }
     )
     canvas = [float(root.attrib[name][:-2]) for name in ["width", "height"]]
@@ -179,9 +238,11 @@ def generated_corpus(output, local_inputs, width_mm):
             ".bmp",
             ".tif",
             ".tiff",
+            ".svg",
         }:
             raise ValueError(
-                "--input measures raster preparation; unsupported extension: " + source.suffix
+                "--input requires SVG or a supported raster; unsupported extension: "
+                + source.suffix
             )
         name = "local-" + str(index)
         destination = directory / (name + source.suffix.lower())
@@ -199,13 +260,16 @@ def compare_refs(args):
     import tarfile
 
     repository = next((path for path in args.source_root.parents if (path / ".git").exists()), None)
-    if repository is None:
+    if args.baseline_ref and repository is None:
         raise ValueError("Reference comparisons require a source root inside a Git repository")
     if args.output == args.source_root or args.source_root in args.output.parents:
         raise ValueError("Benchmark output must be outside the source tree")
     snapshots = args.output / "snapshots"
     sources = {}
-    for tag, reference in [("main", args.baseline_ref), ("previous", args.previous_ref)]:
+    references = (
+        [("main", args.baseline_ref), ("previous", args.previous_ref)] if args.baseline_ref else []
+    )
+    for tag, reference in references:
         commit = subprocess.check_output(
             ["git", "-C", str(repository), "rev-parse", "--verify", reference + "^{commit}"],
             text=True,
@@ -227,6 +291,26 @@ def compare_refs(args):
                     with archive.extractfile(member) as contents:
                         path.write_bytes(contents.read())
         sources[tag] = {"root": target / "src", "commit": commit}
+    for specification in args.snapshot:
+        tag, separator, root = specification.partition("=")
+        if (
+            not separator
+            or not tag
+            or tag in {"current", ".", ".."}
+            or "/" in tag
+            or "\\" in tag
+            or tag in sources
+        ):
+            raise ValueError("Use unique --snapshot LABEL=/path/to/src entries")
+        source = Path(root).resolve()
+        if not (source / "embroidery_rungs" / "inputs.py").is_file():
+            raise ValueError("Snapshot must contain embroidery_rungs/inputs.py: " + root)
+        target = snapshots / tag / "src"
+        shutil.copytree(source, target, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        project = source.parent / "pyproject.toml"
+        if project.is_file():
+            shutil.copy2(project, target.parent / project.name)
+        sources[tag] = {"root": target, "commit": None}
     target = snapshots / "current" / "src"
     if target.exists():
         raise ValueError("Reference comparisons require a fresh output directory")
@@ -237,15 +321,13 @@ def compare_refs(args):
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
     sources["current"] = {"root": target, "commit": None}
+    project = args.source_root.parent / "pyproject.toml"
+    if project.is_file():
+        shutil.copy2(project, target.parent / project.name)
     for source in sources.values():
-        files = {
-            str(path.relative_to(source["root"])): digest(path)
-            for path in sorted(source["root"].rglob("*"))
-            if path.is_file() and "__pycache__" not in path.parts
-        }
-        source["source_tree_sha256"] = hashlib.sha256(
-            json.dumps(files, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
+        source["source_tree_sha256"] = source_manifest(source["root"], source["commit"])[
+            "source_tree_sha256"
+        ]
     rows = {}
     for tag, source in sources.items():
         command = [
@@ -261,12 +343,20 @@ def compare_refs(args):
             args.mode,
             "--repeats",
             str(args.repeats),
+            "--warmups",
+            str(args.warmups),
             "--max-colors",
             str(args.max_colors),
         ]
+        if args.machine:
+            command.append("--machine")
+        if args.check:
+            command.append("--check")
         if args.names:
             command += ["--names", *args.names]
-        subprocess.run(command, check=True)
+        result = subprocess.run(command)
+        if result.returncode and not (args.output / tag / "summary.json").is_file():
+            raise RuntimeError("Benchmark reference failed: " + tag)
         rows[tag] = {
             row["case"]["name"]: row
             for row in json.loads((args.output / tag / "summary.json").read_text())
@@ -286,6 +376,10 @@ def compare_refs(args):
                 "errors": row["errors"],
                 "timings": row.get("timings"),
                 "peak_rss_bytes": row["peak_rss_bytes"],
+                "expected_outcome": row["expected_outcome"],
+                "machine": row.get("machine"),
+                "source_oracle": row.get("source_oracle"),
+                "machine_source_oracle": row.get("machine_source_oracle"),
             }
             if args.mode == "quality":
                 phases[tag]["render_equal_to_current"] = valid and row.get(
@@ -296,7 +390,8 @@ def compare_refs(args):
         args.output / "comparison.json",
         {
             "mode": args.mode,
-            "scope": "Raster interpretation only; machine files and sewout not measured.",
+            "measurement_harness_sha256": harness_signature(),
+            "scope": "Interpretation and known synthetic source intent; optional machine exports. Fabric sewout is not measured.",
             "revisions": {
                 tag: {
                     "commit": source["commit"],
@@ -309,12 +404,24 @@ def compare_refs(args):
         },
     )
     print("Comparison:", args.output / "comparison.json")
+    if args.check and any(
+        report_failures(row) for phase in rows.values() for row in phase.values()
+    ):
+        raise SystemExit(1)
 
 
 def worker(args):
+    import shutil
+
     import numpy as np
 
+    sys.path.insert(0, str(args.source_root))
     import embroidery_rungs.inputs as inputs
+    from embroidery_rungs import GenerationParams, StitchParams, generate
+
+    imported = Path(inputs.__file__).resolve()
+    if not imported.is_relative_to(args.source_root):
+        raise RuntimeError("Worker imported an engine outside the requested snapshot")
 
     cases = json.loads(args.corpus.read_text())
     case = cases[args.worker]
@@ -326,6 +433,8 @@ def worker(args):
     directory.mkdir(parents=True, exist_ok=True)
     durations = {}
     record = {}
+    capture = {}
+    capabilities = {}
     quality = args.mode == "quality"
 
     def measure_labels(labels, palette, canvas):
@@ -344,6 +453,7 @@ def worker(args):
         "serialize_bitmap",
     ]
     for name in names:
+        capabilities[name] = {"available": hasattr(inputs, name), "calls": 0}
         if not hasattr(inputs, name):
             continue
         original = getattr(inputs, name)
@@ -352,8 +462,21 @@ def worker(args):
             started = time.perf_counter()
             result = _call(*arguments, **kwargs)
             durations[_name] = durations.get(_name, 0) + time.perf_counter() - started
+            capabilities[_name]["calls"] += 1
+            if quality and _name == "bitmap_foreground":
+                ys, xs = np.nonzero(result[..., 3] >= 128)
+                if len(ys):
+                    capture["source_crop_box_px"] = [
+                        int(xs.min()),
+                        int(ys.min()),
+                        int(xs.max() + 1),
+                        int(ys.max() + 1),
+                    ]
+            if quality and _name == "sample_bitmap":
+                capture["sample_shape"] = list(result[0].shape[:2])
             if quality and _name == "serialize_bitmap":
                 artwork = arguments[0]
+                capture["labels_shape"] = list(artwork.labels.shape)
                 np.savez_compressed(
                     directory / "labels-before-trace.npz",
                     labels=artwork.labels,
@@ -365,6 +488,12 @@ def worker(args):
                 )
             elif quality and _name == "bitmap_colors":
                 labels, palette, _ = result
+                # Historical releases performed thumbnail sampling inline. Its
+                # returned palette grid is still an observed frame, not a fit.
+                capture.setdefault("sample_shape", list(labels.shape))
+                ys, xs = np.nonzero(labels)
+                if len(ys):
+                    capture["trim_offset"] = [int(xs.min()), int(ys.min())]
                 record["after_palette"] = {
                     "size_px": [labels.shape[1], labels.shape[0]],
                     "palette": palette,
@@ -379,28 +508,68 @@ def worker(args):
     samples = []
     errors = []
     diagnostics = {}
-    repeat_count = 1 if quality else args.repeats + 1
+    machine = None
+    generated = None
+    signatures = []
+    repeat_count = 1 if quality else args.repeats + args.warmups
+    run_machine = args.machine and case.get("machine", True)
     for repeat in range(repeat_count):
         durations.clear()
         diagnostics = {}
         started = time.perf_counter()
         try:
-            inputs.raster_to_svg(
-                source,
-                directory / "interpreted.svg",
-                width_mm=case["width_mm"],
-                preserve_colors=True,
-                max_colors=args.max_colors,
+            generation = GenerationParams(
+                design_width_mm=case["width_mm"],
+                fit_to_hoop=True,
                 background_mode=case["background"],
-                cleanup=case["cleanup"],
-                diagnostics=diagnostics,
-                hoop_size_mm=(100, 100),
+                raster_cleanup=case["cleanup"],
             )
+            stitches = StitchParams.for_fabric(
+                "stable",
+                stabilizer="cutaway",
+                machine="brother-skitch-pp1",
+                max_colors=args.max_colors,
+            )
+            if run_machine:
+                generated = generate(
+                    source, directory / "machine", generation, stitch_params=stitches
+                )
+                interpreted = Path(generated.original_path)
+                diagnostics = generated.input_analysis
+            elif source.suffix.lower() == ".svg":
+                from embroidery_rungs.svg_manager import load_svg_paths
+
+                interpreted, _, diagnostics = inputs.prepare_artwork(
+                    source, directory, generation, stitches, preserve_colors=True
+                )
+                load_svg_paths(interpreted)
+            else:
+                interpreted = inputs.raster_to_svg(
+                    source,
+                    directory / "interpreted.svg",
+                    width_mm=case["width_mm"],
+                    preserve_colors=True,
+                    max_colors=args.max_colors,
+                    background_mode=case["background"],
+                    cleanup=case["cleanup"],
+                    diagnostics=diagnostics,
+                    hoop_size_mm=(100, 100),
+                )
         except Exception as error:
             errors.append({"type": type(error).__name__, "message": str(error)})
             break
         elapsed = time.perf_counter() - started
-        if not quality and repeat:
+        # Hashing, independent rendering and machine readback are never timed.
+        if Path(interpreted).resolve() != (directory / "interpreted.svg").resolve():
+            shutil.copy2(interpreted, directory / "interpreted.svg")
+        signature = {"svg": digest(directory / "interpreted.svg")}
+        if generated is not None:
+            signature.update(
+                pes=digest(Path(generated.direct.pes_path)),
+                dst=digest(Path(generated.direct.dst_path)),
+            )
+        signatures.append(signature)
+        if not quality and repeat >= args.warmups:
             samples.append({"total": elapsed, **durations})
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     report = {
@@ -408,13 +577,30 @@ def worker(args):
         "source_sha256": source_digest,
         "mode": args.mode,
         "engine_snapshot": args.source_root.parent.name,
+        "measurement_harness_sha256": harness_signature(),
+        "source_mapping": capture,
+        "imported_engine": str(imported.relative_to(args.source_root)),
+        "capabilities": capabilities,
         "record": record,
         "diagnostics": diagnostics,
         "errors": errors,
         "samples": samples,
+        "warmup_runs": 0 if quality else args.warmups,
+        "deterministic": all(signature == signatures[0] for signature in signatures)
+        if signatures
+        else None,
+        "output_signatures": signatures,
         "peak_rss_bytes": int(rss if sys.platform == "darwin" else rss * 1024),
         "memory_note": "Whole isolated process including imports/native allocations and warm-up. macOS ru_maxrss bytes; Linux KiB converted to bytes.",
         "svg_sha256": digest(directory / "interpreted.svg") if not errors else None,
+    }
+    expected_error = case.get("expected_error")
+    report["expected_outcome"] = {
+        "error_expected": expected_error is not None,
+        "passed": (bool(errors) and expected_error in errors[0]["message"])
+        and errors[0]["type"] == case.get("expected_error_type", errors[0]["type"])
+        if expected_error is not None
+        else not errors,
     }
     if samples:
         report["timings"] = {
@@ -424,8 +610,57 @@ def worker(args):
             }
             for key in sorted({key for sample in samples for key in sample})
         }
+    if run_machine and not errors:
+        from benchmark_fill_methods import summarize
+
+        machine = summarize(generated.direct)
+        report["machine"] = machine
     if quality and not errors:
         report["svg_reference"] = svg_metrics(directory / "interpreted.svg")
+        oracle = case.get("oracle")
+        if oracle:
+            from benchmark_public_corpus import source_oracle
+
+            reference = args.corpus.parent / oracle["path"]
+            if digest(reference) != oracle["sha256"]:
+                raise ValueError("Reference checksum changed: " + case["name"])
+            geometry = diagnostics.get("geometry")
+            if source.suffix.lower() != ".svg" and not geometry and "source_crop_box_px" in capture:
+                geometry = {"source_crop_box_px": capture["source_crop_box_px"]}
+                box = ET.parse(directory / "interpreted.svg").getroot().attrib["viewBox"].split()
+                capture["labels_shape"] = [round(float(box[3])), round(float(box[2]))]
+            if source.suffix.lower() != ".svg" and (
+                not geometry
+                or not all(
+                    key in capture for key in ("sample_shape", "trim_offset", "labels_shape")
+                )
+            ):
+                report["source_oracle"] = {
+                    "available": False,
+                    "reason": "Historical snapshot does not expose the complete source-coordinate mapping.",
+                }
+            else:
+                report["source_oracle"] = source_oracle(
+                    reference,
+                    directory / "interpreted.svg",
+                    geometry,
+                    capture,
+                    directory,
+                    palette=oracle.get("palette"),
+                    silhouette_only=oracle.get("silhouette_only", False),
+                )
+                report["source_oracle"]["reference_sha256"] = oracle["sha256"]
+            if run_machine and oracle.get("palette"):
+                from benchmark_public_corpus import machine_source_oracle
+
+                report["machine_source_oracle"] = machine_source_oracle(
+                    generated.direct, reference, oracle, directory
+                )
+        if "expected_regions" in case:
+            report["expected_outcome"]["trace_budget_boundary_passed"] = (
+                diagnostics.get("cleanup", {}).get("regions_after") == case["expected_regions"]
+            )
+    report["failed_checks"] = report_failures(report)
     save(directory / "report.json", report)
     print(
         json.dumps(
@@ -441,6 +676,12 @@ def worker(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--suite",
+        choices=["legacy", "public"],
+        default="legacy",
+        help="Generated fixture set: legacy seven rasters, or 42 public SVG/raster source-oracle cases",
+    )
     parser.add_argument(
         "--corpus",
         type=Path,
@@ -468,15 +709,34 @@ def main():
     parser.add_argument(
         "--previous-ref", help="Previous Git commit/ref; use together with --baseline-ref"
     )
+    parser.add_argument(
+        "--snapshot",
+        action="append",
+        default=[],
+        help="Additional frozen source: LABEL=/path/to/src; repeatable",
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--mode", choices=["quality", "performance"], default="quality")
     parser.add_argument("--repeats", type=int, default=7)
+    parser.add_argument("--warmups", type=int, default=1)
+    parser.add_argument(
+        "--machine",
+        action="store_true",
+        help="Generate balanced machine files and audit PES/DST roundtrips outside timings",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Exit nonzero for unexpected errors, trace-budget failures, nondeterminism or machine safety/roundtrip failures; source IoU is descriptive",
+    )
     parser.add_argument("--max-colors", type=int, default=6)
     parser.add_argument("--names", nargs="*")
     parser.add_argument("--worker", type=int, help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.repeats < 1:
         parser.error("--repeats must be at least 1")
+    if args.warmups < 0:
+        parser.error("--warmups must be nonnegative")
     if bool(args.baseline_ref) != bool(args.previous_ref):
         parser.error("Use both --baseline-ref and --previous-ref")
     for name in ["source_root", "output"]:
@@ -496,7 +756,20 @@ def main():
     if args.corpus is not None and args.input:
         parser.error("Use either --corpus or --input")
     if args.corpus is None:
-        args.corpus = generated_corpus(args.output, args.input, args.width_mm)
+        if args.suite == "public":
+            from benchmark_public_corpus import public_corpus
+
+            args.corpus = public_corpus(args.output)
+            if args.input:
+                # Optional private samples have checksums and comparative metrics,
+                # never an invented semantic source oracle.
+                private = generated_corpus(args.output / "private", args.input, args.width_mm)
+                extra = json.loads(private.read_text())
+                for case in extra:
+                    case["path"] = "private/" + case["path"]
+                save(args.corpus, json.loads(args.corpus.read_text()) + extra)
+        else:
+            args.corpus = generated_corpus(args.output, args.input, args.width_mm)
     cases = json.loads(args.corpus.read_text())
     try:
         validate_corpus(cases)
@@ -504,9 +777,19 @@ def main():
         parser.error(str(error))
     if args.names and not any(case["name"] in args.names for case in cases):
         parser.error("--names matched no corpus cases")
-    if args.baseline_ref:
+    if args.baseline_ref or args.snapshot:
         compare_refs(args)
         return
+    # Standalone runs also freeze their imports once for the entire corpus.
+    import shutil
+
+    frozen = args.output / "snapshot" / "src"
+    shutil.copytree(args.source_root, frozen, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    project = args.source_root.parent / "pyproject.toml"
+    if project.is_file():
+        shutil.copy2(project, frozen.parent / project.name)
+    args.source_root = frozen
+    source_manifest(frozen)
     reports = []
     for index, case in enumerate(cases):
         if args.names and case["name"] not in args.names:
@@ -524,11 +807,15 @@ def main():
             args.mode,
             "--repeats",
             str(args.repeats),
+            "--warmups",
+            str(args.warmups),
             "--max-colors",
             str(args.max_colors),
             "--worker",
             str(index),
         ]
+        if args.machine:
+            command.append("--machine")
         result = subprocess.run(
             command,
             env={**os.environ, "PYTHONPATH": str(args.source_root)},
@@ -543,6 +830,8 @@ def main():
         reports.append(json.loads((args.output / case["name"] / "report.json").read_text()))
         save(args.output / "summary.json", reports)
     print("Report:", args.output / "summary.json")
+    if args.check and any(report_failures(report) for report in reports):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

@@ -30,6 +30,34 @@ def _rgb_histogram(pixels: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return rgb, counts
 
 
+def _nearest_palette_labels(pixels: np.ndarray, values: np.ndarray, labs: np.ndarray) -> np.ndarray:
+    """Assign exact RGB repeats once; retain pixel batches for high-entropy images."""
+    tree = cKDTree(labs)
+    dtype = np.uint8 if len(labs) < 256 else np.uint16
+    repeated = len(values) <= len(pixels) // 4
+    size = len(values) if repeated else len(pixels)
+    assigned = np.empty(size, dtype=dtype)
+    for start in range(0, size, 100_000):
+        stop = min(start + 100_000, size)
+        if repeated:
+            packed = values[start:stop]
+            rgb = np.column_stack([packed >> 16, (packed >> 8) & 255, packed & 255])
+        else:
+            rgb = pixels[start:stop]
+        assigned[start:stop] = tree.query(rgb2lab(rgb[None, ...] / 255)[0])[1] + 1
+    if not repeated:
+        return assigned
+    labels = np.empty(len(pixels), dtype=dtype)
+    for start in range(0, len(pixels), 100_000):
+        stop = min(start + 100_000, len(pixels))
+        rgb = pixels[start:stop]
+        packed = rgb[:, 0].astype(np.uint32) << 16
+        packed |= rgb[:, 1].astype(np.uint32) << 8
+        packed |= rgb[:, 2]
+        labels[start:stop] = assigned[np.searchsorted(values, packed)]
+    return labels
+
+
 def _interior_flat_accents(
     rgba: np.ndarray,
     packed: np.ndarray,
@@ -189,19 +217,14 @@ def separate_colors(rgba: np.ndarray, max_colors: int = 12) -> tuple[np.ndarray,
         if exact or not kept or np.linalg.norm(labs[kept] - lab, axis=1).min() >= 6:
             kept.append(i)
     palette, labs = palette[kept], labs[kept]
-    tree = cKDTree(labs)
-    assigned = np.empty(len(pixels), dtype=np.uint8)
-    for start in range(0, len(pixels), 100_000):
-        end = min(start + 100_000, len(pixels))
-        colors = rgb2lab(pixels[None, start:end, :] / 255)[0]
-        assigned[start:end] = tree.query(colors)[1] + 1
-    labels = np.zeros(visible.shape, dtype=np.uint8)
+    assigned = _nearest_palette_labels(pixels, visible_values, labs)
+    labels = np.zeros(visible.shape, dtype=assigned.dtype)
     labels[visible] = assigned
     # Stitch broad visible regions first and finish with smaller accents.
     areas = np.bincount(assigned, minlength=len(palette) + 1)[1:]
     used = np.flatnonzero(areas)
     used = used[np.argsort(-areas[used], kind="stable")]
-    remap = np.zeros(len(palette) + 1, dtype=np.uint8)
+    remap = np.zeros(len(palette) + 1, dtype=assigned.dtype)
     remap[used + 1] = np.arange(1, len(used) + 1)
     hex_colors = ["#" + "".join(f"{int(c):02x}" for c in palette[i]) for i in used]
     return remap[labels], hex_colors, reduced
@@ -304,7 +327,8 @@ def bitmap_colors(
     )
     pixel_values = np.searchsorted(packed_values, packed_pixels)
     assigned = nearest[pixel_values] + 1
-    labels = np.zeros(visible.shape, dtype=np.uint8)
+    dtype = np.uint8 if len(seeds) < 256 else np.uint16
+    labels = np.zeros(visible.shape, dtype=dtype)
     labels[visible] = assigned
     labels, edge_pixels = _local_palette_edges(
         labels, pixel_values, values, labs, values[seeds], labs[seeds], nearest
@@ -313,7 +337,7 @@ def bitmap_colors(
     areas = np.bincount(assigned, minlength=len(seeds) + 1)[1:]
     used = np.flatnonzero(areas)
     used = used[np.argsort(-areas[used], kind="stable")]
-    remap = np.zeros(len(seeds) + 1, dtype=np.uint8)
+    remap = np.zeros(len(seeds) + 1, dtype=dtype)
     remap[used + 1] = np.arange(1, len(used) + 1)
     labels = remap[labels]
     colors = ["#" + "".join(f"{int(c):02x}" for c in values[seeds[i]]) for i in used]
